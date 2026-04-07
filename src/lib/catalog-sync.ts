@@ -207,13 +207,19 @@ export async function syncCatalogFromKaggleCsv() {
 
     for (const row of rows) {
       const coasterName = pickValue(row, ["coaster_name", "Name", "name", "Coaster", "roller_coaster"]);
-      const parkName = pickValue(row, ["park_name", "Park", "park", "amusement_park"]);
-      const location = pickValue(row, ["location", "Location", "country", "Country"]);
+      // In this dataset "Location" holds the park name (e.g. "Coney Island")
+      const parkName = pickValue(row, ["park_name", "Park", "park", "amusement_park", "Location", "location"]);
+      const locationField = pickValue(row, ["country", "Country", "Location", "location"]);
       if (!coasterName || !parkName) continue;
 
-      const country = inferCountry(location);
+      const country = inferCountry(locationField);
       const parkKey = `${parkName}::${country}`.toLowerCase();
       let parkId: number | null = parksByKey.get(parkKey) ?? null;
+
+      const rowLat = parseFloat(pickValue(row, ["latitude", "Latitude", "lat"]));
+      const rowLng = parseFloat(pickValue(row, ["longitude", "Longitude", "lng", "lon"]));
+      const lat = isFinite(rowLat) ? rowLat : 0;
+      const lng = isFinite(rowLng) ? rowLng : 0;
 
       if (!parkId) {
         const existingPark = await supabase
@@ -226,14 +232,18 @@ export async function syncCatalogFromKaggleCsv() {
 
         if (existingPark.data?.id) {
           parkId = existingPark.data.id;
+          // Update coordinates if we now have real ones
+          if (lat !== 0 || lng !== 0) {
+            await supabase.from("parks").update({ latitude: lat, longitude: lng, last_synced_at: new Date().toISOString() }).eq("id", parkId);
+          }
         } else {
           const insertedPark = await supabase
             .from("parks")
             .insert({
               name: parkName,
               country,
-              latitude: 0,
-              longitude: 0,
+              latitude: lat,
+              longitude: lng,
               external_source: "kaggle",
               external_id: null,
               last_synced_at: new Date().toISOString(),
@@ -250,7 +260,7 @@ export async function syncCatalogFromKaggleCsv() {
         }
       }
 
-      const coasterType = pickValue(row, ["coaster_type", "Type", "type"]) || normalizeType(coasterName);
+      const coasterType = pickValue(row, ["Type_Main", "coaster_type", "Type", "type"]) || normalizeType(coasterName);
       const status = normalizeStatus(pickValue(row, ["status", "Status"]));
       const externalId = pickValue(row, ["coaster_id", "id", "Id"]);
 
