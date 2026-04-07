@@ -16,11 +16,15 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 3. Fill values in `.env.local`:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. Run SQL in Supabase SQL editor:
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SYNC_CRON_SECRET`
+   - `KAGGLE_CSV_URL` (see GitHub Action section below)
+4. Run schema in Supabase SQL editor:
    - `supabase/schema.sql`
-   - `supabase/seed.sql`
 5. Start app:
    - `npm run dev`
+6. Populate catalog from Kaggle (after GitHub Action has run once):
+   - `curl -X POST "http://localhost:3000/api/sync/catalog?source=kaggle" -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
 
 ## Key routes
 
@@ -51,7 +55,7 @@ Queue data is powered by [Queue-Times.com](https://queue-times.com/).
 
 ## Automated catalog sync
 
-This repo includes a server-side sync pipeline that updates existing parks/coasters from Queue-Times without manual seed edits.
+This repo includes a server-side sync pipeline that populates parks/coasters automatically from Kaggle (catalog) and Queue-Times (live waits). No manual seed files needed.
 
 Required env vars:
 - `SUPABASE_SERVICE_ROLE_KEY`
