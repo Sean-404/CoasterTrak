@@ -32,6 +32,7 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 - `/stats` - personal stats dashboard
 - `/api/health` - health endpoint
 - `POST /api/sync/catalog` - protected catalog sync job (Queue-Times -> Supabase)
+  - Optional source: `POST /api/sync/catalog?source=kaggle`
 
 ## Deploy (Vercel free tier)
 
@@ -55,8 +56,28 @@ This repo includes a server-side sync pipeline that updates existing parks/coast
 Required env vars:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SYNC_CRON_SECRET`
+- Optional for CSV source: `KAGGLE_CSV_URL`
 
 Run manually (local dev server):
 - `curl -X POST http://localhost:3000/api/sync/catalog -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
+- Kaggle CSV source: `curl -X POST "http://localhost:3000/api/sync/catalog?source=kaggle" -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
 
 Schedule daily (Vercel cron / GitHub Action) to stay inside free-tier usage.
+
+## GitHub Action: Auto-refresh Kaggle CSV
+
+Workflow file: `.github/workflows/refresh-kaggle-dataset.yml`
+
+What it does:
+- Downloads `robikscube/rollercoaster-database` via Kaggle API
+- Extracts `data/coaster_db.csv`
+- Commits/pushes changes automatically (weekly + manual trigger)
+
+One-time GitHub setup:
+1. In GitHub repo, open Settings -> Secrets and variables -> Actions.
+2. Add repository secrets:
+   - `KAGGLE_USERNAME`
+   - `KAGGLE_KEY`
+3. Run the workflow once from Actions tab (`workflow_dispatch`).
+4. Set `KAGGLE_CSV_URL` in `.env.local` and deploy env vars to:
+   - `https://raw.githubusercontent.com/Sean-404/CoasterTrak/main/data/coaster_db.csv`

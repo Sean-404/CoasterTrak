@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { syncCatalogFromQueueTimes } from "@/lib/catalog-sync";
+import { syncCatalogFromKaggleCsv, syncCatalogFromQueueTimes } from "@/lib/catalog-sync";
 
 function isAuthorized(request: Request) {
   const secret = process.env.SYNC_CRON_SECRET;
@@ -15,7 +15,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await syncCatalogFromQueueTimes();
+    const { searchParams } = new URL(request.url);
+    const source = searchParams.get("source") ?? "queue-times";
+    const result = source === "kaggle" ? await syncCatalogFromKaggleCsv() : await syncCatalogFromQueueTimes();
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown sync error";
