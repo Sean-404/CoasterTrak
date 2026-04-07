@@ -82,6 +82,13 @@ One-time GitHub setup:
 2. Add repository secrets:
    - `KAGGLE_USERNAME`
    - `KAGGLE_KEY`
+   - `APP_URL` — your deployed app URL, e.g. `https://coastertrak.vercel.app` (no trailing slash)
+   - `SYNC_CRON_SECRET` — same value as in your `.env.local`
 3. Run the workflow once from Actions tab (`workflow_dispatch`).
-4. Set `KAGGLE_CSV_URL` in `.env.local` and deploy env vars to:
+   - This commits `data/coaster_db.csv` **and** immediately calls `/api/cron/sync-catalog` to populate Supabase.
+4. Set `KAGGLE_CSV_URL` in `.env.local` and your Vercel environment variables to:
    - `https://raw.githubusercontent.com/Sean-404/CoasterTrak/main/data/coaster_db.csv`
+
+After that, everything is fully automatic:
+- Every Monday the Action refreshes the CSV and triggers the sync.
+- Every Tuesday a Vercel Cron double-checks by calling `/api/cron/sync-catalog` again.

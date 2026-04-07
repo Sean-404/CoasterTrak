@@ -49,7 +49,18 @@ jobs:
           git add data/coaster_db.csv
           if git diff --cached --quiet; then
             echo "No dataset changes to commit."
-            exit 0
+          else
+            git commit -m "chore: refresh Kaggle coaster dataset"
+            git push
           fi
-          git commit -m "chore: refresh Kaggle coaster dataset"
-          git push
+
+      - name: Trigger catalog sync
+        if: ${{ env.APP_URL != '' }}
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          SYNC_CRON_SECRET: ${{ secrets.SYNC_CRON_SECRET }}
+        run: |
+          echo "Calling sync endpoint..."
+          curl -fsS -X GET "${APP_URL}/api/cron/sync-catalog" \
+            -H "Authorization: Bearer ${SYNC_CRON_SECRET}" \
+            -H "Content-Type: application/json" || echo "Sync call failed (non-fatal)"
