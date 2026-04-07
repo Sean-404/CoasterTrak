@@ -9,9 +9,18 @@ import type { Coaster, Park } from "@/types/domain";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
 
+type QueueRide = {
+  id: number;
+  name: string;
+  isOpen: boolean;
+  waitTime: number;
+  lastUpdated: string;
+};
+
 export default function MapPage() {
   const [parks, setParks] = useState<Park[]>(sampleParks);
   const [coasters, setCoasters] = useState<Coaster[]>(sampleCoasters);
+  const [queueTimesByParkId, setQueueTimesByParkId] = useState<Record<number, QueueRide[]>>({});
   const [country, setCountry] = useState("All");
   const [search, setSearch] = useState("");
 
@@ -24,6 +33,22 @@ export default function MapPage() {
       if (!coastersRes.error && coastersRes.data?.length) setCoasters(coastersRes.data);
     });
   }, []);
+
+  useEffect(() => {
+    const queueTimesParkIds = [...new Set(parks.map((park) => park.queue_times_park_id).filter((id): id is number => Number.isFinite(id)))];
+    if (!queueTimesParkIds.length) return;
+
+    Promise.all(
+      queueTimesParkIds.map(async (queueParkId) => {
+        const response = await fetch(`/api/queue-times/${queueParkId}`);
+        if (!response.ok) return [queueParkId, []] as const;
+        const data = (await response.json()) as { rides?: QueueRide[] };
+        return [queueParkId, data.rides ?? []] as const;
+      }),
+    ).then((entries) => {
+      setQueueTimesByParkId(Object.fromEntries(entries));
+    });
+  }, [parks]);
 
   const countries = useMemo(() => ["All", ...new Set(parks.map((p) => p.country))], [parks]);
 
@@ -60,7 +85,14 @@ export default function MapPage() {
             ))}
           </select>
         </div>
-        <ParkMap parks={filteredParks} coasters={coasters} />
+        <ParkMap parks={filteredParks} coasters={coasters} queueTimesByParkId={queueTimesByParkId} />
+        <p className="mt-3 text-xs text-slate-500">
+          Queue data powered by{" "}
+          <a className="underline" href="https://queue-times.com/" target="_blank" rel="noreferrer">
+            Queue-Times.com
+          </a>
+          .
+        </p>
       </main>
     </div>
   );
