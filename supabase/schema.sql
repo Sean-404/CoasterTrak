@@ -3,7 +3,11 @@ create table if not exists parks (
   name text not null,
   country text not null,
   latitude double precision not null,
-  longitude double precision not null
+  longitude double precision not null,
+  queue_times_park_id bigint,
+  external_source text,
+  external_id text,
+  last_synced_at timestamptz
 );
 
 create table if not exists coasters (
@@ -11,7 +15,21 @@ create table if not exists coasters (
   park_id bigint not null references parks(id) on delete cascade,
   name text not null,
   coaster_type text not null,
-  status text not null default 'Operating'
+  status text not null default 'Operating',
+  external_source text,
+  external_id text,
+  last_synced_at timestamptz,
+  unique (park_id, name)
+);
+
+create table if not exists sync_runs (
+  id bigint generated always as identity primary key,
+  source text not null,
+  status text not null check (status in ('running', 'success', 'failed')),
+  started_at timestamptz not null default now(),
+  finished_at timestamptz,
+  records_updated integer not null default 0,
+  error text
 );
 
 create table if not exists rides (
@@ -32,6 +50,7 @@ alter table parks enable row level security;
 alter table coasters enable row level security;
 alter table rides enable row level security;
 alter table wishlist enable row level security;
+alter table sync_runs enable row level security;
 
 drop policy if exists "public can read parks" on parks;
 create policy "public can read parks" on parks for select using (true);
@@ -50,3 +69,6 @@ create policy "users can read own wishlist" on wishlist for select using (auth.u
 
 drop policy if exists "users can manage own wishlist" on wishlist;
 create policy "users can manage own wishlist" on wishlist for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "no client access sync runs" on sync_runs;
+create policy "no client access sync runs" on sync_runs for all using (false) with check (false);

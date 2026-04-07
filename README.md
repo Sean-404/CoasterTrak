@@ -2,6 +2,7 @@
 
 CoasterTrak is an MVP rollercoaster tracking app with:
 - Interactive map with park/coaster markers
+- Live queue times in map popups (where available)
 - Email/password auth
 - Wishlist tracking
 - Ride logging and personal stats
@@ -25,10 +26,12 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 
 - `/` - landing page
 - `/map` - interactive map with country and name filter
+- `/api/queue-times/:parkId` - cached proxy for Queue-Times live waits
 - `/login` - sign up / sign in
 - `/wishlist` - user wishlist
 - `/stats` - personal stats dashboard
 - `/api/health` - health endpoint
+- `POST /api/sync/catalog` - protected catalog sync job (Queue-Times -> Supabase)
 
 ## Deploy (Vercel free tier)
 
@@ -40,3 +43,20 @@ CoasterTrak is an MVP rollercoaster tracking app with:
    - map markers visible
    - wishlist and rides saved
    - stats totals update
+
+## Live queue data credits
+
+Queue data is powered by [Queue-Times.com](https://queue-times.com/).
+
+## Automated catalog sync
+
+This repo includes a server-side sync pipeline that updates existing parks/coasters from Queue-Times without manual seed edits.
+
+Required env vars:
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SYNC_CRON_SECRET`
+
+Run manually (local dev server):
+- `curl -X POST http://localhost:3000/api/sync/catalog -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
+
+Schedule daily (Vercel cron / GitHub Action) to stay inside free-tier usage.

@@ -1,10 +1,10 @@
 import type { Coaster, Park } from "@/types/domain";
 
 export const sampleParks: Park[] = [
-  { id: 1, name: "Alton Towers", country: "United Kingdom", latitude: 52.9894, longitude: -1.8919 },
-  { id: 2, name: "Cedar Point", country: "United States", latitude: 41.4822, longitude: -82.6835 },
-  { id: 3, name: "Europa-Park", country: "Germany", latitude: 48.2661, longitude: 7.7216 },
-  { id: 4, name: "Fuji-Q Highland", country: "Japan", latitude: 35.4869, longitude: 138.7804 },
+  { id: 1, name: "Alton Towers", country: "United Kingdom", latitude: 52.9894, longitude: -1.8919, queue_times_park_id: 1 },
+  { id: 2, name: "Cedar Point", country: "United States", latitude: 41.4822, longitude: -82.6835, queue_times_park_id: 50 },
+  { id: 3, name: "Europa-Park", country: "Germany", latitude: 48.2661, longitude: 7.7216, queue_times_park_id: 51 },
+  { id: 4, name: "Fuji-Q Highland", country: "Japan", latitude: 35.4869, longitude: 138.7804, queue_times_park_id: null },
 ];
 
 export const sampleCoasters: Coaster[] = [

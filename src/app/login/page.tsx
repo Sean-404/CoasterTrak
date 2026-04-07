@@ -1,13 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("Use email + password to sign up or sign in.");
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) router.replace("/stats");
+    });
+  }, [router]);
 
   async function signUp() {
     const supabase = getSupabaseBrowserClient();
@@ -28,7 +39,13 @@ export default function LoginPage() {
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setMessage(error ? error.message : "Signed in successfully.");
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    setMessage("Signed in successfully. Redirecting...");
+    router.push("/stats");
+    router.refresh();
   }
 
   return (

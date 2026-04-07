@@ -1,9 +1,9 @@
-insert into parks (name, country, latitude, longitude)
+insert into parks (name, country, latitude, longitude, queue_times_park_id)
 values
-  ('Alton Towers', 'United Kingdom', 52.9894, -1.8919),
-  ('Cedar Point', 'United States', 41.4822, -82.6835),
-  ('Europa-Park', 'Germany', 48.2661, 7.7216),
-  ('Fuji-Q Highland', 'Japan', 35.4869, 138.7804)
+  ('Alton Towers', 'United Kingdom', 52.9894, -1.8919, 1),
+  ('Cedar Point', 'United States', 41.4822, -82.6835, 50),
+  ('Europa-Park', 'Germany', 48.2661, 7.7216, 51),
+  ('Fuji-Q Highland', 'Japan', 35.4869, 138.7804, null)
 on conflict do nothing;
 
 insert into coasters (park_id, name, coaster_type, status)
