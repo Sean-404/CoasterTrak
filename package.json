@@ -12,7 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.102.1",
     "leaflet": "^1.9.4",
-    "next": "15.2.5",
+    "next": "^16.2.2",
     "papaparse": "^5.5.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -27,7 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.2.5",
+    "eslint-config-next": "^16.2.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
