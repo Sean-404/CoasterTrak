@@ -1,6 +1,7 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
+import { useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
@@ -13,22 +14,83 @@ const icon = L.icon({
   iconAnchor: [12, 41],
 });
 
+type QueueRide = { name: string; isOpen: boolean; waitTime: number; lastUpdated: string };
+
 type Props = {
   parks: Park[];
   coasters: Coaster[];
-  queueTimesByParkId?: Record<number, { name: string; isOpen: boolean; waitTime: number; lastUpdated: string }[]>;
+  queueTimesByParkId?: Record<number, QueueRide[]>;
 };
 
 function normalizeRideName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function ParkPopupContent({
+  park,
+  parkCoasters,
+  queueByName,
+}: {
+  park: Park;
+  parkCoasters: Coaster[];
+  queueByName: Map<string, QueueRide>;
+}) {
+  const [filter, setFilter] = useState("");
+  const term = filter.toLowerCase();
+  const visible = term ? parkCoasters.filter((c) => c.name.toLowerCase().includes(term)) : parkCoasters;
+
+  return (
+    <div className="w-56">
+      <h3 className="font-semibold">{park.name}</h3>
+      <p className="text-sm text-slate-500">{park.country}</p>
+
+      {parkCoasters.length > 5 && (
+        <input
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter rides…"
+          className="mt-2 w-full rounded border border-slate-300 px-2 py-1 text-xs"
+        />
+      )}
+
+      <div className="mt-2 max-h-52 overflow-y-auto pr-1">
+        {visible.length === 0 && <p className="text-xs text-slate-400">No matches</p>}
+        {visible.map((coaster) => {
+          const queueRide = queueByName.get(normalizeRideName(coaster.name));
+          return (
+            <div key={coaster.id} className="mb-2 border-t border-slate-200 pt-2">
+              <p className="text-sm font-medium">{coaster.name}</p>
+              <p className="text-xs text-slate-500">
+                {coaster.coaster_type} · {coaster.status}
+              </p>
+              {queueRide && (
+                <p className="text-xs text-slate-500">
+                  Queue: {queueRide.isOpen ? `${queueRide.waitTime} min` : "Closed"}
+                </p>
+              )}
+              <CoasterActions coasterId={coaster.id} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function ParkMap({ parks, coasters, queueTimesByParkId = {} }: Props) {
   return (
-    <MapContainer center={[25, 10]} zoom={2} scrollWheelZoom className="h-[65vh] w-full rounded border border-slate-200">
+    <MapContainer
+      center={[25, 10]}
+      zoom={2}
+      scrollWheelZoom
+      worldCopyJump={false}
+      maxBounds={[[-90, -180], [90, 180]]}
+      maxBoundsViscosity={1.0}
+      className="h-[65vh] w-full rounded border border-slate-200"
+    >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
       />
       {parks.map((park) => {
         const parkCoasters = coasters.filter((c) => c.park_id === park.id);
@@ -37,32 +99,7 @@ export function ParkMap({ parks, coasters, queueTimesByParkId = {} }: Props) {
         return (
           <Marker key={park.id} position={[park.latitude, park.longitude]} icon={icon}>
             <Popup>
-              <div className="min-w-52">
-                <h3 className="font-semibold">{park.name}</h3>
-                <p className="mb-2 text-sm text-slate-600">{park.country}</p>
-                {parkCoasters.map((coaster) => {
-                  const queueRide = queueByName.get(normalizeRideName(coaster.name));
-                  return (
-                    <div key={coaster.id} className="mb-2 border-t border-slate-200 pt-2">
-                      <p className="text-sm font-medium">{coaster.name}</p>
-                      <p className="text-xs text-slate-600">
-                        {coaster.coaster_type} - {coaster.status}
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        Queue:{" "}
-                        {queueRide
-                          ? queueRide.isOpen
-                            ? `${queueRide.waitTime} min`
-                            : "Closed"
-                          : park.queue_times_park_id
-                            ? "No live match"
-                            : "Not available"}
-                      </p>
-                      <CoasterActions coasterId={coaster.id} />
-                    </div>
-                  );
-                })}
-              </div>
+              <ParkPopupContent park={park} parkCoasters={parkCoasters} queueByName={queueByName} />
             </Popup>
           </Marker>
         );
