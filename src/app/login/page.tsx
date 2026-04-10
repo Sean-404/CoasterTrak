@@ -63,12 +63,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-md px-4 py-16">
-        <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-xl font-semibold text-slate-900">
-            {mode === "signin" ? "Sign in" : "Create account"}
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-xl font-bold text-slate-900">
+            {mode === "signin" ? "Welcome back" : "Create account"}
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            {mode === "signin" ? "Welcome back." : "Track every coaster you ride."}
+            {mode === "signin" ? "Sign in to your CoasterTrak account." : "Start tracking every rollercoaster you ride."}
           </p>
 
           <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-3">
@@ -76,7 +76,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(""); }}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               placeholder="Email"
               autoComplete="email"
               required
@@ -85,7 +85,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
               placeholder="Password"
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
               required
@@ -95,35 +95,35 @@ export default function LoginPage() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                 placeholder="Confirm password"
                 autoComplete="new-password"
                 required
               />
             )}
 
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            {info && <p className="text-sm text-green-700">{info}</p>}
+            {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+            {info && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{info}</p>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
             >
               {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </button>
           </form>
 
-          <p className="mt-4 text-center text-sm text-slate-500">
+          <p className="mt-5 text-center text-sm text-slate-500">
             {mode === "signin" ? (
               <>No account?{" "}
-                <button onClick={() => { setMode("signup"); setError(""); setInfo(""); }} className="font-medium text-slate-900 underline">
+                <button onClick={() => { setMode("signup"); setError(""); setInfo(""); }} className="font-semibold text-slate-900 underline underline-offset-2">
                   Sign up
                 </button>
               </>
             ) : (
               <>Already have an account?{" "}
-                <button onClick={() => { setMode("signin"); setError(""); setInfo(""); }} className="font-medium text-slate-900 underline">
+                <button onClick={() => { setMode("signin"); setError(""); setInfo(""); }} className="font-semibold text-slate-900 underline underline-offset-2">
                   Sign in
                 </button>
               </>
