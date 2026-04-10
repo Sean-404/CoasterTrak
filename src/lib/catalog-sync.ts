@@ -53,10 +53,30 @@ function pickValue(row: KaggleRow, keys: string[]) {
   return "";
 }
 
-function inferCountry(location: string) {
+const KNOWN_COUNTRIES = new Set([
+  "united states", "united kingdom", "canada", "mexico", "germany", "france",
+  "spain", "italy", "netherlands", "belgium", "austria", "switzerland",
+  "denmark", "sweden", "norway", "finland", "poland", "czech republic",
+  "japan", "china", "south korea", "taiwan", "india", "thailand", "vietnam",
+  "malaysia", "singapore", "indonesia", "philippines", "hong kong",
+  "australia", "new zealand", "brazil", "argentina", "colombia", "chile",
+  "costa rica", "guatemala", "united arab emirates", "qatar", "saudi arabia",
+  "israel", "turkey", "egypt", "south africa", "russia", "ukraine",
+  "ireland", "portugal", "greece", "hungary", "romania", "croatia",
+  "u.s.", "usa", "uk", "uae",
+]);
+
+function inferCountry(location: string, parkName?: string) {
   if (!location) return "Unknown";
   const parts = location.split(",").map((part) => part.trim()).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : "Unknown";
+  const candidate = parts.length ? parts[parts.length - 1] : "";
+  if (!candidate) return "Unknown";
+  // Reject values that are clearly not countries (e.g. the park name itself)
+  if (parkName && candidate.toLowerCase() === parkName.toLowerCase()) return "Unknown";
+  if (candidate.includes("Park") || candidate.includes("Land") || candidate.includes("World")) return "Unknown";
+  // Accept known countries or anything with a comma (likely "City, Country")
+  if (KNOWN_COUNTRIES.has(candidate.toLowerCase()) || parts.length >= 2) return candidate;
+  return "Unknown";
 }
 
 async function startSyncRun(source: string) {
@@ -258,7 +278,7 @@ export async function syncCatalogFromKaggleCsv() {
       const locationField = pickValue(row, ["country", "Country", "Location", "location"]);
       if (!coasterName || !parkName) continue;
 
-      const country = inferCountry(locationField);
+      const country = inferCountry(locationField, parkName);
       const parkKey = `${parkName}::${country}`.toLowerCase();
       let parkId: number | null = parksByKey.get(parkKey) ?? null;
 

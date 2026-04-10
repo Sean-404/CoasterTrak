@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { AuthErrorHandler } from "@/components/auth-error-handler";
 import { SiteHeader } from "@/components/site-header";
 
 export default function Home() {
   return (
     <div className="min-h-screen">
+      <AuthErrorHandler />
       <SiteHeader />
 
       {/* Hero */}
