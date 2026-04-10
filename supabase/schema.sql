@@ -47,6 +47,11 @@ create table if not exists wishlist (
   primary key (user_id, coaster_id)
 );
 
+create index if not exists idx_coasters_park_id on coasters(park_id);
+create index if not exists idx_rides_user_id on rides(user_id);
+create index if not exists idx_rides_coaster_id on rides(coaster_id);
+create index if not exists idx_wishlist_coaster_id on wishlist(coaster_id);
+
 alter table parks enable row level security;
 alter table coasters enable row level security;
 alter table rides enable row level security;

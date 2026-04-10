@@ -7,6 +7,23 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function friendlyAuthError(err: { message: string; status?: number; code?: string }) {
+  const code = (err as Record<string, unknown>).code as string | undefined;
+  if (err.status === 429 || code === "over_email_send_rate_limit") {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
+  if (code === "email_address_invalid" || err.message?.includes("email")) {
+    return "That email address couldn't be verified. Please double-check it and try again.";
+  }
+  if (code === "user_already_exists") {
+    return "An account with that email already exists. Try signing in instead.";
+  }
+  if (err.message === "Invalid login credentials") {
+    return "Incorrect email or password.";
+  }
+  return err.message || "Something went wrong. Please try again.";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -42,20 +59,31 @@ export default function LoginPage() {
     if (!supabase) { setError("Supabase is not configured."); return; }
 
     setLoading(true);
-    if (mode === "signup") {
-      const { error: err } = await supabase.auth.signUp({ email, password });
+    try {
+      if (mode === "signup") {
+        const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
+        setLoading(false);
+        if (err) { setError(friendlyAuthError(err)); return; }
+        // If auto-confirm is on, the session is returned immediately
+        if (signUpData.session) {
+          router.push("/stats");
+          router.refresh();
+        } else {
+          setInfo("Account created! Check your email to confirm, then sign in.");
+          setMode("signin");
+          setPassword("");
+          setConfirmPassword("");
+        }
+      } else {
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        setLoading(false);
+        if (err) { setError(friendlyAuthError(err)); return; }
+        router.push("/stats");
+        router.refresh();
+      }
+    } catch {
       setLoading(false);
-      if (err) { setError(err.message); return; }
-      setInfo("Account created! Check your email to confirm, then sign in.");
-      setMode("signin");
-      setPassword("");
-      setConfirmPassword("");
-    } else {
-      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
-      if (err) { setError(err.message); return; }
-      router.push("/stats");
-      router.refresh();
+      setError("Something went wrong. Please try again.");
     }
   }
 

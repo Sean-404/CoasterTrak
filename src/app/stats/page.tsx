@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
+import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
-// Supabase returns single objects for FK joins, not arrays
 type RideRow = {
   coaster_id: number;
   coasters?: {
@@ -30,6 +30,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
+  const [fetchError, setFetchError] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -50,13 +51,19 @@ export default function StatsPage() {
           .eq("user_id", data.user.id),
       ]);
 
+      if (ridesRes.error || wishRes.error) {
+        setFetchError(true);
+      }
+
       setRides((ridesRes.data ?? []) as unknown as RideRow[]);
       setWishlist((wishRes.data ?? []) as unknown as WishlistRow[]);
+      setLoading(false);
+    }).catch(() => {
+      setFetchError(true);
       setLoading(false);
     });
   }, []);
 
-  // Deduplicate by coaster_id — guards against duplicate rows in the DB
   const uniqueRides = useMemo(() => {
     const seen = new Set<number>();
     return rides.filter((r) => {
@@ -90,8 +97,10 @@ export default function StatsPage() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId || removing !== null) return;
     setRemoving(coasterId);
-    await supabase.from("rides").delete().eq("user_id", userId).eq("coaster_id", coasterId);
-    setRides((prev) => prev.filter((r) => r.coaster_id !== coasterId));
+    const { error } = await supabase.from("rides").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+    if (!error) {
+      setRides((prev) => prev.filter((r) => r.coaster_id !== coasterId));
+    }
     setRemoving(null);
   }
 
@@ -106,15 +115,21 @@ export default function StatsPage() {
     <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto max-w-4xl p-6">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Your stats</h1>
         <AuthGate>
+          <h1 className="mb-6 text-2xl font-bold text-slate-900">Your stats</h1>
+          {fetchError && (
+            <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+              Something went wrong loading your data. Please refresh the page.
+            </p>
+          )}
+
           {/* Stat cards */}
           <div className="grid gap-4 sm:grid-cols-4">
             {statCards.map(({ label, value }) => (
               <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-sm text-slate-500">{label}</p>
                 <p className="mt-1 text-3xl font-bold text-slate-900">
-                  {loading ? <span className="text-slate-300">—</span> : value}
+                  {loading ? <span className="text-slate-300">&mdash;</span> : value}
                 </p>
               </div>
             ))}
@@ -125,7 +140,7 @@ export default function StatsPage() {
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
               {loading ? (
-                <p className="text-sm text-slate-400">Loading…</p>
+                <p className="text-sm text-slate-400">Loading&hellip;</p>
               ) : uniqueRides.length === 0 ? (
                 <p className="text-sm text-slate-500">No rides logged yet. Mark rides as ridden from the map or your wishlist.</p>
               ) : (
@@ -133,9 +148,11 @@ export default function StatsPage() {
                   {uniqueRides.map((ride) => (
                     <li key={ride.coaster_id} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900">{ride.coasters?.name ?? `Coaster ${ride.coaster_id}`}</p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`)}
+                        </p>
                         <p className="text-xs text-slate-500">
-                          {ride.coasters?.parks?.name && <span>{ride.coasters.parks.name} · </span>}
+                          {ride.coasters?.parks?.name && <span>{ride.coasters.parks.name} &middot; </span>}
                           {ride.coasters?.coaster_type}
                         </p>
                       </div>
@@ -143,7 +160,7 @@ export default function StatsPage() {
                         onClick={() => removeRide(ride.coaster_id)}
                         disabled={removing === ride.coaster_id}
                         title="Remove ride"
-                        className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 opacity-0 transition hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 disabled:cursor-wait"
+                        className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
                       >
                         {removing === ride.coaster_id ? (
                           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -167,7 +184,7 @@ export default function StatsPage() {
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 font-semibold text-slate-900">Top parks</h2>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-slate-400">Loading&hellip;</p>
                 ) : topParks.length === 0 ? (
                   <p className="text-sm text-slate-500">No rides logged yet.</p>
                 ) : (
@@ -191,14 +208,16 @@ export default function StatsPage() {
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 font-semibold text-slate-900">Wishlist</h2>
                 {loading ? (
-                  <p className="text-sm text-slate-400">Loading…</p>
+                  <p className="text-sm text-slate-400">Loading&hellip;</p>
                 ) : wishlist.length === 0 ? (
                   <p className="text-sm text-slate-500">Nothing on your wishlist yet.</p>
                 ) : (
                   <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
                     {wishlist.map((item, i) => (
                       <li key={`${item.coaster_id}-${i}`} className="border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                        <p className="text-sm font-medium text-slate-900">{item.coasters?.name ?? `Coaster ${item.coaster_id}`}</p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
+                        </p>
                         <p className="text-xs text-slate-500">{item.coasters?.parks?.name}</p>
                       </li>
                     ))}

@@ -30,7 +30,7 @@ function getContinent(lat: number, lng: number): Continent {
   // and must be caught here first
   if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
   if (lat > -35 && lat < 38 && lng > -18 && lng < 52) return "Africa";
-  return "Africa"; // remaining unmatched coords are most likely African
+  return "All";
 }
 
 export default function MapPage() {
@@ -150,6 +150,7 @@ export default function MapPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by park or coaster…"
+            aria-label="Search by park or coaster"
             className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
           />
           <div className="flex gap-1 flex-wrap">
@@ -157,6 +158,7 @@ export default function MapPage() {
               <button
                 key={c}
                 onClick={() => setContinent(c)}
+                aria-pressed={continent === c}
                 className={`rounded-full px-3 py-1 text-sm transition-colors ${
                   continent === c
                     ? "bg-slate-900 text-white"

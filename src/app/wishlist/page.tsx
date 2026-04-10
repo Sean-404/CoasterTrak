@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
+import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type WishlistItem = {
@@ -21,6 +22,7 @@ export default function WishlistPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<number, "ridden" | "removing" | null>>({});
+  const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -30,13 +32,17 @@ export default function WishlistPage() {
       if (!data.user) { setLoading(false); return; }
       setUserId(data.user.id);
 
-      const { data: rows } = await supabase
+      const { data: rows, error } = await supabase
         .from("wishlist")
         .select("coaster_id, coasters(name, coaster_type, status, parks(name))")
         .eq("user_id", data.user.id)
         .order("coaster_id");
 
+      if (error) setToast("Failed to load wishlist. Please refresh.");
       setItems((rows ?? []) as unknown as WishlistItem[]);
+      setLoading(false);
+    }).catch(() => {
+      setToast("Failed to load wishlist. Please refresh.");
       setLoading(false);
     });
   }, []);
@@ -46,9 +52,18 @@ export default function WishlistPage() {
     if (!supabase || !userId) return;
     setPending((p) => ({ ...p, [coasterId]: "ridden" }));
 
-    await supabase.from("rides").upsert({ user_id: userId, coaster_id: coasterId }, { onConflict: "user_id,coaster_id", ignoreDuplicates: true });
-    await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+    const { error: rideErr } = await supabase.from("rides").upsert(
+      { user_id: userId, coaster_id: coasterId },
+      { onConflict: "user_id,coaster_id", ignoreDuplicates: true },
+    );
 
+    if (rideErr) {
+      setToast("Failed to mark as ridden. Please try again.");
+      setPending((p) => ({ ...p, [coasterId]: null }));
+      return;
+    }
+
+    await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
     setItems((prev) => prev.filter((i) => i.coaster_id !== coasterId));
     setPending((p) => ({ ...p, [coasterId]: null }));
   }
@@ -58,7 +73,12 @@ export default function WishlistPage() {
     if (!supabase || !userId) return;
     setPending((p) => ({ ...p, [coasterId]: "removing" }));
 
-    await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+    const { error } = await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+    if (error) {
+      setToast("Failed to remove. Please try again.");
+      setPending((p) => ({ ...p, [coasterId]: null }));
+      return;
+    }
 
     setItems((prev) => prev.filter((i) => i.coaster_id !== coasterId));
     setPending((p) => ({ ...p, [coasterId]: null }));
@@ -68,21 +88,27 @@ export default function WishlistPage() {
     <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto max-w-3xl p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Your wishlist</h1>
-            {!loading && items.length > 0 && (
-              <p className="mt-0.5 text-sm text-slate-500">{items.length} ride{items.length !== 1 ? "s" : ""} to conquer</p>
-            )}
-          </div>
-          <Link href="/map" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
-            Find more &rarr;
-          </Link>
-        </div>
-
         <AuthGate>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Your wishlist</h1>
+              {!loading && items.length > 0 && (
+                <p className="mt-0.5 text-sm text-slate-500">{items.length} ride{items.length !== 1 ? "s" : ""} to conquer</p>
+              )}
+            </div>
+            <Link href="/map" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
+              Find more &rarr;
+            </Link>
+          </div>
+
+          {toast && (
+            <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+              <span>{toast}</span>
+              <button onClick={() => setToast(null)} className="ml-2 font-semibold hover:text-red-800">&times;</button>
+            </div>
+          )}
           {loading ? (
-            <p className="text-slate-500">Loading wishlist…</p>
+            <p className="text-slate-500">Loading&hellip;</p>
           ) : items.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
               <p className="font-medium text-slate-700">Your wishlist is empty</p>
@@ -103,7 +129,7 @@ export default function WishlistPage() {
                   >
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-slate-900">
-                        {coaster?.name ?? `Coaster ${item.coaster_id}`}
+                        {cleanCoasterName(coaster?.name ?? `Coaster ${item.coaster_id}`)}
                       </p>
                       {coaster?.parks?.name && (
                         <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
@@ -131,14 +157,14 @@ export default function WishlistPage() {
                         disabled={!!busy}
                         className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
                       >
-                        {busy === "ridden" ? "Saving…" : "Mark ridden"}
+                        {busy === "ridden" ? "Saving\u2026" : "Mark ridden"}
                       </button>
                       <button
                         onClick={() => removeFromWishlist(item.coaster_id)}
                         disabled={!!busy}
                         className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-500 transition hover:border-red-300 hover:text-red-500 disabled:opacity-50"
                       >
-                        {busy === "removing" ? "Removing…" : "Remove"}
+                        {busy === "removing" ? "Removing\u2026" : "Remove"}
                       </button>
                     </div>
                   </li>

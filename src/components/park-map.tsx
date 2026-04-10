@@ -8,6 +8,7 @@ import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
+import { cleanCoasterName } from "@/lib/display";
 import { CoasterActions } from "./coaster-actions";
 
 const icon = L.icon({
@@ -88,6 +89,7 @@ function ParkPopupContent({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Filter rides…"
+          aria-label="Filter rides"
           className="mt-2 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
         />
       )}
@@ -99,7 +101,7 @@ function ParkPopupContent({
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold leading-tight text-slate-900">{coaster.name}</p>
+                <p className="text-sm font-semibold leading-tight text-slate-900">{cleanCoasterName(coaster.name)}</p>
                 {queueRide && (
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
                     queueRide.isOpen

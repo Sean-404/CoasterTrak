@@ -222,15 +222,16 @@ export async function syncCatalogFromQueueTimes() {
 
 export async function syncCatalogFromKaggleCsv() {
   const { supabase, startedAt, runId } = await startSyncRun("kaggle");
-  const csvUrl = process.env.KAGGLE_CSV_URL;
-  if (!csvUrl) {
-    throw new Error("Missing KAGGLE_CSV_URL");
-  }
 
   try {
+    const csvUrl = process.env.KAGGLE_CSV_URL;
+    if (!csvUrl) {
+      throw new Error("Missing KAGGLE_CSV_URL");
+    }
+
     const response = await fetch(csvUrl, { next: { revalidate: 86400 } });
     if (!response.ok) {
-      throw new Error(`Kaggle CSV fetch failed (${response.status}) at ${csvUrl}`);
+      throw new Error(`Kaggle CSV fetch failed (${response.status})`);
     }
 
     const csvText = await response.text();
@@ -293,6 +294,11 @@ export async function syncCatalogFromKaggleCsv() {
           }
           await supabase.from("parks").update(updates).eq("id", parkId);
         } else {
+          // Don't create parks with no coordinates — they're invisible on the map
+          // and likely have bad country data too. They'll get proper data if/when
+          // the Queue-Times sync runs and finds them.
+          if (lat === 0 && lng === 0) continue;
+
           const insertedPark = await supabase
             .from("parks")
             .insert({
@@ -341,7 +347,6 @@ export async function syncCatalogFromKaggleCsv() {
     await finishSyncRun(runId, "success", { recordsUpdated: parkUpdates + coasterUpdates });
     return {
       source: "kaggle",
-      csvUrl,
       startedAt,
       finishedAt: new Date().toISOString(),
       parkUpdates,

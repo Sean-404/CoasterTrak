@@ -21,6 +21,18 @@ const bungee = Bungee({
 export const metadata: Metadata = {
   title: "CoasterTrak",
   description: "Track coasters, wishlist rides, and view your stats.",
+  metadataBase: new URL("https://coastertrak.vercel.app"),
+  openGraph: {
+    title: "CoasterTrak",
+    description: "Track every roller coaster you ride. Map, wishlist, and stats.",
+    siteName: "CoasterTrak",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "CoasterTrak",
+    description: "Track every roller coaster you ride. Map, wishlist, and stats.",
+  },
 };
 
 export default function RootLayout({
