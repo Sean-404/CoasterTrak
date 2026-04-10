@@ -1,8 +1,11 @@
 "use client";
 
 import "leaflet/dist/leaflet.css";
+import "react-leaflet-cluster/lib/assets/MarkerCluster.css";
+import "react-leaflet-cluster/lib/assets/MarkerCluster.Default.css";
 import { useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { CoasterActions } from "./coaster-actions";
@@ -92,18 +95,20 @@ export function ParkMap({ parks, coasters, queueTimesByParkId = {} }: Props) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
       />
-      {parks.map((park) => {
-        const parkCoasters = coasters.filter((c) => c.park_id === park.id);
-        const parkQueueRides = park.queue_times_park_id ? (queueTimesByParkId[park.queue_times_park_id] ?? []) : [];
-        const queueByName = new Map(parkQueueRides.map((ride) => [normalizeRideName(ride.name), ride]));
-        return (
-          <Marker key={park.id} position={[park.latitude, park.longitude]} icon={icon}>
-            <Popup>
-              <ParkPopupContent park={park} parkCoasters={parkCoasters} queueByName={queueByName} />
-            </Popup>
-          </Marker>
-        );
-      })}
+      <MarkerClusterGroup chunkedLoading>
+        {parks.map((park) => {
+          const parkCoasters = coasters.filter((c) => c.park_id === park.id);
+          const parkQueueRides = park.queue_times_park_id ? (queueTimesByParkId[park.queue_times_park_id] ?? []) : [];
+          const queueByName = new Map(parkQueueRides.map((ride) => [normalizeRideName(ride.name), ride]));
+          return (
+            <Marker key={park.id} position={[park.latitude, park.longitude]} icon={icon}>
+              <Popup>
+                <ParkPopupContent park={park} parkCoasters={parkCoasters} queueByName={queueByName} />
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MarkerClusterGroup>
     </MapContainer>
   );
 }

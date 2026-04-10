@@ -7,7 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type WishlistItem = {
   coaster_id: number;
-  coasters?: { name: string; coaster_type: string; status: string }[] | null;
+  coasters?: { name: string; coaster_type: string; status: string } | null;
 };
 
 export default function WishlistPage() {
@@ -37,7 +37,7 @@ export default function WishlistPage() {
         return;
       }
 
-      setItems((rows ?? []) as WishlistItem[]);
+      setItems((rows ?? []) as unknown as WishlistItem[]);
       setMessage(rows?.length ? "" : "No wishlist rides yet.");
     });
   }, []);
@@ -52,9 +52,9 @@ export default function WishlistPage() {
             <ul className="space-y-2">
               {items.map((item) => (
                 <li key={item.coaster_id} className="rounded border border-slate-200 bg-white p-3">
-                  <p className="font-medium">{item.coasters?.[0]?.name ?? `Coaster ${item.coaster_id}`}</p>
+                  <p className="font-medium">{item.coasters?.name ?? `Coaster ${item.coaster_id}`}</p>
                   <p className="text-sm text-slate-600">
-                    {item.coasters?.[0]?.coaster_type} - {item.coasters?.[0]?.status}
+                    {item.coasters?.coaster_type} · {item.coasters?.status}
                   </p>
                 </li>
               ))}

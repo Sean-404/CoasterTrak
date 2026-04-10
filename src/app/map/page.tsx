@@ -55,6 +55,7 @@ export default function MapPage() {
   const filteredParks = useMemo(() => {
     const term = search.toLowerCase();
     return parks.filter((park) => {
+      if (park.latitude === 0 && park.longitude === 0) return false;
       const byCountry = country === "All" || park.country === country;
       const coasterNames = coasters
         .filter((c) => c.park_id === park.id)
