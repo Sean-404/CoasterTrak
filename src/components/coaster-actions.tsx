@@ -62,7 +62,13 @@ export function CoasterActions({ coasterId }: { coasterId: number }) {
       if (!supabase) return;
       const { error } = await supabase.from("rides").upsert({ user_id: userId, coaster_id: coasterId }, { onConflict: "user_id,coaster_id", ignoreDuplicates: true });
       if (error) { setStatus("error"); setErrorMsg(error.message); }
-      else { setStatus("ridden"); setAlreadyRidden(true); }
+      else {
+        if (alreadyWishlisted) {
+          await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+          setAlreadyWishlisted(false);
+        }
+        setStatus("ridden"); setAlreadyRidden(true);
+      }
     });
   }
 
@@ -70,16 +76,6 @@ export function CoasterActions({ coasterId }: { coasterId: number }) {
 
   const busy = status === "loading-wishlist" || status === "loading-ridden";
   const showFeedback = status === "wishlisted" || status === "ridden" || status === "error";
-  const bothTracked = alreadyRidden && alreadyWishlisted;
-
-  if (bothTracked && !showFeedback) {
-    return (
-      <div className="mt-2 flex items-center gap-1.5">
-        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Ridden</span>
-        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Wishlisted</span>
-      </div>
-    );
-  }
 
   return (
     <div className="mt-2 min-h-[32px]">
@@ -97,7 +93,7 @@ export function CoasterActions({ coasterId }: { coasterId: number }) {
           {alreadyWishlisted && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Wishlisted</span>
           )}
-          {!alreadyWishlisted && (
+          {!alreadyWishlisted && !alreadyRidden && (
             <button
               onClick={addWishlist}
               disabled={busy}
