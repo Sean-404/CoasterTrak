@@ -27,7 +27,7 @@ function getContinent(lat: number, lng: number): Continent {
   if (lat > -35 && lat < 37 && lng > -18 && lng < 52) return "Africa";
   if (lat > -47 && lat < -10 && lng > 110 && lng < 180) return "Oceania";
   if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
-  return "Europe"; // fallback - most coaster parks are in Europe/US
+  return "Europe";
 }
 
 export default function MapPage() {
