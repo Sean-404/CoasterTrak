@@ -1,105 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-
-function CoasterSilhouette() {
-  const track = "rgba(255,255,255,0.14)";
-  const support = "rgba(255,255,255,0.08)";
-
-  return (
-    <svg
-      viewBox="0 0 1440 260"
-      xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-x-0 bottom-0 w-full"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      {/* Support structures */}
-      <g stroke={support} strokeWidth="2" fill="none">
-        {/* Lift hill cross-bracing */}
-        <line x1="92" y1="218" x2="92" y2="252" />
-        <line x1="118" y1="200" x2="118" y2="252" />
-        <line x1="92" y1="218" x2="118" y2="200" />
-        <line x1="144" y1="178" x2="144" y2="252" />
-        <line x1="118" y1="200" x2="144" y2="178" />
-        <line x1="170" y1="155" x2="170" y2="252" />
-        <line x1="144" y1="178" x2="170" y2="155" />
-
-        {/* After first drop */}
-        <line x1="312" y1="218" x2="312" y2="252" />
-        <line x1="328" y1="218" x2="328" y2="252" />
-
-        {/* After camelback */}
-        <line x1="474" y1="218" x2="474" y2="252" />
-        <line x1="490" y1="218" x2="490" y2="252" />
-
-        {/* Loop base */}
-        <line x1="508" y1="218" x2="508" y2="252" />
-        <line x1="672" y1="218" x2="672" y2="252" />
-
-        {/* After second hill */}
-        <line x1="838" y1="218" x2="838" y2="252" />
-        <line x1="854" y1="218" x2="854" y2="252" />
-
-        {/* Tail supports */}
-        <line x1="1036" y1="212" x2="1036" y2="252" />
-        <line x1="1150" y1="212" x2="1150" y2="252" />
-        <line x1="1300" y1="212" x2="1300" y2="252" />
-      </g>
-
-      {/* Ground line */}
-      <line x1="0" y1="252" x2="1440" y2="252" stroke={support} strokeWidth="1" />
-
-      {/* === TRACK === */}
-
-      {/* Segment 1: flat approach → lift hill → dramatic first drop */}
-      <path
-        d="M 0 218 L 80 218 L 196 18 C 198 130 288 218 316 218"
-        stroke={track}
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Segment 2: camelback hill → into loop base */}
-      <path
-        d="M 316 218 C 346 28 448 28 476 218 L 590 218"
-        stroke={track}
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Loop circle (sits on the track at x=590, y=218) */}
-      <circle
-        cx="590"
-        cy="142"
-        r="76"
-        stroke={track}
-        strokeWidth="3"
-        fill="none"
-      />
-
-      {/* Segment 3: out of loop → second camelback → bunny hops → flat exit */}
-      <path
-        d="M 590 218 L 672 218 C 702 28 806 28 838 218 Q 866 152 894 145 Q 922 138 946 208 Q 970 148 996 141 Q 1022 134 1044 208 L 1440 208"
-        stroke={track}
-        strokeWidth="3"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Coaster car silhouette — sitting at the top of the lift hill */}
-      <g transform="translate(178, 8) rotate(-59)">
-        <rect x="-14" y="-5" width="28" height="10" rx="3" fill={track} />
-        <rect x="-10" y="-8" width="8" height="4" rx="1" fill={track} />
-        <rect x="2" y="-8" width="8" height="4" rx="1" fill={track} />
-      </g>
-    </svg>
-  );
-}
 
 export default function Home() {
   return (
@@ -107,15 +8,25 @@ export default function Home() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 pb-32 pt-20 text-white">
-        <CoasterSilhouette />
+      <section className="relative overflow-hidden bg-slate-950 pb-24 pt-20 text-white">
+        {/* Background image */}
+        <Image
+          src="/coaster-hero.png"
+          alt=""
+          fill
+          unoptimized
+          className="object-cover object-center opacity-80"
+          priority
+        />
+        {/* Left-side overlay keeps text readable, right side lets the image breathe */}
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-slate-950/10" />
         <div className="relative z-10 mx-auto max-w-6xl px-6">
           <div className="inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-amber-400">
             Your ride tracker
           </div>
           <h1 className="font-bungee mt-4 text-5xl leading-tight text-white sm:text-6xl lg:text-7xl">
             Track Every<br />
-            <span className="text-amber-400">Coaster Ride</span>
+            <span className="text-amber-400">Rollercoaster</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
             Explore parks worldwide on an interactive map, build your bucket list, and track your coaster stats.
