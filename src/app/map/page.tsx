@@ -63,29 +63,55 @@ export default function MapPage() {
     });
   }, [parks]);
 
-  // Merge duplicate parks that share the same name (different sync sources produce separate rows).
-  // The merged park keeps the queue_times_park_id from whichever entry has one, and adopts
-  // coordinates from that same entry (Queue-Times coords tend to be more accurate).
+  // Merge duplicate parks from different sync sources (Kaggle vs Queue-Times).
+  // Two parks are considered the same if they share an exact name OR are within 2 km of each
+  // other (handles cases like "Alton" vs "Alton Towers" at the same location).
+  // The merged entry keeps the queue_times_park_id and coordinates from whichever has them.
   const deduplicatedParks = useMemo(() => {
-    const byName = new Map<string, Park>();
-    const idRemap = new Map<number, number>();
+    const canonical = new Map<number, Park>(); // canonical id → merged park
+    const idRemap = new Map<number, number>(); // duplicate id → canonical id
+
+    function distanceKm(a: Park, b: Park) {
+      if (!a.latitude || !b.latitude) return Infinity;
+      const dlat = (b.latitude - a.latitude) * 111;
+      const dlng = (b.longitude - a.longitude) * 111 * Math.cos((a.latitude * Math.PI) / 180);
+      return Math.sqrt(dlat * dlat + dlng * dlng);
+    }
+
+    function mergeInto(base: Park, duplicate: Park) {
+      idRemap.set(duplicate.id, base.id);
+      if (!base.queue_times_park_id && duplicate.queue_times_park_id) {
+        base.queue_times_park_id = duplicate.queue_times_park_id;
+        base.latitude = duplicate.latitude;
+        base.longitude = duplicate.longitude;
+      }
+      // Use the longer/more descriptive name (e.g. "Alton Towers" over "Alton")
+      if (duplicate.name.length > base.name.length && !base.queue_times_park_id) {
+        base.name = duplicate.name;
+      }
+    }
 
     for (const park of parks) {
-      const key = park.name.toLowerCase().trim();
-      const existing = byName.get(key);
-      if (!existing) {
-        byName.set(key, { ...park });
-      } else {
-        idRemap.set(park.id, existing.id);
-        if (!existing.queue_times_park_id && park.queue_times_park_id) {
-          existing.queue_times_park_id = park.queue_times_park_id;
-          existing.latitude = park.latitude;
-          existing.longitude = park.longitude;
+      if (idRemap.has(park.id)) continue;
+
+      canonical.set(park.id, { ...park });
+
+      for (const [, existing] of canonical) {
+        if (existing.id === park.id) continue;
+        if (idRemap.has(existing.id)) continue;
+
+        const sameName = existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
+        const nearby = distanceKm(existing, park) < 2;
+
+        if (sameName || nearby) {
+          mergeInto(existing, park);
+          canonical.delete(park.id);
+          break;
         }
       }
     }
 
-    return { parks: Array.from(byName.values()), idRemap };
+    return { parks: Array.from(canonical.values()), idRemap };
   }, [parks]);
 
   const remappedCoasters = useMemo(() => {

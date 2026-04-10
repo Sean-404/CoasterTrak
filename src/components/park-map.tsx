@@ -29,6 +29,19 @@ function normalizeRideName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Strips common suffixes added by Kaggle (e.g. "(roller coaster)", "(steel)") so that
+// "Wicker Man" and "Wicker Man (roller coaster)" collapse to the same key.
+function normalizeCoasterBase(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/\s*\(roller coaster\)\s*/gi, "")
+    .replace(/\s*\(coaster\)\s*/gi, "")
+    .replace(/\s*\(steel\)\s*/gi, "")
+    .replace(/\s*\(wooden\)\s*/gi, "")
+    .replace(/\s*\(wood\)\s*/gi, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function ParkPopupContent({
   park,
   parkCoasters,
@@ -39,15 +52,38 @@ function ParkPopupContent({
   queueByName: Map<string, QueueRide>;
 }) {
   const [filter, setFilter] = useState("");
+
+  // Deduplicate coasters whose names differ only by suffixes like "(roller coaster)".
+  // Prefer whichever entry matches the queue-times data (shorter/cleaner name wins).
+  const dedupedCoasters = (() => {
+    const seen = new Map<string, Coaster>();
+    for (const coaster of parkCoasters) {
+      const key = normalizeCoasterBase(coaster.name);
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, coaster);
+      } else {
+        const thisHasQueue = queueByName.has(normalizeRideName(coaster.name));
+        const existingHasQueue = queueByName.has(normalizeRideName(existing.name));
+        if (thisHasQueue && !existingHasQueue) {
+          seen.set(key, coaster);
+        } else if (!thisHasQueue && !existingHasQueue && coaster.name.length < existing.name.length) {
+          seen.set(key, coaster);
+        }
+      }
+    }
+    return Array.from(seen.values());
+  })();
+
   const term = filter.toLowerCase();
-  const visible = term ? parkCoasters.filter((c) => c.name.toLowerCase().includes(term)) : parkCoasters;
+  const visible = term ? dedupedCoasters.filter((c) => c.name.toLowerCase().includes(term)) : dedupedCoasters;
 
   return (
     <div className="w-56">
       <h3 className="font-semibold">{park.name}</h3>
       <p className="text-sm text-slate-500">{park.country}</p>
 
-      {parkCoasters.length > 5 && (
+      {dedupedCoasters.length > 5 && (
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
