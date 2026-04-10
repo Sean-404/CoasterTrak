@@ -12,6 +12,7 @@ type WishlistItem = {
   coasters?: {
     name: string;
     coaster_type: string;
+    manufacturer: string | null;
     status: string;
     parks?: { name: string } | null;
   } | null;
@@ -34,7 +35,7 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, coasters(name, coaster_type, status, parks(name))")
+        .select("coaster_id, coasters(name, coaster_type, manufacturer, status, parks(name))")
         .eq("user_id", data.user.id)
         .order("coaster_id");
 
@@ -138,6 +139,11 @@ export default function WishlistPage() {
                         {coaster?.coaster_type && (
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                             {coaster.coaster_type}
+                          </span>
+                        )}
+                        {coaster?.manufacturer && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                            {coaster.manufacturer}
                           </span>
                         )}
                         {coaster?.status && (

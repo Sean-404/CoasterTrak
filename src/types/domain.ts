@@ -12,6 +12,7 @@ export type Coaster = {
   park_id: number;
   name: string;
   coaster_type: string;
+  manufacturer?: string | null;
   status: string;
 };
 

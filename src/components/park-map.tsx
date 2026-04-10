@@ -108,6 +108,11 @@ function ParkPopupContent({
                     {coaster.coaster_type}
                   </span>
                 )}
+                {coaster.manufacturer && (
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                    {coaster.manufacturer}
+                  </span>
+                )}
                 {queueRide?.isOpen ? (
                   <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
                     {queueRide.waitTime} min

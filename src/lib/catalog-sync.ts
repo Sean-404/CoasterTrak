@@ -359,6 +359,7 @@ export async function syncCatalogFromKaggleCsv() {
       }
 
       const coasterType = pickValue(row, ["Type_Main", "coaster_type", "Type", "type"]) || normalizeType(coasterName);
+      const manufacturer = pickValue(row, ["manufacturer", "Manufacturer", "Make", "make"]) || null;
       const status = normalizeStatus(pickValue(row, ["status", "Status"]));
       const externalId = pickValue(row, ["coaster_id", "id", "Id"]);
 
@@ -369,6 +370,7 @@ export async function syncCatalogFromKaggleCsv() {
           park_id: parkId,
           name: coasterName,
           coaster_type: coasterType,
+          manufacturer,
           status,
           external_source: "kaggle",
           external_id: externalId || null,

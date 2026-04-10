@@ -15,6 +15,7 @@ create table if not exists coasters (
   park_id bigint not null references parks(id) on delete cascade,
   name text not null,
   coaster_type text not null,
+  manufacturer text,
   status text not null default 'Operating',
   external_source text,
   external_id text,

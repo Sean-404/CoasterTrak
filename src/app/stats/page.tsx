@@ -11,6 +11,7 @@ type RideRow = {
   coasters?: {
     name: string;
     coaster_type: string;
+    manufacturer: string | null;
     parks?: { name: string; country: string } | null;
   } | null;
 };
@@ -20,6 +21,7 @@ type WishlistRow = {
   coasters?: {
     name: string;
     coaster_type: string;
+    manufacturer: string | null;
     parks?: { name: string } | null;
   } | null;
 };
@@ -43,11 +45,11 @@ export default function StatsPage() {
       const [ridesRes, wishRes] = await Promise.all([
         supabase
           .from("rides")
-          .select("coaster_id, coasters(name, coaster_type, parks(name, country))")
+          .select("coaster_id, coasters(name, coaster_type, manufacturer, parks(name, country))")
           .eq("user_id", data.user.id),
         supabase
           .from("wishlist")
-          .select("coaster_id, coasters(name, coaster_type, parks(name))")
+          .select("coaster_id, coasters(name, coaster_type, manufacturer, parks(name))")
           .eq("user_id", data.user.id),
       ]);
 
@@ -92,6 +94,37 @@ export default function StatsPage() {
     }
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [uniqueRides]);
+
+  const [rideFilter, setRideFilter] = useState("");
+  const [wishFilter, setWishFilter] = useState("");
+
+  const filteredRides = useMemo(() => {
+    if (!rideFilter.trim()) return uniqueRides;
+    const q = rideFilter.toLowerCase();
+    return uniqueRides.filter((r) => {
+      const c = r.coasters;
+      return (
+        cleanCoasterName(c?.name ?? "").toLowerCase().includes(q) ||
+        (c?.parks?.name ?? "").toLowerCase().includes(q) ||
+        (c?.coaster_type ?? "").toLowerCase().includes(q) ||
+        (c?.manufacturer ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [uniqueRides, rideFilter]);
+
+  const filteredWishlist = useMemo(() => {
+    if (!wishFilter.trim()) return wishlist;
+    const q = wishFilter.toLowerCase();
+    return wishlist.filter((item) => {
+      const c = item.coasters;
+      return (
+        cleanCoasterName(c?.name ?? "").toLowerCase().includes(q) ||
+        (c?.parks?.name ?? "").toLowerCase().includes(q) ||
+        (c?.coaster_type ?? "").toLowerCase().includes(q) ||
+        (c?.manufacturer ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [wishlist, wishFilter]);
 
   const [removingWish, setRemovingWish] = useState<number | null>(null);
 
@@ -159,38 +192,54 @@ export default function StatsPage() {
               ) : uniqueRides.length === 0 ? (
                 <p className="text-sm text-slate-500">No rides logged yet. Mark rides as ridden from the map or your wishlist.</p>
               ) : (
-                <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                  {uniqueRides.map((ride) => (
-                    <li key={ride.coaster_id} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900">
-                          {cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`)}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {ride.coasters?.parks?.name && <span>{ride.coasters.parks.name} &middot; </span>}
-                          {ride.coasters?.coaster_type}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => removeRide(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
-                        disabled={removing === ride.coaster_id}
-                        title="Remove ride"
-                        className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
-                      >
-                        {removing === ride.coaster_id ? (
-                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                          </svg>
-                        ) : (
-                          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  {uniqueRides.length > 3 && (
+                    <input
+                      type="text"
+                      value={rideFilter}
+                      onChange={(e) => setRideFilter(e.target.value)}
+                      placeholder="Filter rides…"
+                      aria-label="Filter rides"
+                      className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  )}
+                  <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {filteredRides.length === 0 && (
+                      <p className="text-xs text-slate-400">No matches</p>
+                    )}
+                    {filteredRides.map((ride) => (
+                      <li key={ride.coaster_id} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900">
+                            {cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`)}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {ride.coasters?.parks?.name && <span>{ride.coasters.parks.name} &middot; </span>}
+                            {ride.coasters?.coaster_type}
+                            {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => removeRide(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
+                          disabled={removing === ride.coaster_id}
+                          title="Remove ride"
+                          className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
+                        >
+                          {removing === ride.coaster_id ? (
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </section>
 
@@ -227,35 +276,53 @@ export default function StatsPage() {
                 ) : wishlist.length === 0 ? (
                   <p className="text-sm text-slate-500">Nothing on your wishlist yet.</p>
                 ) : (
-                  <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
-                    {wishlist.map((item, i) => (
-                      <li key={`${item.coaster_id}-${i}`} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-900">
-                            {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
-                          </p>
-                          <p className="text-xs text-slate-500">{item.coasters?.parks?.name}</p>
-                        </div>
-                        <button
-                          onClick={() => removeWishlistItem(item.coaster_id, cleanCoasterName(item.coasters?.name ?? "this ride"))}
-                          disabled={removingWish === item.coaster_id}
-                          title="Remove from wishlist"
-                          className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
-                        >
-                          {removingWish === item.coaster_id ? (
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                            </svg>
-                          ) : (
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    {wishlist.length > 3 && (
+                      <input
+                        type="text"
+                        value={wishFilter}
+                        onChange={(e) => setWishFilter(e.target.value)}
+                        placeholder="Filter wishlist…"
+                        aria-label="Filter wishlist"
+                        className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      />
+                    )}
+                    <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
+                      {filteredWishlist.length === 0 && (
+                        <p className="text-xs text-slate-400">No matches</p>
+                      )}
+                      {filteredWishlist.map((item, i) => (
+                        <li key={`${item.coaster_id}-${i}`} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-900">
+                              {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {item.coasters?.parks?.name}
+                              {item.coasters?.manufacturer && <span> &middot; {item.coasters.manufacturer}</span>}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => removeWishlistItem(item.coaster_id, cleanCoasterName(item.coasters?.name ?? "this ride"))}
+                            disabled={removingWish === item.coaster_id}
+                            title="Remove from wishlist"
+                            className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
+                          >
+                            {removingWish === item.coaster_id ? (
+                              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
               </section>
             </div>
