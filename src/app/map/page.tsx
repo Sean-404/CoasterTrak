@@ -23,11 +23,11 @@ type Continent = (typeof CONTINENTS)[number];
 function getContinent(lat: number, lng: number): Continent {
   if (lat > 15 && lat < 72 && lng > -168 && lng < -52) return "North America";
   if (lat > -56 && lat < 15 && lng > -82 && lng < -34) return "South America";
-  if (lat > 34 && lat < 72 && lng > -25 && lng < 45) return "Europe";
+  if (lat > 34 && lat < 72 && lng > -25 && lng < 40) return "Europe";
   if (lat > -35 && lat < 37 && lng > -18 && lng < 52) return "Africa";
-  if (lat > -11 && lat < 77 && lng > 25 && lng < 180) return "Asia";
-  if (lat > -47 && lat < -11 && lng > 110 && lng < 180) return "Oceania";
-  return "Asia";
+  if (lat > -47 && lat < -10 && lng > 110 && lng < 180) return "Oceania";
+  if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
+  return "Europe"; // fallback - most coaster parks are in Europe/US
 }
 
 export default function MapPage() {
