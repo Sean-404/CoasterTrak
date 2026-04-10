@@ -17,11 +17,24 @@ type QueueRide = {
   lastUpdated: string;
 };
 
+const CONTINENTS = ["All", "North America", "South America", "Europe", "Asia", "Oceania", "Africa"] as const;
+type Continent = (typeof CONTINENTS)[number];
+
+function getContinent(lat: number, lng: number): Continent {
+  if (lat > 15 && lat < 72 && lng > -168 && lng < -52) return "North America";
+  if (lat > -56 && lat < 15 && lng > -82 && lng < -34) return "South America";
+  if (lat > 34 && lat < 72 && lng > -25 && lng < 45) return "Europe";
+  if (lat > -35 && lat < 37 && lng > -18 && lng < 52) return "Africa";
+  if (lat > -11 && lat < 77 && lng > 25 && lng < 180) return "Asia";
+  if (lat > -47 && lat < -11 && lng > 110 && lng < 180) return "Oceania";
+  return "Asia";
+}
+
 export default function MapPage() {
   const [parks, setParks] = useState<Park[]>(sampleParks);
   const [coasters, setCoasters] = useState<Coaster[]>(sampleCoasters);
   const [queueTimesByParkId, setQueueTimesByParkId] = useState<Record<number, QueueRide[]>>({});
-  const [country, setCountry] = useState("All");
+  const [continent, setContinent] = useState<Continent>("All");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -50,21 +63,19 @@ export default function MapPage() {
     });
   }, [parks]);
 
-  const countries = useMemo(() => ["All", ...new Set(parks.map((p) => p.country))], [parks]);
-
   const filteredParks = useMemo(() => {
     const term = search.toLowerCase();
     return parks.filter((park) => {
       if (park.latitude === 0 && park.longitude === 0) return false;
-      const byCountry = country === "All" || park.country === country;
+      const byContinent = continent === "All" || getContinent(park.latitude, park.longitude) === continent;
       const coasterNames = coasters
         .filter((c) => c.park_id === park.id)
         .map((c) => c.name.toLowerCase())
         .join(" ");
       const bySearch = !term || park.name.toLowerCase().includes(term) || coasterNames.includes(term);
-      return byCountry && bySearch;
+      return byContinent && bySearch;
     });
-  }, [country, search, parks, coasters]);
+  }, [continent, search, parks, coasters]);
 
   return (
     <div className="min-h-screen">
@@ -75,16 +86,24 @@ export default function MapPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by park or coaster..."
+            placeholder="Search by park or coaster…"
             className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
           />
-          <select value={country} onChange={(e) => setCountry(e.target.value)} className="rounded border border-slate-300 px-3 py-2">
-            {countries.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+          <div className="flex gap-1 flex-wrap">
+            {CONTINENTS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setContinent(c)}
+                className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                  continent === c
+                    ? "bg-slate-900 text-white"
+                    : "border border-slate-300 text-slate-600 hover:border-slate-500"
+                }`}
+              >
+                {c}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
         <ParkMap parks={filteredParks} coasters={coasters} queueTimesByParkId={queueTimesByParkId} />
         <p className="mt-3 text-xs text-slate-500">
