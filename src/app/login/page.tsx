@@ -24,9 +24,11 @@ function friendlyAuthError(err: { message: string; status?: number; code?: strin
   return err.message || "Something went wrong. Please try again.";
 }
 
+type Mode = "signin" | "signup" | "forgot";
+
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -42,9 +44,17 @@ export default function LoginPage() {
     });
   }, [router]);
 
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError("");
+    setInfo("");
+    setPassword("");
+    setConfirmPassword("");
+  }
+
   function validate() {
     if (!EMAIL_RE.test(email)) { setError("Enter a valid email address."); return false; }
-    if (password.length < 8) { setError("Password must be at least 8 characters."); return false; }
+    if (mode !== "forgot" && password.length < 8) { setError("Password must be at least 8 characters."); return false; }
     if (mode === "signup" && password !== confirmPassword) { setError("Passwords do not match."); return false; }
     return true;
   }
@@ -60,19 +70,24 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      if (mode === "signup") {
+      if (mode === "forgot") {
+        const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/account`,
+        });
+        setLoading(false);
+        if (err) { setError(friendlyAuthError(err)); return; }
+        setInfo("If that email is registered, you\u2019ll receive a password reset link shortly. Check your inbox (and spam).");
+      } else if (mode === "signup") {
         const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
         setLoading(false);
         if (err) { setError(friendlyAuthError(err)); return; }
-        // If auto-confirm is on, the session is returned immediately
         if (signUpData.session) {
           router.push("/stats");
           router.refresh();
         } else {
           setInfo("Account created! Check your email to confirm, then sign in.");
-          setMode("signin");
-          setPassword("");
-          setConfirmPassword("");
+          switchMode("signin");
+          setEmail(email);
         }
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -87,17 +102,31 @@ export default function LoginPage() {
     }
   }
 
+  const heading = {
+    signin: "Welcome back",
+    signup: "Create account",
+    forgot: "Reset password",
+  }[mode];
+
+  const subtitle = {
+    signin: "Sign in to your CoasterTrak account.",
+    signup: "Start tracking every rollercoaster you ride.",
+    forgot: "Enter your email and we\u2019ll send you a reset link.",
+  }[mode];
+
+  const submitLabel = {
+    signin: "Sign in",
+    signup: "Create account",
+    forgot: "Send reset link",
+  }[mode];
+
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-md px-4 py-16">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-xl font-bold text-slate-900">
-            {mode === "signin" ? "Welcome back" : "Create account"}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {mode === "signin" ? "Sign in to your CoasterTrak account." : "Start tracking every rollercoaster you ride."}
-          </p>
+          <h1 className="text-xl font-bold text-slate-900">{heading}</h1>
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
 
           <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-3">
             <input
@@ -109,15 +138,17 @@ export default function LoginPage() {
               autoComplete="email"
               required
             />
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setError(""); }}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              placeholder="Password"
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              required
-            />
+            {mode !== "forgot" && (
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                placeholder="Password"
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                required
+              />
+            )}
             {mode === "signup" && (
               <input
                 type="password"
@@ -130,6 +161,18 @@ export default function LoginPage() {
               />
             )}
 
+            {mode === "signin" && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => switchMode("forgot")}
+                  className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-700"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
             {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
             {info && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{info}</p>}
 
@@ -138,21 +181,32 @@ export default function LoginPage() {
               disabled={loading}
               className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
             >
-              {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+              {loading ? "Please wait\u2026" : submitLabel}
             </button>
           </form>
 
           <p className="mt-5 text-center text-sm text-slate-500">
-            {mode === "signin" ? (
-              <>No account?{" "}
-                <button onClick={() => { setMode("signup"); setError(""); setInfo(""); }} className="font-semibold text-slate-900 underline underline-offset-2">
+            {mode === "signin" && (
+              <>
+                No account?{" "}
+                <button onClick={() => switchMode("signup")} className="font-semibold text-slate-900 underline underline-offset-2">
                   Sign up
                 </button>
               </>
-            ) : (
-              <>Already have an account?{" "}
-                <button onClick={() => { setMode("signin"); setError(""); setInfo(""); }} className="font-semibold text-slate-900 underline underline-offset-2">
+            )}
+            {mode === "signup" && (
+              <>
+                Already have an account?{" "}
+                <button onClick={() => switchMode("signin")} className="font-semibold text-slate-900 underline underline-offset-2">
                   Sign in
+                </button>
+              </>
+            )}
+            {mode === "forgot" && (
+              <>
+                Remember your password?{" "}
+                <button onClick={() => switchMode("signin")} className="font-semibold text-slate-900 underline underline-offset-2">
+                  Back to sign in
                 </button>
               </>
             )}
