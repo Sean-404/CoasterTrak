@@ -182,7 +182,7 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => switchMode("forgot")}
-                  className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-700"
+                  className="cursor-pointer text-xs text-slate-500 underline underline-offset-2 hover:text-amber-600"
                 >
                   Forgot password?
                 </button>
@@ -195,7 +195,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+              className="w-full cursor-pointer rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-wait disabled:opacity-50"
             >
               {loading ? "Please wait\u2026" : submitLabel}
             </button>
@@ -205,7 +205,7 @@ function LoginForm() {
             {mode === "signin" && (
               <>
                 No account?{" "}
-                <button onClick={() => switchMode("signup")} className="font-semibold text-slate-900 underline underline-offset-2">
+                <button onClick={() => switchMode("signup")} className="cursor-pointer font-semibold text-slate-900 underline underline-offset-2 hover:text-amber-600">
                   Sign up
                 </button>
               </>
@@ -213,7 +213,7 @@ function LoginForm() {
             {mode === "signup" && (
               <>
                 Already have an account?{" "}
-                <button onClick={() => switchMode("signin")} className="font-semibold text-slate-900 underline underline-offset-2">
+                <button onClick={() => switchMode("signin")} className="cursor-pointer font-semibold text-slate-900 underline underline-offset-2 hover:text-amber-600">
                   Sign in
                 </button>
               </>
@@ -221,7 +221,7 @@ function LoginForm() {
             {mode === "forgot" && (
               <>
                 Remember your password?{" "}
-                <button onClick={() => switchMode("signin")} className="font-semibold text-slate-900 underline underline-offset-2">
+                <button onClick={() => switchMode("signin")} className="cursor-pointer font-semibold text-slate-900 underline underline-offset-2 hover:text-amber-600">
                   Back to sign in
                 </button>
               </>
