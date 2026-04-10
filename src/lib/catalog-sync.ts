@@ -108,13 +108,16 @@ export async function syncCatalogFromQueueTimes() {
     if (localParksRes.error) throw localParksRes.error;
 
     const localByQueueId = new Map<number, number>();
-    const localByName = new Map<string, number>();
+    const localByName = new Map<string, number>(); // unlinked parks keyed by name
+    const allLocalNames = new Set<string>(); // every park name, to detect truly new ones
 
     for (const park of localParksRes.data ?? []) {
+      const key = park.name.toLowerCase().trim();
+      allLocalNames.add(key);
       if (typeof park.queue_times_park_id === "number") {
         localByQueueId.set(park.queue_times_park_id, park.id);
       } else {
-        localByName.set(park.name.toLowerCase().trim(), park.id);
+        localByName.set(key, park.id);
       }
     }
 
@@ -124,15 +127,41 @@ export async function syncCatalogFromQueueTimes() {
     for (const externalPark of allParks) {
       let localParkId = localByQueueId.get(externalPark.id);
 
-      // Auto-link by name if not yet linked (e.g. Energylandia exists in DB but has no
-      // queue_times_park_id because it was only synced from Kaggle without coordinates).
       if (!localParkId) {
         const nameKey = externalPark.name.toLowerCase().trim();
         const candidateId = localByName.get(nameKey);
-        if (!candidateId) continue;
-        localParkId = candidateId;
-        localByQueueId.set(externalPark.id, localParkId);
-        localByName.delete(nameKey);
+
+        if (candidateId) {
+          // Auto-link an existing unlinked park (e.g. synced from Kaggle without coordinates).
+          localParkId = candidateId;
+          localByQueueId.set(externalPark.id, localParkId);
+          localByName.delete(nameKey);
+        } else if (!allLocalNames.has(nameKey)) {
+          // Park doesn't exist in our DB at all — create it from Queue-Times data.
+          // This covers parks like Energylandia that aren't in the Kaggle dataset.
+          const insertRes = await supabase
+            .from("parks")
+            .insert({
+              name: externalPark.name,
+              country: externalPark.country,
+              latitude: Number.parseFloat(externalPark.latitude),
+              longitude: Number.parseFloat(externalPark.longitude),
+              queue_times_park_id: externalPark.id,
+              external_source: "queue-times",
+              external_id: String(externalPark.id),
+              last_synced_at: new Date().toISOString(),
+            })
+            .select("id")
+            .single();
+          if (insertRes.error) throw insertRes.error;
+          localParkId = insertRes.data.id as number;
+          localByQueueId.set(externalPark.id, localParkId);
+          allLocalNames.add(nameKey);
+          parkUpdates += 1;
+        } else {
+          // Name exists but under a slightly different spelling — skip to avoid duplicates.
+          continue;
+        }
       }
 
       const updatePark = await supabase
