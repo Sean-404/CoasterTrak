@@ -36,7 +36,8 @@ create table if not exists rides (
   id bigint generated always as identity primary key,
   user_id uuid not null references auth.users(id) on delete cascade,
   coaster_id bigint not null references coasters(id) on delete cascade,
-  ridden_at timestamptz not null default now()
+  ridden_at timestamptz not null default now(),
+  unique (user_id, coaster_id)
 );
 
 create table if not exists wishlist (
@@ -63,6 +64,9 @@ create policy "users can read own rides" on rides for select using (auth.uid() =
 
 drop policy if exists "users can create own rides" on rides;
 create policy "users can create own rides" on rides for insert with check (auth.uid() = user_id);
+
+drop policy if exists "users can delete own rides" on rides;
+create policy "users can delete own rides" on rides for delete using (auth.uid() = user_id);
 
 drop policy if exists "users can read own wishlist" on wishlist;
 create policy "users can read own wishlist" on wishlist for select using (auth.uid() = user_id);

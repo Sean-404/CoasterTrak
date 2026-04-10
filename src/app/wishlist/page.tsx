@@ -46,7 +46,7 @@ export default function WishlistPage() {
     if (!supabase || !userId) return;
     setPending((p) => ({ ...p, [coasterId]: "ridden" }));
 
-    await supabase.from("rides").insert({ user_id: userId, coaster_id: coasterId });
+    await supabase.from("rides").upsert({ user_id: userId, coaster_id: coasterId }, { onConflict: "user_id,coaster_id", ignoreDuplicates: true });
     await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
 
     setItems((prev) => prev.filter((i) => i.coaster_id !== coasterId));
@@ -105,12 +105,25 @@ export default function WishlistPage() {
                       <p className="truncate font-semibold text-slate-900">
                         {coaster?.name ?? `Coaster ${item.coaster_id}`}
                       </p>
-                      <p className="mt-0.5 text-sm text-slate-500">
-                        {coaster?.parks?.name && (
-                          <span className="mr-2 text-slate-700">{coaster.parks.name}</span>
+                      {coaster?.parks?.name && (
+                        <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
+                      )}
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {coaster?.coaster_type && (
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                            {coaster.coaster_type}
+                          </span>
                         )}
-                        {coaster?.coaster_type} &middot; {coaster?.status}
-                      </p>
+                        {coaster?.status && (
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            coaster.status === "Operating"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-slate-100 text-slate-500"
+                          }`}>
+                            {coaster.status}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <button

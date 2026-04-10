@@ -35,7 +35,7 @@ export function CoasterActions({ coasterId }: { coasterId: number }) {
     await withUser(async (userId) => {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) return;
-      const { error } = await supabase.from("rides").insert({ user_id: userId, coaster_id: coasterId });
+      const { error } = await supabase.from("rides").upsert({ user_id: userId, coaster_id: coasterId }, { onConflict: "user_id,coaster_id", ignoreDuplicates: true });
       if (error) { setStatus("error"); setErrorMsg(error.message); }
       else setStatus("ridden");
     });

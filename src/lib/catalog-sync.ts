@@ -267,20 +267,31 @@ export async function syncCatalogFromKaggleCsv() {
       const lng = isFinite(rowLng) ? rowLng : 0;
 
       if (!parkId) {
+        // Look up by name first (ignoring country) so a park that already exists
+        // under a correct country isn't duplicated when the CSV has a bad country
+        // value (e.g. "Location = Alton Towers" → inferCountry returns "Alton Towers").
         const existingPark = await supabase
           .from("parks")
-          .select("id")
+          .select("id, country")
           .eq("name", parkName)
-          .eq("country", country)
+          .order("id", { ascending: true })
+          .limit(1)
           .maybeSingle();
         if (existingPark.error) throw existingPark.error;
 
         if (existingPark.data?.id) {
           parkId = existingPark.data.id;
-          // Update coordinates if we now have real ones
-          if (lat !== 0 || lng !== 0) {
-            await supabase.from("parks").update({ latitude: lat, longitude: lng, last_synced_at: new Date().toISOString() }).eq("id", parkId);
+          const updates: Record<string, unknown> = { last_synced_at: new Date().toISOString() };
+          // Only overwrite the stored country when the inferred one looks like a real
+          // country (i.e. it differs from the park name itself).
+          if (country !== parkName && country !== "Unknown" && existingPark.data.country === parkName) {
+            updates.country = country;
           }
+          if (lat !== 0 || lng !== 0) {
+            updates.latitude = lat;
+            updates.longitude = lng;
+          }
+          await supabase.from("parks").update(updates).eq("id", parkId);
         } else {
           const insertedPark = await supabase
             .from("parks")
