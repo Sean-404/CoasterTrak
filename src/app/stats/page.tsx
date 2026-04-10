@@ -93,7 +93,22 @@ export default function StatsPage() {
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [uniqueRides]);
 
-  async function removeRide(coasterId: number) {
+  const [removingWish, setRemovingWish] = useState<number | null>(null);
+
+  async function removeWishlistItem(coasterId: number, name: string) {
+    if (!confirm(`Remove "${name}" from your wishlist?`)) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !userId || removingWish !== null) return;
+    setRemovingWish(coasterId);
+    const { error } = await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+    if (!error) {
+      setWishlist((prev) => prev.filter((i) => i.coaster_id !== coasterId));
+    }
+    setRemovingWish(null);
+  }
+
+  async function removeRide(coasterId: number, name: string) {
+    if (!confirm(`Remove "${name}" from your ridden list?`)) return;
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId || removing !== null) return;
     setRemoving(coasterId);
@@ -157,7 +172,7 @@ export default function StatsPage() {
                         </p>
                       </div>
                       <button
-                        onClick={() => removeRide(ride.coaster_id)}
+                        onClick={() => removeRide(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
                         disabled={removing === ride.coaster_id}
                         title="Remove ride"
                         className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
@@ -214,11 +229,30 @@ export default function StatsPage() {
                 ) : (
                   <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
                     {wishlist.map((item, i) => (
-                      <li key={`${item.coaster_id}-${i}`} className="border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                        <p className="text-sm font-medium text-slate-900">
-                          {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
-                        </p>
-                        <p className="text-xs text-slate-500">{item.coasters?.parks?.name}</p>
+                      <li key={`${item.coaster_id}-${i}`} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900">
+                            {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
+                          </p>
+                          <p className="text-xs text-slate-500">{item.coasters?.parks?.name}</p>
+                        </div>
+                        <button
+                          onClick={() => removeWishlistItem(item.coaster_id, cleanCoasterName(item.coasters?.name ?? "this ride"))}
+                          disabled={removingWish === item.coaster_id}
+                          title="Remove from wishlist"
+                          className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
+                        >
+                          {removingWish === item.coaster_id ? (
+                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                          ) : (
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
                       </li>
                     ))}
                   </ul>
