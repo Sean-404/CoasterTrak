@@ -102,14 +102,19 @@ export async function syncCatalogFromQueueTimes() {
     const parkGroups = (await parksRes.json()) as QueueTimesParkGroup[];
     const allParks = parkGroups.flatMap((g) => g.parks ?? []);
 
-    // Keep scope controlled for free tier: sync only parks already in our DB by queue_times_park_id.
-    const localParksRes = await supabase.from("parks").select("id, queue_times_park_id");
+    // Fetch all local parks: those already linked by queue_times_park_id, and those without
+    // one (candidates for auto-linking by name match against Queue-Times data).
+    const localParksRes = await supabase.from("parks").select("id, name, queue_times_park_id");
     if (localParksRes.error) throw localParksRes.error;
 
     const localByQueueId = new Map<number, number>();
+    const localByName = new Map<string, number>();
+
     for (const park of localParksRes.data ?? []) {
       if (typeof park.queue_times_park_id === "number") {
         localByQueueId.set(park.queue_times_park_id, park.id);
+      } else {
+        localByName.set(park.name.toLowerCase().trim(), park.id);
       }
     }
 
@@ -117,12 +122,23 @@ export async function syncCatalogFromQueueTimes() {
     let parkUpdates = 0;
 
     for (const externalPark of allParks) {
-      const localParkId = localByQueueId.get(externalPark.id);
-      if (!localParkId) continue;
+      let localParkId = localByQueueId.get(externalPark.id);
+
+      // Auto-link by name if not yet linked (e.g. Energylandia exists in DB but has no
+      // queue_times_park_id because it was only synced from Kaggle without coordinates).
+      if (!localParkId) {
+        const nameKey = externalPark.name.toLowerCase().trim();
+        const candidateId = localByName.get(nameKey);
+        if (!candidateId) continue;
+        localParkId = candidateId;
+        localByQueueId.set(externalPark.id, localParkId);
+        localByName.delete(nameKey);
+      }
 
       const updatePark = await supabase
         .from("parks")
         .update({
+          queue_times_park_id: externalPark.id,
           external_source: "queue-times",
           external_id: String(externalPark.id),
           latitude: Number.parseFloat(externalPark.latitude),
