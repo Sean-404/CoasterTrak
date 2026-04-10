@@ -63,19 +63,53 @@ export default function MapPage() {
     });
   }, [parks]);
 
+  // Merge duplicate parks that share the same name (different sync sources produce separate rows).
+  // The merged park keeps the queue_times_park_id from whichever entry has one, and adopts
+  // coordinates from that same entry (Queue-Times coords tend to be more accurate).
+  const deduplicatedParks = useMemo(() => {
+    const byName = new Map<string, Park>();
+    const idRemap = new Map<number, number>();
+
+    for (const park of parks) {
+      const key = park.name.toLowerCase().trim();
+      const existing = byName.get(key);
+      if (!existing) {
+        byName.set(key, { ...park });
+      } else {
+        idRemap.set(park.id, existing.id);
+        if (!existing.queue_times_park_id && park.queue_times_park_id) {
+          existing.queue_times_park_id = park.queue_times_park_id;
+          existing.latitude = park.latitude;
+          existing.longitude = park.longitude;
+        }
+      }
+    }
+
+    return { parks: Array.from(byName.values()), idRemap };
+  }, [parks]);
+
+  const remappedCoasters = useMemo(() => {
+    const { idRemap } = deduplicatedParks;
+    if (!idRemap.size) return coasters;
+    return coasters.map((c) => {
+      const canonical = idRemap.get(c.park_id);
+      return canonical ? { ...c, park_id: canonical } : c;
+    });
+  }, [coasters, deduplicatedParks]);
+
   const filteredParks = useMemo(() => {
     const term = search.toLowerCase();
-    return parks.filter((park) => {
+    return deduplicatedParks.parks.filter((park) => {
       if (park.latitude === 0 && park.longitude === 0) return false;
       const byContinent = continent === "All" || getContinent(park.latitude, park.longitude) === continent;
-      const coasterNames = coasters
+      const coasterNames = remappedCoasters
         .filter((c) => c.park_id === park.id)
         .map((c) => c.name.toLowerCase())
         .join(" ");
       const bySearch = !term || park.name.toLowerCase().includes(term) || coasterNames.includes(term);
       return byContinent && bySearch;
     });
-  }, [continent, search, parks, coasters]);
+  }, [continent, search, deduplicatedParks, remappedCoasters]);
 
   return (
     <div className="min-h-screen">
@@ -105,7 +139,7 @@ export default function MapPage() {
             ))}
           </div>
         </div>
-        <ParkMap parks={filteredParks} coasters={coasters} queueTimesByParkId={queueTimesByParkId} />
+        <ParkMap parks={filteredParks} coasters={remappedCoasters} queueTimesByParkId={queueTimesByParkId} />
         <p className="mt-3 text-xs text-slate-500">
           Queue data powered by{" "}
           <a className="underline" href="https://queue-times.com/" target="_blank" rel="noreferrer">
