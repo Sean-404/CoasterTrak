@@ -98,23 +98,28 @@ function ParkPopupContent({
         {visible.length === 0 && <p className="text-xs text-slate-400">No matches</p>}
         {visible.map((coaster) => {
           const queueRide = queueByName.get(normalizeRideName(coaster.name));
+          const isOpen = queueRide ? queueRide.isOpen : coaster.status === "Operating";
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold leading-tight text-slate-900">{cleanCoasterName(coaster.name)}</p>
-                {queueRide && (
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    queueRide.isOpen
-                      ? "bg-green-100 text-green-700"
-                      : "bg-slate-100 text-slate-500"
+              <p className="text-sm font-semibold leading-tight text-slate-900">{cleanCoasterName(coaster.name)}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {coaster.coaster_type && coaster.coaster_type !== "Unknown" && (
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                    {coaster.coaster_type}
+                  </span>
+                )}
+                {queueRide?.isOpen ? (
+                  <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
+                    {queueRide.waitTime} min
+                  </span>
+                ) : (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                    isOpen ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
                   }`}>
-                    {queueRide.isOpen ? `${queueRide.waitTime} min` : "Closed"}
+                    {isOpen ? "Open" : "Closed"}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">
-                {coaster.coaster_type} · {coaster.status}
-              </p>
               <CoasterActions coasterId={coaster.id} />
             </div>
           );
