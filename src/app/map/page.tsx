@@ -23,11 +23,14 @@ type Continent = (typeof CONTINENTS)[number];
 function getContinent(lat: number, lng: number): Continent {
   if (lat > 15 && lat < 72 && lng > -168 && lng < -52) return "North America";
   if (lat > -56 && lat < 15 && lng > -82 && lng < -34) return "South America";
+  // Europe before Asia so Turkey/western Russia stay in Europe
   if (lat > 34 && lat < 72 && lng > -25 && lng < 40) return "Europe";
-  if (lat > -35 && lat < 37 && lng > -18 && lng < 52) return "Africa";
   if (lat > -47 && lat < -10 && lng > 110 && lng < 180) return "Oceania";
+  // Asia before Africa — Middle East (Saudi, UAE, Qatar) overlaps Africa's bbox
+  // and must be caught here first
   if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
-  return "Europe";
+  if (lat > -35 && lat < 38 && lng > -18 && lng < 52) return "Africa";
+  return "Africa"; // remaining unmatched coords are most likely African
 }
 
 export default function MapPage() {
