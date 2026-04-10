@@ -69,6 +69,19 @@ const KNOWN_COUNTRIES = new Set([
   "u.s.", "usa", "uk", "uae",
 ]);
 
+// Queue-Times and Kaggle sometimes use regions/states instead of countries.
+const REGION_TO_COUNTRY: Record<string, string> = {
+  "england": "United Kingdom", "scotland": "United Kingdom",
+  "wales": "United Kingdom", "northern ireland": "United Kingdom",
+  "bavaria": "Germany", "catalonia": "Spain",
+  "queensland": "Australia", "new south wales": "Australia", "victoria": "Australia",
+  "ontario": "Canada", "quebec": "Canada", "british columbia": "Canada",
+};
+
+function normalizeCountry(country: string): string {
+  return REGION_TO_COUNTRY[country.toLowerCase()] ?? country;
+}
+
 function inferCountry(location: string, parkName?: string) {
   if (!location) return "Unknown";
   const parts = location.split(",").map((part) => part.trim()).filter(Boolean);
@@ -166,7 +179,7 @@ export async function syncCatalogFromQueueTimes() {
             .from("parks")
             .insert({
               name: externalPark.name,
-              country: externalPark.country,
+              country: normalizeCountry(externalPark.country),
               latitude: Number.parseFloat(externalPark.latitude),
               longitude: Number.parseFloat(externalPark.longitude),
               queue_times_park_id: externalPark.id,
@@ -281,7 +294,7 @@ export async function syncCatalogFromKaggleCsv() {
       const locationField = pickValue(row, ["country", "Country", "Location", "location"]);
       if (!coasterName || !parkName) continue;
 
-      const country = inferCountry(locationField, parkName);
+      const country = normalizeCountry(inferCountry(locationField, parkName));
       const parkKey = `${parkName}::${country}`.toLowerCase();
       let parkId: number | null = parksByKey.get(parkKey) ?? null;
 
