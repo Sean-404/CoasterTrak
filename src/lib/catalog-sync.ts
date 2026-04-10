@@ -53,6 +53,9 @@ function pickValue(row: KaggleRow, keys: string[]) {
   return "";
 }
 
+// Includes both abbreviations and full names (e.g. "uk" + "united kingdom")
+// because the Kaggle CSV uses both forms inconsistently. This set is only used
+// to validate whether a string looks like a real country — not to normalize it.
 const KNOWN_COUNTRIES = new Set([
   "united states", "united kingdom", "canada", "mexico", "germany", "france",
   "spain", "italy", "netherlands", "belgium", "austria", "switzerland",
