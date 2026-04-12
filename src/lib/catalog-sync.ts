@@ -28,10 +28,12 @@ type KaggleRow = Record<string, string>;
 
 function normalizeType(name: string) {
   const lower = name.toLowerCase();
-  if (lower.includes("wood")) return "Wood";
+  if (lower.includes("wood") || lower.includes("timber") || lower.includes("wooden")) return "Wood";
   if (lower.includes("invert")) return "Inverted";
-  if (lower.includes("launch")) return "Launch";
-  if (lower.includes("hyper") || lower.includes("giga")) return "Steel";
+  if (lower.includes("launch") || lower.includes("catapult")) return "Launch";
+  if (lower.includes("flying")) return "Steel";
+  if (lower.includes("hybrid") || lower.includes("rmc")) return "Hybrid";
+  if (lower.includes("hyper") || lower.includes("giga") || lower.includes("strata")) return "Steel";
   return "Unknown";
 }
 

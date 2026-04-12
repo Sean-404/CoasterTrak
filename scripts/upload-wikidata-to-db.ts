@@ -48,6 +48,7 @@ type DbCoaster = {
   id: number;
   name: string;
   park_id: number;
+  coaster_type: string | null;
   manufacturer: string | null;
   parks: { name: string; country: string } | null;
 };
@@ -71,6 +72,7 @@ type CoasterUpdate = {
   closing_year?: number;
   status?: string;
   manufacturer?: string;
+  coaster_type?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -109,6 +111,57 @@ function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
     }
   }
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// Coaster type inference
+// ---------------------------------------------------------------------------
+
+/** Manufacturers that exclusively or primarily build wooden coasters. */
+const WOOD_MANUFACTURERS = new Set([
+  "great coasters international",
+  "gravity group",
+  "the gravity group",
+  "philadelphia toboggan coasters",
+  "philadelphia toboggan company",
+  "national amusement device",
+  "custom coasters international",
+  "international coasters",
+  "martin & vleminckx",
+  "dinn corporation",
+  "prior & church",
+  "run & fun",
+]);
+
+/** Manufacturers that build RMC-style hybrid (steel rail on wood/steel frame) coasters. */
+const HYBRID_MANUFACTURERS = new Set([
+  "rocky mountain construction",
+]);
+
+/**
+ * Derive a normalised coaster_type string from the Wikidata class label
+ * (e.g. "wooden roller coaster") with a manufacturer-based fallback.
+ * Returns undefined when we can't determine type (so the DB is left unchanged).
+ */
+function inferCoasterType(
+  clsLabel: string | null | undefined,
+  manufacturer: string | null | undefined,
+): string | undefined {
+  const cls = (clsLabel ?? "").toLowerCase();
+  if (cls.includes("wooden") || cls.includes("wood")) return "Wood";
+  if (cls.includes("hybrid")) return "Hybrid";
+  if (cls.includes("steel")) return "Steel";
+  if (cls.includes("inverted")) return "Inverted";
+  if (cls.includes("launch")) return "Launch";
+  if (cls.includes("flying")) return "Steel";   // flying coasters are steel
+
+  // Manufacturer fallback
+  const mfr = (manufacturer ?? "").toLowerCase();
+  if (!mfr) return undefined;
+  if (WOOD_MANUFACTURERS.has(mfr)) return "Wood";
+  if (HYBRID_MANUFACTURERS.has(mfr)) return "Hybrid";
+  // Every other known manufacturer makes steel coasters
+  return "Steel";
 }
 
 /** Haversine distance in km between two lat/lon points. */
@@ -183,7 +236,7 @@ async function main() {
   console.error("Loading coasters from Supabase...");
   const { data: dbCoasters, error: dbErr } = await supabase
     .from("coasters")
-    .select("id, name, park_id, manufacturer, parks(name, country)");
+    .select("id, name, park_id, coaster_type, manufacturer, parks(name, country)");
   if (dbErr) {
     console.error("Supabase error:", dbErr.message);
     process.exit(1);
@@ -229,6 +282,12 @@ async function main() {
     const dbManufacturer = match.manufacturer ?? null;
     if (!dbManufacturer && wd.manufacturerLabel) {
       update.manufacturer = wd.manufacturerLabel;
+    }
+
+    // Fill coaster_type when DB has "Unknown" (or null)
+    const inferredType = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel);
+    if (inferredType && (!match.coaster_type || match.coaster_type === "Unknown")) {
+      update.coaster_type = inferredType;
     }
 
     updates.push(update);
@@ -344,7 +403,7 @@ async function main() {
       name: wd.label,
       wikidata_id: wd.wikidataId,
       status: wd.status === "defunct" ? "Defunct" : "Open",
-      coaster_type: "Unknown",
+      coaster_type: inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown",
       length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
       speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
       height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,

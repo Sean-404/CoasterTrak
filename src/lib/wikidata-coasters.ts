@@ -20,6 +20,7 @@ PREFIX wikibase: <http://wikiba.se/ontology#>
 PREFIX schema: <http://schema.org/>
 
 SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
+  ?clsLabel
   ?lengthM ?speedMs ?heightM ?durationS
   ?opening ?retirement ?demolished ?rcdbId ?enwiki
 WHERE {
@@ -124,6 +125,8 @@ export type WikidataCoasterRow = {
   speedMph: number | null;
   lengthFt: number | null;
   heightFt: number | null;
+  /** Wikidata P31 class label, e.g. "wooden roller coaster", "steel roller coaster" */
+  coasterTypeLabel: string | null;
   /** Filled by Wikipedia infobox enrichment (rare on Wikidata) */
   inversions: number | null;
 };
@@ -202,6 +205,7 @@ export function bindingsToRow(
     speedMph,
     lengthFt,
     heightFt,
+    coasterTypeLabel: bindingLiteral(b.clsLabel) ?? null,
     inversions: null,
   };
 }
