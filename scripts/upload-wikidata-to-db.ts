@@ -16,8 +16,10 @@ import { resolve } from "node:path";
 import { arg, runMain } from "./lib/cli";
 import { createServiceRoleClient } from "./lib/supabase-service";
 import { normalizeCoasterDedupKey } from "../src/lib/coaster-dedup";
+import { reconcileCountryWithCoords } from "../src/lib/geo-country";
 import { haversineKm } from "../src/lib/geo";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
+import { parkNamesMatch } from "../src/lib/park-match";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import {
   inferCoasterType,
@@ -166,17 +168,82 @@ function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
   return map;
 }
 
-/** Find the nearest DB park within maxKm, or undefined. */
+/**
+ * Resolve Wikidata `parkLabel` to a DB park row: exact name index first, then
+ * `parkNamesMatch` (substring / token overlap — same idea as `wikidata-catalog-sync`).
+ * Multiple fuzzy hits: prefer closest coordinates + country alignment.
+ */
+function findParkForWikidataInsert(
+  wd: WikidataCoasterRow,
+  parkByName: Map<string, DbPark>,
+  allDbParks: DbPark[],
+): DbPark | undefined {
+  const label = wd.parkLabel?.trim();
+  if (!label) return undefined;
+
+  const direct = parkByName.get(label.toLowerCase());
+  if (direct) return direct;
+
+  const matches = allDbParks.filter((p) => parkNamesMatch(label, p.name));
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+
+  const lat = wd.latitude ?? null;
+  const lon = wd.longitude ?? null;
+  const countryHint = wd.countryLabel;
+
+  if (lat != null && lon != null) {
+    let best: DbPark | undefined;
+    let bestD = Infinity;
+    for (const p of matches) {
+      if (p.latitude == null || p.longitude == null) continue;
+      if (!countryAlignedWithWikidata(countryHint, p)) continue;
+      const d = haversineKm(lat, lon, p.latitude, p.longitude);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    if (best != null) return best;
+  }
+
+  for (const p of matches) {
+    if (countryAlignedWithWikidata(countryHint, p)) return p;
+  }
+  return matches[0];
+}
+
+function countryAlignedWithWikidata(
+  wdCountry: string | null | undefined,
+  park: DbPark,
+): boolean {
+  if (!wdCountry?.trim()) return true;
+  const w = wdCountry.trim().toLowerCase();
+  const resolved = reconcileCountryWithCoords(park.country, park.latitude, park.longitude)
+    .trim()
+    .toLowerCase();
+  if (!resolved || resolved === "unknown") return true;
+  return w === resolved || w.includes(resolved) || resolved.includes(w);
+}
+
+/**
+ * Nearest DB park within maxKm. When `requireCountryLabel` is set, only parks whose
+ * reconciled country matches the Wikidata ride (avoids snapping to a wrong resort in dense regions).
+ */
 function nearestPark(
   lat: number,
   lon: number,
   parks: DbPark[],
-  maxKm = 2,
+  maxKm: number,
+  opts?: { requireCountryLabel?: string | null },
 ): DbPark | undefined {
   let best: DbPark | undefined;
   let bestDist = maxKm;
   for (const p of parks) {
     if (p.latitude == null || p.longitude == null) continue;
+    if (opts?.requireCountryLabel != null && opts.requireCountryLabel !== "") {
+      if (!countryAlignedWithWikidata(opts.requireCountryLabel, p)) continue;
+    }
     const d = haversineKm(lat, lon, p.latitude, p.longitude);
     if (d < bestDist) {
       bestDist = d;
@@ -507,13 +574,18 @@ async function main() {
   for (const wd of unmatched) {
     if (!wd.parkLabel) continue;
 
-    // Primary: exact park name match
-    let park = parkByName.get(wd.parkLabel.toLowerCase().trim());
+    // Primary: exact name index, else fuzzy park name match (no per-resort hardcoding)
+    let park = findParkForWikidataInsert(wd, parkByName, allDbParks);
 
-    // Fallback: nearest DB park by coordinates (handles sub-area names like
-    // "Marvel Super Hero Island" → "Islands of Adventure")
+    // Fallback: nearest DB park by coordinates (tight radius first)
     if (!park && wd.latitude != null && wd.longitude != null) {
-      park = nearestPark(wd.latitude, wd.longitude, allDbParks);
+      park = nearestPark(wd.latitude, wd.longitude, allDbParks, 2);
+    }
+    // Large resorts / name mismatches: same country only (e.g. Qiddiya vs "Six Flags Qiddiya City")
+    if (!park && wd.latitude != null && wd.longitude != null) {
+      park = nearestPark(wd.latitude, wd.longitude, allDbParks, 35, {
+        requireCountryLabel: wd.countryLabel ?? null,
+      });
     }
 
     if (!park) continue; // park not in our DB — skip

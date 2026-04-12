@@ -187,7 +187,7 @@ export async function syncCatalogFromWikidata() {
           parkName,
           centroid.lat,
           centroid.lng,
-          12,
+          32,
         );
         if (linked) {
           parkId = linked.id;
