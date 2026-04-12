@@ -7,6 +7,7 @@ import { sampleCoasters, sampleParks } from "@/lib/sample-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { useUnits } from "@/hooks/use-units";
+import { UnitsToggle } from "@/components/units-toggle";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
 
@@ -40,7 +41,7 @@ export default function MapPage() {
   const [queueTimesByParkId, setQueueTimesByParkId] = useState<Record<number, QueueRide[]>>({});
   const [continent, setContinent] = useState<Continent>("All");
   const [search, setSearch] = useState("");
-  const { units, toggle: toggleUnits } = useUnits();
+  const { units, setUnits } = useUnits();
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -155,12 +156,7 @@ export default function MapPage() {
             aria-label="Search by park or coaster"
             className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
           />
-          <button
-            onClick={toggleUnits}
-            className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-slate-500 transition-colors whitespace-nowrap"
-          >
-            {units === "imperial" ? "Switch to metric" : "Switch to imperial"}
-          </button>
+          <UnitsToggle units={units} onChange={setUnits} />
           <div className="flex gap-1 flex-wrap">
             {CONTINENTS.map((c) => (
               <button

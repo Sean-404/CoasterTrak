@@ -1,19 +1,32 @@
-export type Units = "imperial" | "metric";
+/** imperial = ft + mph | mixed-ft = ft + km/h | mixed-m = m + mph | metric = m + km/h */
+export type Units = "imperial" | "mixed-ft" | "mixed-m" | "metric";
+
+export const UNITS_CYCLE: Units[] = ["imperial", "mixed-ft", "mixed-m", "metric"];
+
+export const UNITS_LABEL: Record<Units, string> = {
+  imperial: "ft / mph",
+  "mixed-ft": "ft / km/h",
+  "mixed-m": "m / mph",
+  metric: "m / km/h",
+};
+
+const useMetres = (units: Units) => units === "metric" || units === "mixed-m";
+const useMph = (units: Units) => units === "imperial" || units === "mixed-m";
 
 export function fmtLength(ft: number | null | undefined, units: Units): string | null {
   if (ft == null) return null;
-  if (units === "metric") return `${Math.round(ft * 0.3048).toLocaleString()} m`;
+  if (useMetres(units)) return `${Math.round(ft * 0.3048).toLocaleString()} m`;
   return `${ft.toLocaleString()} ft`;
 }
 
 export function fmtHeight(ft: number | null | undefined, units: Units): string | null {
   if (ft == null) return null;
-  if (units === "metric") return `${Math.round(ft * 0.3048)} m`;
+  if (useMetres(units)) return `${Math.round(ft * 0.3048)} m`;
   return `${ft} ft`;
 }
 
 export function fmtSpeed(mph: number | null | undefined, units: Units): string | null {
   if (mph == null) return null;
-  if (units === "metric") return `${Math.round(mph * 1.60934)} km/h`;
-  return `${mph} mph`;
+  if (useMph(units)) return `${mph} mph`;
+  return `${Math.round(mph * 1.60934)} km/h`;
 }

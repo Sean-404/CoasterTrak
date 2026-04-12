@@ -7,6 +7,7 @@ import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/hooks/use-units";
 import { fmtLength, fmtHeight, fmtSpeed } from "@/lib/units";
+import { UnitsToggle } from "@/components/units-toggle";
 
 type RideCoaster = {
   name: string;
@@ -41,7 +42,7 @@ export default function StatsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState(false);
-  const { units, toggle: toggleUnits } = useUnits();
+  const { units, setUnits } = useUnits();
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -227,12 +228,7 @@ export default function StatsPage() {
             <div className="mt-6">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-semibold text-slate-900">Personal records</h2>
-                <button
-                  onClick={toggleUnits}
-                  className="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-slate-400 transition-colors"
-                >
-                  {units === "imperial" ? "ft / mph" : "m / km/h"}
-                </button>
+                <UnitsToggle units={units} onChange={setUnits} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {(
