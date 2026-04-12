@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated Wikidata / merge outputs (regenerate with npm run wikidata:fetch)
+data/wikidata_coasters.json
+data/wikidata_sample.json
+data/wikidata_test_enriched.json
+data/coaster_wikidata_matches.json
+data/coaster_wikidata_matches_sample.json

@@ -14,6 +14,14 @@ export type Coaster = {
   coaster_type: string;
   manufacturer?: string | null;
   status: string;
+  /** Wikidata / Wikipedia enrichment fields (nullable until synced) */
+  wikidata_id?: string | null;
+  length_ft?: number | null;
+  speed_mph?: number | null;
+  height_ft?: number | null;
+  inversions?: number | null;
+  opening_year?: number | null;
+  closing_year?: number | null;
 };
 
 export type CoasterWithPark = Coaster & {

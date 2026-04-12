@@ -6,14 +6,20 @@ import { SiteHeader } from "@/components/site-header";
 import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
+type RideCoaster = {
+  name: string;
+  coaster_type: string;
+  manufacturer: string | null;
+  length_ft: number | null;
+  speed_mph: number | null;
+  height_ft: number | null;
+  inversions: number | null;
+  parks?: { name: string; country: string } | null;
+};
+
 type RideRow = {
   coaster_id: number;
-  coasters?: {
-    name: string;
-    coaster_type: string;
-    manufacturer: string | null;
-    parks?: { name: string; country: string } | null;
-  } | null;
+  coasters?: RideCoaster | null;
 };
 
 type WishlistRow = {
@@ -45,7 +51,7 @@ export default function StatsPage() {
       const [ridesRes, wishRes] = await Promise.all([
         supabase
           .from("rides")
-          .select("coaster_id, coasters(name, coaster_type, manufacturer, parks(name, country))")
+          .select("coaster_id, coasters(name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, parks(name, country))")
           .eq("user_id", data.user.id),
         supabase
           .from("wishlist")
@@ -94,6 +100,36 @@ export default function StatsPage() {
     }
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [uniqueRides]);
+
+  type RecordEntry = { name: string; park: string; value: number };
+
+  const personalRecords = useMemo(() => {
+    function best(
+      field: keyof Pick<RideCoaster, "length_ft" | "speed_mph" | "height_ft" | "inversions">,
+    ): RecordEntry | null {
+      let top: RecordEntry | null = null;
+      for (const r of uniqueRides) {
+        const v = r.coasters?.[field];
+        if (v == null) continue;
+        if (top === null || v > top.value) {
+          top = {
+            name: cleanCoasterName(r.coasters?.name ?? ""),
+            park: r.coasters?.parks?.name ?? "",
+            value: v,
+          };
+        }
+      }
+      return top;
+    }
+    return {
+      longest: best("length_ft"),
+      tallest: best("height_ft"),
+      fastest: best("speed_mph"),
+      mostInversions: best("inversions"),
+    };
+  }, [uniqueRides]);
+
+  const hasAnyRecord = Object.values(personalRecords).some(Boolean);
 
   const [rideFilter, setRideFilter] = useState("");
   const [wishFilter, setWishFilter] = useState("");
@@ -182,6 +218,83 @@ export default function StatsPage() {
               </div>
             ))}
           </div>
+
+          {/* Personal records */}
+          {(loading || hasAnyRecord) && (
+            <div className="mt-6">
+              <h2 className="mb-3 font-semibold text-slate-900">Personal records</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {(
+                  [
+                    {
+                      key: "longest",
+                      label: "Longest",
+                      record: personalRecords.longest,
+                      format: (v: number) => `${v.toLocaleString()} ft`,
+                      icon: (
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M12.293 2.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 8H3a1 1 0 010-2h11.586l-2.293-2.293a1 1 0 010-1.414zM7.707 10.293a1 1 0 010 1.414L5.414 14H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      key: "tallest",
+                      label: "Tallest",
+                      record: personalRecords.tallest,
+                      format: (v: number) => `${v} ft`,
+                      icon: (
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v10.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V4a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      key: "fastest",
+                      label: "Fastest",
+                      record: personalRecords.fastest,
+                      format: (v: number) => `${v} mph`,
+                      icon: (
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      key: "mostInversions",
+                      label: "Most inversions",
+                      record: personalRecords.mostInversions,
+                      format: (v: number) => `${v}`,
+                      icon: (
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                  ] as const
+                ).map(({ key, label, record, format, icon }) => (
+                  <div key={key} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center gap-2 text-amber-500">
+                      {icon}
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
+                    </div>
+                    {loading ? (
+                      <p className="mt-2 text-slate-300">&mdash;</p>
+                    ) : record ? (
+                      <>
+                        <p className="mt-2 text-2xl font-bold text-slate-900">{format(record.value)}</p>
+                        <p className="mt-0.5 truncate text-xs font-medium text-slate-700">{record.name}</p>
+                        {record.park && (
+                          <p className="truncate text-xs text-slate-400">{record.park}</p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-400">—</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-6 grid gap-5 lg:grid-cols-2">
             {/* Rides ridden */}

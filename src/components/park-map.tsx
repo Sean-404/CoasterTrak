@@ -98,7 +98,15 @@ function ParkPopupContent({
         {visible.length === 0 && <p className="text-xs text-slate-400">No matches</p>}
         {visible.map((coaster) => {
           const queueRide = queueByName.get(normalizeRideName(coaster.name));
-          const isOpen = queueRide ? queueRide.isOpen : coaster.status === "Operating";
+          const isDefunct = coaster.status === "Defunct";
+          const isOpen = !isDefunct && (queueRide ? queueRide.isOpen : coaster.status === "Operating");
+
+          const stats: string[] = [];
+          if (coaster.length_ft) stats.push(`${coaster.length_ft.toLocaleString()} ft`);
+          if (coaster.speed_mph) stats.push(`${coaster.speed_mph} mph`);
+          if (coaster.height_ft) stats.push(`${coaster.height_ft} ft tall`);
+          if (coaster.inversions != null) stats.push(`${coaster.inversions} inv`);
+
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">
               <p className="text-sm font-semibold leading-tight text-slate-900">{cleanCoasterName(coaster.name)}</p>
@@ -113,7 +121,11 @@ function ParkPopupContent({
                     {coaster.manufacturer}
                   </span>
                 )}
-                {queueRide?.isOpen ? (
+                {isDefunct ? (
+                  <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+                    Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
+                  </span>
+                ) : queueRide?.isOpen ? (
                   <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
                     {queueRide.waitTime} min
                   </span>
@@ -125,7 +137,10 @@ function ParkPopupContent({
                   </span>
                 )}
               </div>
-              <CoasterActions coasterId={coaster.id} />
+              {stats.length > 0 && (
+                <p className="mt-1 text-[10px] text-slate-400">{stats.join(" · ")}</p>
+              )}
+              <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
             </div>
           );
         })}

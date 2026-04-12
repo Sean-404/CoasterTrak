@@ -7,10 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "wikidata:fetch": "tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 200",
+    "wikidata:reenrich": "tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000",
+    "wikidata:merge": "tsx scripts/merge-wikidata-coasters.ts",
+    "wikidata:upload": "tsx --env-file=.env.local scripts/upload-wikidata-to-db.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.1",
+    "cheerio": "^1.2.0",
     "leaflet": "^1.9.4",
     "next": "^16.2.2",
     "papaparse": "^5.5.3",
@@ -30,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.2.2",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

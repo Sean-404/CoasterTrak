@@ -20,6 +20,14 @@ create table if not exists coasters (
   external_source text,
   external_id text,
   last_synced_at timestamptz,
+  -- Wikidata / Wikipedia enrichment (nullable; populated by wikidata:upload)
+  wikidata_id   text,
+  length_ft     integer,
+  speed_mph     integer,
+  height_ft     integer,
+  inversions    integer,
+  opening_year  integer,
+  closing_year  integer,
   unique (park_id, name)
 );
 

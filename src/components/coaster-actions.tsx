@@ -5,7 +5,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type Status = "loading" | "idle" | "loading-wishlist" | "loading-ridden" | "wishlisted" | "ridden" | "error";
 
-export function CoasterActions({ coasterId }: { coasterId: number }) {
+export function CoasterActions({
+  coasterId,
+  disableWishlist = false,
+}: {
+  coasterId: number;
+  disableWishlist?: boolean;
+}) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [alreadyRidden, setAlreadyRidden] = useState(false);
@@ -93,7 +99,7 @@ export function CoasterActions({ coasterId }: { coasterId: number }) {
           {alreadyWishlisted && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Wishlisted</span>
           )}
-          {!alreadyWishlisted && !alreadyRidden && (
+          {!disableWishlist && !alreadyWishlisted && !alreadyRidden && (
             <button
               onClick={addWishlist}
               disabled={busy}
