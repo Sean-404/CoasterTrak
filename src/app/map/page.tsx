@@ -13,6 +13,7 @@ import {
   parkNamesMatch,
   snapOrphanCoastersToDisplayParks,
 } from "@/lib/park-match";
+import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
 
@@ -68,10 +69,23 @@ export default function MapPage() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
 
-    Promise.all([supabase.from("parks").select("*"), supabase.from("coasters").select("*")]).then(([parksRes, coastersRes]) => {
-      if (!parksRes.error && parksRes.data?.length) setParks(parksRes.data.map(fixUsParkLongitude));
-      if (!coastersRes.error && coastersRes.data?.length) setCoasters(coastersRes.data);
-    });
+    let cancelled = false;
+    void (async () => {
+      const [parksRes, coastersRes] = await Promise.all([
+        fetchAllPages<Park>(SUPABASE_PAGE_SIZE, (from, to) =>
+          supabase.from("parks").select("*").order("id", { ascending: true }).range(from, to),
+        ),
+        fetchAllPages<Coaster>(SUPABASE_PAGE_SIZE, (from, to) =>
+          supabase.from("coasters").select("*").order("id", { ascending: true }).range(from, to),
+        ),
+      ]);
+      if (cancelled) return;
+      if (!parksRes.error && parksRes.data.length) setParks(parksRes.data.map(fixUsParkLongitude));
+      if (!coastersRes.error && coastersRes.data.length) setCoasters(coastersRes.data);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {

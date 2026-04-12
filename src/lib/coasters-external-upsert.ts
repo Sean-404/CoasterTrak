@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 
 /**
  * Insert or update coasters by (park_id, external_source, external_id) without PostgREST
@@ -11,15 +12,24 @@ export async function upsertCoastersByExternalKeys(
   if (!rows.length) return;
 
   const parkIds = [...new Set(rows.map((r) => Number(r.park_id)))];
-  const { data: existing, error: selErr } = await supabase
-    .from("coasters")
-    .select("id, park_id, external_source, external_id")
-    .in("park_id", parkIds);
+  const { data: existing, error: selErr } = await fetchAllPages<{
+    id: number;
+    park_id: number;
+    external_source: string | null;
+    external_id: string | null;
+  }>(SUPABASE_PAGE_SIZE, (from, to) =>
+    supabase
+      .from("coasters")
+      .select("id, park_id, external_source, external_id")
+      .in("park_id", parkIds)
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
   if (selErr) throw selErr;
 
   const keyOf = (p: number, s: string, e: string) => `${p}\0${s}\0${e}`;
   const idByKey = new Map<string, number>();
-  for (const r of existing ?? []) {
+  for (const r of existing) {
     const p = r.park_id;
     const s = r.external_source;
     const e = r.external_id;

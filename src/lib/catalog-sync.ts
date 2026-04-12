@@ -1,5 +1,6 @@
 import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
 import { findParkMatchForQueueTimes, type ParkForMatch } from "@/lib/park-match";
+import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { finishSyncRun, startSyncRun } from "@/lib/sync-run";
 
 type QueueTimesPark = {
@@ -97,12 +98,18 @@ export async function syncCatalogFromQueueTimes() {
 
     // Fetch all local parks: those already linked by queue_times_park_id, and those without
     // one (candidates for auto-linking by name match against Queue-Times data).
-    const localParksRes = await supabase
-      .from("parks")
-      .select("id, name, queue_times_park_id, latitude, longitude");
-    if (localParksRes.error) throw localParksRes.error;
+    const { data: localParksData, error: localParksErr } = await fetchAllPages<ParkForMatch>(
+      SUPABASE_PAGE_SIZE,
+      (from, to) =>
+        supabase
+          .from("parks")
+          .select("id, name, queue_times_park_id, latitude, longitude")
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
+    if (localParksErr) throw localParksErr;
 
-    const parkRows = (localParksRes.data ?? []) as ParkForMatch[];
+    const parkRows = localParksData;
 
     const localByQueueId = new Map<number, number>();
     const localByName = new Map<string, number>(); // unlinked parks keyed by name

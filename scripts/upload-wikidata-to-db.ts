@@ -16,6 +16,7 @@ import { resolve } from "node:path";
 import { arg, runMain } from "./lib/cli";
 import { createServiceRoleClient } from "./lib/supabase-service";
 import { haversineKm } from "../src/lib/geo";
+import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import {
   inferCoasterType,
@@ -300,16 +301,22 @@ async function main() {
 
   // Load all coasters from the DB, including park name/country for matching
   console.error("Loading coasters from Supabase...");
-  const { data: dbCoasters, error: dbErr } = await supabase
-    .from("coasters")
-    .select(
-      "id, name, park_id, wikidata_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)",
-    );
+  const { data: dbCoasters, error: dbErr } = await fetchAllPages<DbCoaster>(
+    SUPABASE_PAGE_SIZE,
+    (from, to) =>
+      supabase
+        .from("coasters")
+        .select(
+          "id, name, park_id, wikidata_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)",
+        )
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
   if (dbErr) {
     console.error("Supabase error:", dbErr.message);
     process.exit(1);
   }
-  const coasters = (dbCoasters ?? []) as unknown as DbCoaster[];
+  const coasters = dbCoasters;
   console.error(`  ${coasters.length} DB coasters loaded.`);
 
   const index = buildIndex(coasters);
@@ -421,15 +428,21 @@ async function main() {
   // -------------------------------------------------------------------------
   console.error(`\nChecking ${unmatched.length} unmatched Wikidata entries for insertable new rides...`);
 
-  const { data: dbParks, error: parksErr } = await supabase
-    .from("parks")
-    .select("id, name, country, latitude, longitude");
+  const { data: dbParks, error: parksErr } = await fetchAllPages<DbPark>(
+    SUPABASE_PAGE_SIZE,
+    (from, to) =>
+      supabase
+        .from("parks")
+        .select("id, name, country, latitude, longitude")
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
   if (parksErr) {
     console.error("Could not load parks:", parksErr.message);
     return;
   }
 
-  const allDbParks = (dbParks ?? []) as DbPark[];
+  const allDbParks = dbParks;
 
   // Index parks by normalised name for fast exact-match lookup
   const parkByName = new Map<string, DbPark>();
@@ -518,11 +531,19 @@ async function main() {
     // cannot match ON CONFLICT to the partial unique index (migration 004). Avoid upsert:
     // prefetch existing Wikidata-linked rows and insert or update by primary key.
     const parkIds = [...new Set(inserts.map((r) => r.park_id))];
-    const { data: existingRows, error: loadExistingErr } = await supabase
-      .from("coasters")
-      .select("id, park_id, external_id")
-      .eq("external_source", "wikidata")
-      .in("park_id", parkIds);
+    const { data: existingRows, error: loadExistingErr } = await fetchAllPages<{
+      id: number;
+      park_id: number;
+      external_id: string | null;
+    }>(SUPABASE_PAGE_SIZE, (from, to) =>
+      supabase
+        .from("coasters")
+        .select("id, park_id, external_id")
+        .eq("external_source", "wikidata")
+        .in("park_id", parkIds)
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
 
     if (loadExistingErr) {
       console.error("Could not load existing Wikidata coasters:", loadExistingErr.message);

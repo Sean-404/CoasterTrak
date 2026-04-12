@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
@@ -28,19 +29,8 @@ type RideRow = {
   coasters?: RideCoaster | null;
 };
 
-type WishlistRow = {
-  coaster_id: number;
-  coasters?: {
-    name: string;
-    coaster_type: string;
-    manufacturer: string | null;
-    parks?: { name: string; country: string } | null;
-  } | null;
-};
-
 export default function StatsPage() {
   const [rides, setRides] = useState<RideRow[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
@@ -55,23 +45,16 @@ export default function StatsPage() {
       if (!data.user) { setLoading(false); return; }
       setUserId(data.user.id);
 
-      const [ridesRes, wishRes] = await Promise.all([
-        supabase
-          .from("rides")
-          .select("coaster_id, coasters(name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))")
-          .eq("user_id", data.user.id),
-        supabase
-          .from("wishlist")
-          .select("coaster_id, coasters(name, coaster_type, manufacturer, parks(name, country))")
-          .eq("user_id", data.user.id),
-      ]);
+      const ridesRes = await supabase
+        .from("rides")
+        .select("coaster_id, coasters(name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))")
+        .eq("user_id", data.user.id);
 
-      if (ridesRes.error || wishRes.error) {
+      if (ridesRes.error) {
         setFetchError(true);
       }
 
       setRides((ridesRes.data ?? []) as unknown as RideRow[]);
-      setWishlist((wishRes.data ?? []) as unknown as WishlistRow[]);
       setLoading(false);
     }).catch(() => {
       setFetchError(true);
@@ -113,6 +96,20 @@ export default function StatsPage() {
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [uniqueRides]);
 
+  /** Unique countries from ridden coasters, with ride counts, most rides first */
+  const countriesWithRideCounts = useMemo(() => {
+    const counter = new Map<string, number>();
+    for (const ride of uniqueRides) {
+      const country = ride.coasters?.parks?.country;
+      if (!country) continue;
+      counter.set(country, (counter.get(country) ?? 0) + 1);
+    }
+    return [...counter.entries()].sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    });
+  }, [uniqueRides]);
+
   type RecordEntry = { name: string; park: string; value: number };
 
   const personalRecords = useMemo(() => {
@@ -145,7 +142,6 @@ export default function StatsPage() {
   const hasAnyRecord = Object.values(personalRecords).some(Boolean);
 
   const [rideFilter, setRideFilter] = useState("");
-  const [wishFilter, setWishFilter] = useState("");
 
   const filteredRides = useMemo(() => {
     if (!rideFilter.trim()) return uniqueRides;
@@ -161,35 +157,6 @@ export default function StatsPage() {
       );
     });
   }, [uniqueRides, rideFilter]);
-
-  const filteredWishlist = useMemo(() => {
-    if (!wishFilter.trim()) return wishlist;
-    return wishlist.filter((item) => {
-      const c = item.coasters;
-      return (
-        matchesSearchQuery(cleanCoasterName(c?.name ?? ""), wishFilter) ||
-        matchesSearchQuery(c?.parks?.name ?? "", wishFilter) ||
-        matchesSearchQuery(c?.parks?.country ?? "", wishFilter) ||
-        matchesSearchQuery(c?.coaster_type ?? "", wishFilter) ||
-        matchesSearchQuery(effectiveCoasterType(c?.coaster_type, c?.manufacturer), wishFilter) ||
-        matchesSearchQuery(c?.manufacturer ?? "", wishFilter)
-      );
-    });
-  }, [wishlist, wishFilter]);
-
-  const [removingWish, setRemovingWish] = useState<number | null>(null);
-
-  async function removeWishlistItem(coasterId: number, name: string) {
-    if (!confirm(`Remove "${name}" from your wishlist?`)) return;
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase || !userId || removingWish !== null) return;
-    setRemovingWish(coasterId);
-    const { error } = await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
-    if (!error) {
-      setWishlist((prev) => prev.filter((i) => i.coaster_id !== coasterId));
-    }
-    setRemovingWish(null);
-  }
 
   async function removeRide(coasterId: number, name: string) {
     if (!confirm(`Remove "${name}" from your ridden list?`)) return;
@@ -207,7 +174,6 @@ export default function StatsPage() {
     { label: "Coasters ridden", value: uniqueRides.length },
     { label: "Parks visited", value: parksVisited },
     { label: "Countries visited", value: countriesVisited },
-    { label: "On wishlist", value: wishlist.length },
   ];
 
   return (
@@ -223,7 +189,7 @@ export default function StatsPage() {
           )}
 
           {/* Stat cards */}
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             {statCards.map(({ label, value }) => (
               <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-sm text-slate-500">{label}</p>
@@ -335,14 +301,20 @@ export default function StatsPage() {
             </div>
           )}
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
             {/* Rides ridden */}
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
               {loading ? (
                 <p className="text-sm text-slate-400">Loading&hellip;</p>
               ) : uniqueRides.length === 0 ? (
-                <p className="text-sm text-slate-500">No rides logged yet. Mark rides as ridden from the map or your wishlist.</p>
+                <p className="text-sm text-slate-500">
+                  No rides logged yet. Mark rides as ridden from the map or your{" "}
+                  <Link href="/wishlist" className="font-medium text-amber-700 underline decoration-amber-300 underline-offset-2 hover:text-amber-800">
+                    wishlist
+                  </Link>
+                  .
+                </p>
               ) : (
                 <>
                   {uniqueRides.length > 3 && (
@@ -355,9 +327,9 @@ export default function StatsPage() {
                       className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   )}
-                  <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                  <ul className="max-h-[min(50vh,22rem)] divide-y divide-slate-100 overflow-y-auto overscroll-contain pb-2 pr-1 pt-0 [scrollbar-gutter:stable]">
                     {filteredRides.length === 0 && (
-                      <p className="text-xs text-slate-400">No matches</p>
+                      <p className="py-2 text-xs text-slate-400">No matches</p>
                     )}
                     {filteredRides.map((ride) => {
                       const parkLine = formatParkLabel(
@@ -365,12 +337,12 @@ export default function StatsPage() {
                         ride.coasters?.parks?.country,
                       );
                       return (
-                      <li key={ride.coaster_id} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                        <div className="min-w-0">
+                      <li key={ride.coaster_id} className="group flex items-start justify-between gap-3 py-2.5">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-slate-900">
                             {cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`)}
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words">
                             {parkLine && <span>{parkLine} &middot; </span>}
                             {effectiveCoasterType(ride.coasters?.coaster_type, ride.coasters?.manufacturer)}
                             {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
@@ -426,61 +398,24 @@ export default function StatsPage() {
                 )}
               </section>
 
-              {/* Wishlist */}
+              {/* Countries visited */}
               <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-3 font-semibold text-slate-900">Wishlist</h2>
+                <h2 className="mb-3 font-semibold text-slate-900">Countries visited</h2>
                 {loading ? (
                   <p className="text-sm text-slate-400">Loading&hellip;</p>
-                ) : wishlist.length === 0 ? (
-                  <p className="text-sm text-slate-500">Nothing on your wishlist yet.</p>
+                ) : countriesWithRideCounts.length === 0 ? (
+                  <p className="text-sm text-slate-500">No country data for your rides yet.</p>
                 ) : (
-                  <>
-                    {wishlist.length > 3 && (
-                      <input
-                        type="text"
-                        value={wishFilter}
-                        onChange={(e) => setWishFilter(e.target.value)}
-                        placeholder="Filter wishlist…"
-                        aria-label="Filter wishlist"
-                        className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                      />
-                    )}
-                    <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
-                      {filteredWishlist.length === 0 && (
-                        <p className="text-xs text-slate-400">No matches</p>
-                      )}
-                      {filteredWishlist.map((item, i) => (
-                        <li key={`${item.coaster_id}-${i}`} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-slate-900">
-                              {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {formatParkLabel(item.coasters?.parks?.name, item.coasters?.parks?.country)}
-                              {item.coasters?.manufacturer && <span> &middot; {item.coasters.manufacturer}</span>}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => removeWishlistItem(item.coaster_id, cleanCoasterName(item.coasters?.name ?? "this ride"))}
-                            disabled={removingWish === item.coaster_id}
-                            title="Remove from wishlist"
-                            className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
-                          >
-                            {removingWish === item.coaster_id ? (
-                              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                              </svg>
-                            ) : (
-                              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
+                  <ul className="max-h-[min(40vh,14rem)] space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
+                    {countriesWithRideCounts.map(([country, count]) => (
+                      <li key={country} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate text-sm text-slate-700">{country}</span>
+                        <span className="shrink-0 text-sm tabular-nums text-slate-500">
+                          {count} {count === 1 ? "ride" : "rides"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </section>
             </div>

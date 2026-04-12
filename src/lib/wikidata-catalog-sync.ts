@@ -13,6 +13,7 @@ import {
   yearFromDate,
 } from "@/lib/wikidata-coaster-inference";
 import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
+import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { mergeRowsByItem, type WikidataCoasterRow } from "@/lib/wikidata-coasters";
 
 async function loadWikidataRows(): Promise<WikidataCoasterRow[]> {
@@ -133,12 +134,18 @@ export async function syncCatalogFromWikidata() {
       groups.set(key, list);
     }
 
-    const { data: existingParks, error: parksLoadErr } = await supabase
-      .from("parks")
-      .select("id, name, country, latitude, longitude, queue_times_park_id");
+    const { data: existingParks, error: parksLoadErr } = await fetchAllPages<ParkForMatch>(
+      SUPABASE_PAGE_SIZE,
+      (from, to) =>
+        supabase
+          .from("parks")
+          .select("id, name, country, latitude, longitude, queue_times_park_id")
+          .order("id", { ascending: true })
+          .range(from, to),
+    );
     if (parksLoadErr) throw parksLoadErr;
 
-    const parkRows = (existingParks ?? []) as ParkForMatch[];
+    const parkRows = existingParks;
 
     const parkIdByKey = new Map<string, number>();
     for (const p of parkRows) {
