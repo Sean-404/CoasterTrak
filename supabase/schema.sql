@@ -58,6 +58,11 @@ create table if not exists wishlist (
 );
 
 create index if not exists idx_coasters_park_id on coasters(park_id);
+
+-- Stable upsert for Wikidata / Queue-Times rows (see migrations/004_coasters_stable_upsert.sql).
+create unique index if not exists coasters_park_source_external_uidx
+  on coasters (park_id, external_source, external_id)
+  where external_id is not null and external_source is not null;
 create index if not exists idx_rides_user_id on rides(user_id);
 create index if not exists idx_rides_coaster_id on rides(coaster_id);
 create index if not exists idx_wishlist_coaster_id on wishlist(coaster_id);

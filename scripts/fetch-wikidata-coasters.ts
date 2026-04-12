@@ -17,16 +17,7 @@ import {
   fetchWikipediaArticleHtml,
   inferStatusFromText,
 } from "../src/lib/wikipedia-infobox";
-
-function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(name);
-  if (i === -1) return undefined;
-  return process.argv[i + 1];
-}
-
-function hasFlag(name: string): boolean {
-  return process.argv.includes(name);
-}
+import { arg, hasFlag, runMain } from "./lib/cli";
 
 function derivedFromBase(row: WikidataCoasterRow): WikidataCoasterRow {
   const speedMph =
@@ -144,7 +135,4 @@ async function main() {
   console.error(`Wrote ${finalRows.length} rows to ${outPath}`);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+runMain(main);

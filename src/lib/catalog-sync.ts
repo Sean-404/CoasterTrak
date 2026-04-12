@@ -235,7 +235,7 @@ export async function syncCatalogFromQueueTimes() {
             external_id: String(ride.id),
             last_synced_at: new Date().toISOString(),
           },
-          { onConflict: "park_id,name" },
+          { onConflict: "park_id,external_source,external_id" },
         );
         if (upsertRes.error) throw upsertRes.error;
         coasterUpdates += 1;

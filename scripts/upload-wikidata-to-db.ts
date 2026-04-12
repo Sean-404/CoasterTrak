@@ -13,7 +13,9 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { arg, runMain } from "./lib/cli";
+import { createServiceRoleClient } from "./lib/supabase-service";
+import { haversineKm } from "../src/lib/geo";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import {
   inferCoasterType,
@@ -25,25 +27,9 @@ import {
 // Config
 // ---------------------------------------------------------------------------
 
-function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(name);
-  if (i === -1) return undefined;
-  return process.argv[i + 1];
-}
-
 const DRY_RUN = process.argv.includes("--dry-run");
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!supabaseUrl || !serviceKey) {
-  console.error(
-    "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.\n" +
-      "Create a .env.local file or set them in your environment.",
-  );
-  process.exit(1);
-}
-
-const supabase = createClient(supabaseUrl, serviceKey);
+const supabase = createServiceRoleClient();
 
 // ---------------------------------------------------------------------------
 // DB types
@@ -53,6 +39,7 @@ type DbCoaster = {
   id: number;
   name: string;
   park_id: number;
+  wikidata_id: string | null;
   coaster_type: string | null;
   manufacturer: string | null;
   parks: {
@@ -73,7 +60,11 @@ type DbPark = {
 
 type CoasterUpdate = {
   id: number;
+  name: string;
   wikidata_id: string;
+  external_source: "wikidata";
+  external_id: string;
+  last_synced_at: string;
   length_ft: number | null;
   speed_mph: number | null;
   height_ft: number | null;
@@ -144,22 +135,6 @@ function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
     }
   }
   return map;
-}
-
-/** Haversine distance in km between two lat/lon points. */
-function haversineKm(
-  lat1: number, lon1: number,
-  lat2: number, lon2: number,
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /** Find the nearest DB park within maxKm, or undefined. */
@@ -272,7 +247,9 @@ async function main() {
   console.error("Loading coasters from Supabase...");
   const { data: dbCoasters, error: dbErr } = await supabase
     .from("coasters")
-    .select("id, name, park_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)");
+    .select(
+      "id, name, park_id, wikidata_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)",
+    );
   if (dbErr) {
     console.error("Supabase error:", dbErr.message);
     process.exit(1);
@@ -282,11 +259,20 @@ async function main() {
 
   const index = buildIndex(coasters);
 
+  const byWikidataId = new Map<string, DbCoaster>();
+  for (const c of coasters) {
+    if (c.wikidata_id) byWikidataId.set(c.wikidata_id, c);
+  }
+
   // Build update list; track unmatched entries for potential inserts
   const updates: CoasterUpdate[] = [];
   const unmatched: WikidataCoasterRow[] = [];
   for (const wd of wdRows) {
-    const candidates = lookupCandidates(index, wd);
+    let candidates = lookupCandidates(index, wd);
+    if (!candidates?.length && wd.wikidataId) {
+      const byId = byWikidataId.get(wd.wikidataId);
+      if (byId) candidates = [byId];
+    }
     if (!candidates?.length) {
       unmatched.push(wd);
       continue;
@@ -294,9 +280,14 @@ async function main() {
 
     const match = pickBestMatch(candidates, wd);
 
+    const displayName = wikidataInsertName(wd);
     const update: CoasterUpdate = {
       id: match.id,
+      name: displayName,
       wikidata_id: wd.wikidataId,
+      external_source: "wikidata",
+      external_id: wd.wikidataId,
+      last_synced_at: new Date().toISOString(),
       // Only write numeric fields when Wikidata actually has a value —
       // never overwrite an existing DB value with null.
       length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
@@ -412,7 +403,8 @@ async function main() {
     opening_year: number | null;
     closing_year: number | null;
     manufacturer: string | null;
-    external_source: string;
+    external_source: "wikidata";
+    external_id: string;
     last_synced_at: string;
   };
 
@@ -450,6 +442,7 @@ async function main() {
       closing_year: yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate),
       manufacturer: wd.manufacturerLabel ?? null,
       external_source: "wikidata",
+      external_id: wd.wikidataId,
       last_synced_at: new Date().toISOString(),
     });
   }
@@ -467,7 +460,10 @@ async function main() {
   for (const row of inserts) {
     const { error } = await supabase
       .from("coasters")
-      .upsert(row, { onConflict: "park_id,name", ignoreDuplicates: false });
+      .upsert(row, {
+        onConflict: "park_id,external_source,external_id",
+        ignoreDuplicates: false,
+      });
     if (error) {
       console.error(`  Upsert failed for "${row.name}" (park_id=${row.park_id}): ${error.message}`);
     } else {
@@ -478,7 +474,4 @@ async function main() {
   console.error(`Done. Upserted ${upserted} coasters from Wikidata (new inserts + enrichment updates for name-mismatched rides).`);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+runMain(main);

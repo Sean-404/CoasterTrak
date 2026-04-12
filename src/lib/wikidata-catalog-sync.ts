@@ -152,7 +152,7 @@ export async function syncCatalogFromWikidata() {
       if (!coasterBatch.length) return;
       const chunk = coasterBatch.splice(0, UPSERT_CHUNK);
       const { error } = await supabase.from("coasters").upsert(chunk, {
-        onConflict: "park_id,name",
+        onConflict: "park_id,external_source,external_id",
       });
       if (error) throw error;
       coasterUpdates += chunk.length;

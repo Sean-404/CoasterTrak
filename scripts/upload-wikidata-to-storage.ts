@@ -12,26 +12,11 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { createClient } from "@supabase/supabase-js";
+import { arg, runMain } from "./lib/cli";
+import { createServiceRoleClient } from "./lib/supabase-service";
 
-function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(name);
-  if (i === -1) return undefined;
-  return process.argv[i + 1];
-}
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const bucket = process.env.WIKIDATA_STORAGE_BUCKET?.trim() || "catalog";
 const objectPath = process.env.WIKIDATA_STORAGE_OBJECT?.trim() || "wikidata_coasters.json";
-
-if (!supabaseUrl || !serviceKey) {
-  console.error(
-    "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.\n" +
-      "Create a .env.local file or set them in your environment.",
-  );
-  process.exit(1);
-}
 
 async function main() {
   const filePath = resolve(arg("--file") ?? "data/wikidata_coasters.json");
@@ -40,7 +25,7 @@ async function main() {
   const sizeMb = (buf.length / (1024 * 1024)).toFixed(2);
   console.error(`  ${sizeMb} MiB`);
 
-  const supabase = createClient(supabaseUrl!, serviceKey!);
+  const supabase = createServiceRoleClient();
 
   const { error: upErr } = await supabase.storage.from(bucket).upload(objectPath, buf, {
     contentType: "application/json",
@@ -64,7 +49,4 @@ async function main() {
   console.log(publicUrl);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+runMain(main);

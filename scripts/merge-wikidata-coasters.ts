@@ -11,12 +11,7 @@ import { resolve } from "node:path";
 import Papa from "papaparse";
 import type { WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import { matchAllCsvRows, type CsvCoasterRow } from "../src/lib/wikidata-merge";
-
-function arg(name: string): string | undefined {
-  const i = process.argv.indexOf(name);
-  if (i === -1) return undefined;
-  return process.argv[i + 1];
-}
+import { arg, runMain } from "./lib/cli";
 
 async function main() {
   const csvPath = resolve(arg("--csv") ?? "data/coaster_db.csv");
@@ -55,7 +50,4 @@ async function main() {
   );
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+runMain(main);
