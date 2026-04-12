@@ -338,6 +338,48 @@ function pickBestMatch(
 }
 
 /**
+ * When Wikidata names a park we do not have yet (e.g. new gate), create a `parks` row from
+ * label + coordinates — same idea as `syncCatalogFromWikidata`, so `upload-wikidata-to-db`
+ * is not blocked on a separate full catalog sync.
+ */
+async function insertParkFromWikidataRow(wd: WikidataCoasterRow): Promise<DbPark | null> {
+  const label = wd.parkLabel?.trim();
+  if (!label) return null;
+  if (
+    wd.latitude == null ||
+    wd.longitude == null ||
+    !Number.isFinite(wd.latitude) ||
+    !Number.isFinite(wd.longitude)
+  ) {
+    return null;
+  }
+  const country = reconcileCountryWithCoords(
+    wd.countryLabel ?? null,
+    wd.latitude,
+    wd.longitude,
+  );
+  const { data, error } = await supabase
+    .from("parks")
+    .insert({
+      name: label,
+      country,
+      latitude: wd.latitude,
+      longitude: wd.longitude,
+      external_source: "wikidata",
+      external_id: null,
+      last_synced_at: new Date().toISOString(),
+    })
+    .select("id, name, country, latitude, longitude")
+    .single();
+  if (error) {
+    console.error(`  Could not create park "${label}": ${error.message}`);
+    return null;
+  }
+  console.error(`  Created missing park row: "${label}" (id=${data.id})`);
+  return data as DbPark;
+}
+
+/**
  * Wikidata cleanup can make two different DB rows want the same display name at one park.
  * The DB enforces unique (park_id, name). Drop `name` from conflicting updates so enrichment
  * fields still apply without violating the constraint.
@@ -660,7 +702,7 @@ async function main() {
   }
 
   // -------------------------------------------------------------------------
-  // Insert new coasters from Wikidata whose park already exists in the DB
+  // Insert new coasters from Wikidata (create missing `parks` rows when WD has label + coords)
   // -------------------------------------------------------------------------
   console.error(`\nChecking ${unmatched.length} unmatched Wikidata entries for insertable new rides...`);
 
@@ -732,7 +774,16 @@ async function main() {
       });
     }
 
-    if (!park) continue; // park not in our DB — skip
+    if (!park && !DRY_RUN) {
+      const created = await insertParkFromWikidataRow(wd);
+      if (created) {
+        allDbParks.push(created);
+        parkByName.set(created.name.toLowerCase().trim(), created);
+        park = created;
+      }
+    }
+
+    if (!park) continue;
 
     const insertName = wikidataInsertName(wd);
     const nameKey = normalizeNameKey(insertName);
