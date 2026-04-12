@@ -50,7 +50,8 @@ async function enrichFromWikipedia(
     const statGaps =
       row.lengthM == null ||
       row.speedMs == null ||
-      row.heightM == null;
+      row.heightM == null ||
+      row.inversions == null;
     const metaGaps =
       enrichExtra && row.inversions == null;
     const statusUnknown = row.status === "unknown";
