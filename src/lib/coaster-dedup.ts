@@ -60,11 +60,26 @@ export function isLikelySmallFamilyCoaster(c: Coaster): boolean {
   ) {
     return true;
   }
+  // Queue-Times / park names rarely say “family” in coaster_type; match on signage-style titles.
+  if (
+    /\b(kiddie|kiddy|children'?s|family\s+coaster|family\s+ride|junior|preschool)\b/i.test(n) ||
+    /\bjr\.?\b/i.test(n)
+  ) {
+    return true;
+  }
 
   const h = c.height_ft;
   const len = c.length_ft;
+  const spd = c.speed_mph;
+  const inv = c.inversions ?? 0;
+
   if (h != null && len != null && h <= 48 && len <= 750) return true;
   if (h != null && h <= 40 && (len == null || len <= 900)) return true;
+
+  // Many DB rows only have one of height / length / speed — treat obvious kiddie tiers.
+  if (h != null && h <= 38) return true;
+  if (spd != null && spd <= 25 && inv === 0) return true;
+  if (len != null && len <= 480 && spd != null && spd <= 34 && inv === 0) return true;
 
   const t = (c.coaster_type ?? "").toLowerCase();
   if (t.includes("family") || t.includes("kiddie") || t.includes("junior")) return true;

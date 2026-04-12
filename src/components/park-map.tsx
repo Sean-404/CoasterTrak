@@ -99,9 +99,12 @@ function ParkPopupContent({
     });
   })();
 
-  const canHideSmall = rideGroups.some((g) => isLikelySmallFamilyCoaster(g.primary));
+  const rideGroupIsSmall = (g: { members: Coaster[]; primary: Coaster }) =>
+    g.members.some((c) => isLikelySmallFamilyCoaster(c));
+
+  const canHideSmall = rideGroups.some(rideGroupIsSmall);
   const listForDisplay = hideSmallRides
-    ? rideGroups.filter((g) => !isLikelySmallFamilyCoaster(g.primary))
+    ? rideGroups.filter((g) => !rideGroupIsSmall(g))
     : rideGroups;
 
   const visible = filter.trim()
