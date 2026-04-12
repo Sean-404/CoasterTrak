@@ -94,6 +94,34 @@ function stripRideSuffix(name: string): string {
     .trim();
 }
 
+/**
+ * Wikidata `label` is often short ("Nemesis") while enwikiTitle matches the live
+ * name ("Nemesis Reborn"). Try every variant so we still match the DB row.
+ */
+function lookupCandidates(
+  index: Map<string, DbCoaster[]>,
+  wd: WikidataCoasterRow,
+): DbCoaster[] | undefined {
+  const keys: string[] = [
+    normalizeNameKey(wd.label),
+    normalizeNameKey(stripRideSuffix(wd.label)),
+  ];
+  if (wd.enwikiTitle) {
+    keys.push(
+      normalizeNameKey(wd.enwikiTitle),
+      normalizeNameKey(stripRideSuffix(wd.enwikiTitle)),
+    );
+  }
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const c = index.get(key);
+    if (c?.length) return c;
+  }
+  return undefined;
+}
+
 function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
   const map = new Map<string, DbCoaster[]>();
   for (const r of rows) {
@@ -251,10 +279,7 @@ async function main() {
   const updates: CoasterUpdate[] = [];
   const unmatched: WikidataCoasterRow[] = [];
   for (const wd of wdRows) {
-    // Try primary key, then suffix-stripped fallback (e.g. "Hulk" matches "Hulk Coaster")
-    const k = normalizeNameKey(wd.label);
-    const k2 = normalizeNameKey(stripRideSuffix(wd.label));
-    const candidates = index.get(k) ?? (k2 !== k ? index.get(k2) : undefined);
+    const candidates = lookupCandidates(index, wd);
     if (!candidates?.length) {
       unmatched.push(wd);
       continue;
