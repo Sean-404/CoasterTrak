@@ -8,6 +8,12 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
+import {
+  isLikelySmallFamilyCoaster,
+  normalizeCoasterDedupKey,
+  preferCoasterForDedup,
+  queueLineLabel,
+} from "@/lib/coaster-dedup";
 import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
@@ -58,19 +64,6 @@ function normalizeRideName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// Strips common suffixes (e.g. "(roller coaster)", "(steel)") so that
-// "Wicker Man" and "Wicker Man (roller coaster)" collapse to the same key.
-function normalizeCoasterBase(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/\s*\(roller coaster\)\s*/gi, "")
-    .replace(/\s*\(coaster\)\s*/gi, "")
-    .replace(/\s*\(steel\)\s*/gi, "")
-    .replace(/\s*\(wooden\)\s*/gi, "")
-    .replace(/\s*\(wood\)\s*/gi, "")
-    .replace(/[^a-z0-9]/g, "");
-}
-
 function ParkPopupContent({
   park,
   parkCoasters,
@@ -83,32 +76,39 @@ function ParkPopupContent({
   units?: Units;
 }) {
   const [filter, setFilter] = useState("");
+  const [hideSmallRides, setHideSmallRides] = useState(false);
 
-  // Deduplicate coasters whose names differ only by suffixes like "(roller coaster)".
-  // Prefer whichever entry matches the queue-times data (shorter/cleaner name wins).
-  const dedupedCoasters = (() => {
-    const seen = new Map<string, Coaster>();
+  /** Same physical ride: merged spellings + queue variants (e.g. Standby vs Single rider). */
+  const rideGroups = (() => {
+    const byKey = new Map<string, Coaster[]>();
     for (const coaster of parkCoasters) {
-      const key = normalizeCoasterBase(coaster.name);
-      const existing = seen.get(key);
-      if (!existing) {
-        seen.set(key, coaster);
-      } else {
-        const thisHasQueue = queueByName.has(normalizeRideName(coaster.name));
-        const existingHasQueue = queueByName.has(normalizeRideName(existing.name));
-        if (thisHasQueue && !existingHasQueue) {
-          seen.set(key, coaster);
-        } else if (!thisHasQueue && !existingHasQueue && coaster.name.length < existing.name.length) {
-          seen.set(key, coaster);
-        }
-      }
+      const key = normalizeCoasterDedupKey(coaster.name);
+      const arr = byKey.get(key) ?? [];
+      arr.push(coaster);
+      byKey.set(key, arr);
     }
-    return Array.from(seen.values());
+    return Array.from(byKey.values()).map((members) => {
+      let primary = members[0];
+      for (const c of members.slice(1)) {
+        const qP = queueByName.has(normalizeRideName(primary.name));
+        const qC = queueByName.has(normalizeRideName(c.name));
+        if (qC && !qP) primary = c;
+        else if (qC === qP) primary = preferCoasterForDedup(primary, c);
+      }
+      return { members, primary };
+    });
   })();
 
+  const canHideSmall = rideGroups.some((g) => isLikelySmallFamilyCoaster(g.primary));
+  const listForDisplay = hideSmallRides
+    ? rideGroups.filter((g) => !isLikelySmallFamilyCoaster(g.primary))
+    : rideGroups;
+
   const visible = filter.trim()
-    ? dedupedCoasters.filter((c) => matchesSearchQuery(c.name, filter))
-    : dedupedCoasters;
+    ? listForDisplay.filter((g) =>
+        g.members.some((c) => matchesSearchQuery(c.name, filter)),
+      )
+    : listForDisplay;
 
   return (
     <div className="w-64">
@@ -117,7 +117,19 @@ function ParkPopupContent({
         {reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null)}
       </p>
 
-      {dedupedCoasters.length > 5 && (
+      {canHideSmall && (
+        <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+          <input
+            type="checkbox"
+            checked={hideSmallRides}
+            onChange={(e) => setHideSmallRides(e.target.checked)}
+            className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+          />
+          Hide small / family-style rides
+        </label>
+      )}
+
+      {listForDisplay.length > 5 && (
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
@@ -129,10 +141,24 @@ function ParkPopupContent({
 
       <div className="mt-2 max-h-64 overflow-y-auto pr-0.5">
         {visible.length === 0 && <p className="text-xs text-slate-400">No matches</p>}
-        {visible.map((coaster) => {
-          const queueRide = queueByName.get(normalizeRideName(coaster.name));
+        {visible.map(({ members, primary: coaster }) => {
           const isDefunct = coaster.status === "Defunct";
-          const isOpen = !isDefunct && (queueRide ? queueRide.isOpen : coaster.status === "Operating");
+          const membersSorted = [...members].sort((a, b) => {
+            const sr = (n: string) => (/\bsingle\s+rider\b/i.test(n) ? 1 : 0);
+            return sr(a.name) - sr(b.name);
+          });
+          const queueRides = membersSorted
+            .map((c) => ({ c, q: queueByName.get(normalizeRideName(c.name)) }))
+            .filter((x): x is { c: Coaster; q: QueueRide } => x.q != null);
+          const anyQueueOpen = queueRides.some((x) => x.q.isOpen);
+          const fallbackQueue = queueByName.get(normalizeRideName(coaster.name));
+          const isOpen =
+            !isDefunct &&
+            (queueRides.length > 0
+              ? anyQueueOpen
+              : fallbackQueue
+                ? fallbackQueue.isOpen
+                : coaster.status === "Operating");
 
           const stats: string[] = [];
           const len = fmtLength(coaster.length_ft, units);
@@ -146,9 +172,10 @@ function ParkPopupContent({
           if (dur) stats.push(dur);
 
           const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
+          const title = cleanCoasterName(coaster.name);
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">
-              <p className="text-sm font-semibold leading-tight text-slate-900">{cleanCoasterName(coaster.name)}</p>
+              <p className="text-sm font-semibold leading-tight text-slate-900">{title}</p>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 {rideType !== "Unknown" && (
                   <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
@@ -164,14 +191,28 @@ function ParkPopupContent({
                   <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
                     Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
                   </span>
-                ) : queueRide?.isOpen ? (
+                ) : queueRides.length > 0 ? (
+                  queueRides.map(({ c, q }) => {
+                    const line = queueLineLabel(c.name);
+                    return (
+                      <span
+                        key={c.id}
+                        className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700"
+                      >
+                        {q.waitTime} min{line ? ` · ${line}` : ""}
+                      </span>
+                    );
+                  })
+                ) : fallbackQueue?.isOpen ? (
                   <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700">
-                    {queueRide.waitTime} min
+                    {fallbackQueue.waitTime} min
                   </span>
                 ) : (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                    isOpen ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                  }`}>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                      isOpen ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
                     {isOpen ? "Open" : "Closed"}
                   </span>
                 )}

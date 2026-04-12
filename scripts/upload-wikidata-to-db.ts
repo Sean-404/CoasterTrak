@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { arg, runMain } from "./lib/cli";
 import { createServiceRoleClient } from "./lib/supabase-service";
+import { normalizeCoasterDedupKey } from "../src/lib/coaster-dedup";
 import { haversineKm } from "../src/lib/geo";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
@@ -104,15 +105,20 @@ function lookupCandidates(
   const keys: string[] = [
     normalizeNameKey(wd.label),
     normalizeNameKey(stripRideSuffix(wd.label)),
+    normalizeCoasterDedupKey(wd.label),
+    normalizeCoasterDedupKey(stripRideSuffix(wd.label)),
   ];
   if (wd.enwikiTitle) {
     keys.push(
       normalizeNameKey(wd.enwikiTitle),
       normalizeNameKey(stripRideSuffix(wd.enwikiTitle)),
+      normalizeCoasterDedupKey(wd.enwikiTitle),
+      normalizeCoasterDedupKey(stripRideSuffix(wd.enwikiTitle)),
     );
   }
   const seen = new Set<string>();
   for (const key of keys) {
+    if (!key) continue;
     if (seen.has(key)) continue;
     seen.add(key);
     const c = index.get(key);
@@ -123,20 +129,22 @@ function lookupCandidates(
 
 function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
   const map = new Map<string, DbCoaster[]>();
-  for (const r of rows) {
-    // Primary key
-    const k = normalizeNameKey(r.name);
-    const list = map.get(k) ?? [];
+  const add = (key: string, r: DbCoaster) => {
+    if (!key) return;
+    const list = map.get(key) ?? [];
     list.push(r);
-    map.set(k, list);
+    map.set(key, list);
+  };
+  for (const r of rows) {
+    const k = normalizeNameKey(r.name);
+    add(k, r);
 
-    // Secondary key — strip trailing "coaster" / "roller coaster" / "ride"
     const k2 = normalizeNameKey(stripRideSuffix(r.name));
-    if (k2 !== k) {
-      const list2 = map.get(k2) ?? [];
-      list2.push(r);
-      map.set(k2, list2);
-    }
+    if (k2 !== k) add(k2, r);
+
+    // Same collapsing as map UI: "The Big One" vs "Big One", stylized spellings, etc.
+    const k3 = normalizeCoasterDedupKey(r.name);
+    if (k3 && k3 !== k && k3 !== k2) add(k3, r);
   }
   return map;
 }

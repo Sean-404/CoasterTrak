@@ -85,3 +85,13 @@ Run manually (local dev server, after `wikidata:fetch`):
 - Queue-Times refresh only: add `?source=queue-times`
 
 `vercel.json` schedules `/api/cron/sync-catalog` **weekly** (Sundays 05:00 UTC — Wikidata catalog apply) and `/api/cron/sync-queue-times` **weekly on Tuesdays** (Queue-Times ride names / links).
+
+### Why some coasters have no length / height / speed
+
+CoasterTrak does **not** scrape Wikipedia pages. Stats come from **Wikidata** (structured data, SPARQL query → `data/wikidata_coasters.json`) and are written to your database when you run **`npx tsx scripts/upload-wikidata-to-db.ts`** (with `SUPABASE_SERVICE_ROLE_KEY`) or when CI runs that script after a fetch. Queue-Times only supplies **names and live waits**; enrichment is a **separate batch step**.
+
+If a ride shows up but has empty stats: the row may not have matched a Wikidata item yet (name differences between Queue-Times and Wikidata), the snapshot was never uploaded to production, or the upload job has not been run since the coaster was added. Re-run `wikidata:fetch`, upload the JSON (or rely on `WIKIDATA_COASTERS_URL`), then run `upload-wikidata-to-db.ts` so name matching can attach `wikidata_id` and numeric fields.
+
+**Wikipedia infobox fallback (optional):** For rows that already have `wikidata_id` but still lack some numbers, you can backfill from the English **`{{Infobox roller coaster}}`** via the MediaWiki API (wikitext, not HTML scraping):
+
+- `npm run wikipedia:backfill` — runs `scripts/wikipedia-infobox-backfill.ts` (uses `data/wikidata_coasters.json` to map `wikidata_id` → English article title). Only fills **null** columns; respects Wikimedia rate limits with a delay between requests. Use `--dry-run` to preview.

@@ -1,0 +1,82 @@
+import { cleanCoasterName } from "@/lib/display";
+import type { Coaster } from "@/types/domain";
+
+/**
+ * Normalizes coaster names so alternate spellings of the same ride collapse in the map UI
+ * (e.g. "The Big One" vs "Big One", "TH13TEEN" vs "Thirteen").
+ */
+/** Same ride, different queue lines in Queue-Times (strip before alphanumeric key). */
+function stripQueueVariantPhrases(s: string): string {
+  let t = s;
+  t = t.replace(/\s*[-–—]\s*single rider\s*$/i, "").trim();
+  t = t.replace(/\s+single rider\s*$/i, "").trim();
+  t = t.replace(/\s*\(single rider\)\s*$/i, "").trim();
+  t = t.replace(/\s*[-–—]\s*standby(\s+only)?\s*$/i, "").trim();
+  t = t.replace(/\s*[-–—]\s*lightning\s+lane\s*$/i, "").trim();
+  t = t.replace(/\s*[-–—]\s*rider\s+switch\s*$/i, "").trim();
+  return t;
+}
+
+export function normalizeCoasterDedupKey(raw: string): string {
+  let s = cleanCoasterName(raw).toLowerCase();
+  s = stripQueueVariantPhrases(s);
+  s = s.replace(/^the\s+/i, "").trim();
+  // Stylized marketing spellings → canonical word form before stripping punctuation
+  s = s.replace(/\bth13teen\b/gi, "thirteen");
+  s = s.replace(/\s*\(roller coaster\)\s*/gi, " ");
+  s = s.replace(/\s*\(coaster\)\s*/gi, " ");
+  s = s.replace(/\s*\(steel\)\s*/gi, " ");
+  s = s.replace(/\s*\(wooden\)\s*/gi, " ");
+  s = s.replace(/\s*\(wood\)\s*/gi, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  return s.replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * When two rows share a dedup key, prefer the one we should show (stats + queue match).
+ * `preferCoasterForDedup` returns the coaster to keep.
+ */
+export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
+  const statsCount = (c: Coaster) =>
+    [c.length_ft, c.speed_mph, c.height_ft, c.duration_s, c.inversions].filter((v) => v != null).length;
+
+  const sa = statsCount(a);
+  const sb = statsCount(b);
+  if (sa !== sb) return sa >= sb ? a : b;
+
+  const singleRider = (n: string) => /\bsingle\s+rider\b/i.test(n);
+  if (singleRider(a.name) !== singleRider(b.name)) return singleRider(a.name) ? b : a;
+
+  // Prefer shorter display name (usually the on-park name vs long Wikipedia title)
+  if (a.name.length !== b.name.length) return a.name.length <= b.name.length ? a : b;
+  return a.id <= b.id ? a : b;
+}
+
+/** Heuristic for optional “hide small rides” — conservative to avoid hiding major coasters. */
+export function isLikelySmallFamilyCoaster(c: Coaster): boolean {
+  const n = c.name.toLowerCase();
+  if (
+    /\b(big apple|ladybird|lady bug|octonauts|gallopers|blue flyer|egg\s*timer|farmyard)\b/i.test(n)
+  ) {
+    return true;
+  }
+
+  const h = c.height_ft;
+  const len = c.length_ft;
+  if (h != null && len != null && h <= 48 && len <= 750) return true;
+  if (h != null && h <= 40 && (len == null || len <= 900)) return true;
+
+  const t = (c.coaster_type ?? "").toLowerCase();
+  if (t.includes("family") || t.includes("kiddie") || t.includes("junior")) return true;
+
+  return false;
+}
+
+/** Short label for a queue chip when the ride name encodes the line (e.g. Single rider). */
+export function queueLineLabel(coasterName: string): string | null {
+  const n = cleanCoasterName(coasterName).toLowerCase();
+  if (/\bsingle\s+rider\b/.test(n)) return "Single rider";
+  if (/\bstandby\b/.test(n)) return "Standby";
+  if (/lightning\s+lane|rider\s+switch|genie\+/i.test(n)) return "Paid / LL";
+  return null;
+}

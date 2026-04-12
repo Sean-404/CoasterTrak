@@ -37,3 +37,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/upload-wikidata-to-db.ts
+
+      # Fill gaps Wikidata did not provide, using {{Infobox roller coaster}} wikitext via MediaWiki API.
+      # --limit caps API calls per run (politeness + job time); re-runs monthly chew through backlog.
+      - name: Backfill missing stats from Wikipedia infoboxes
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/wikipedia-infobox-backfill.ts --limit 250 --delay-ms 350
