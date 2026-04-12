@@ -18,13 +18,15 @@ CoasterTrak is an MVP rollercoaster tracking app with:
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `SYNC_CRON_SECRET`
-   - `KAGGLE_CSV_URL` (see GitHub Action section below)
 4. Run schema in Supabase SQL editor:
    - `supabase/schema.sql`
+   - Catalog JSON bucket (for hosting `wikidata_coasters.json`): `supabase/migrations/003_catalog_storage_bucket.sql`
 5. Start app:
    - `npm run dev`
-6. Populate catalog from Kaggle (after GitHub Action has run once):
-   - `curl -X POST "http://localhost:3000/api/sync/catalog?source=kaggle" -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
+6. Build the Wikidata catalog snapshot (large JSON; gitignored by default):
+   - `npm run wikidata:fetch` → writes `data/wikidata_coasters.json`
+7. Populate / refresh the Supabase catalog from that snapshot (optional, local testing):
+   - `curl -X POST "http://localhost:3000/api/sync/catalog" -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
 
 ## Key routes
 
@@ -35,8 +37,7 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 - `/wishlist` - user wishlist
 - `/stats` - personal stats dashboard
 - `/api/health` - health endpoint
-- `POST /api/sync/catalog` - protected catalog sync job (Queue-Times -> Supabase)
-  - Optional source: `POST /api/sync/catalog?source=kaggle`
+- `POST /api/sync/catalog` - protected catalog sync (default: Wikidata JSON → Supabase). Optional: `?source=queue-times` for a Queue-Times–only refresh (live-wait ride lists where that API lists the park).
 
 ## Deploy (Vercel free tier)
 
@@ -55,40 +56,32 @@ Queue data is powered by [Queue-Times.com](https://queue-times.com/).
 
 ## Automated catalog sync
 
-This repo includes a server-side sync pipeline that populates parks/coasters automatically from Kaggle (catalog) and Queue-Times (live waits). No manual seed files needed.
+**Primary catalog (map pins, coaster rows):** loaded from a **Wikidata JSON snapshot** (`npm run wikidata:fetch` → `data/wikidata_coasters.json`). The server reads that file from the deployment root, or from **`WIKIDATA_COASTERS_URL`** if set (recommended for Vercel, since `data/wikidata_coasters.json` is gitignored). Optional override: **`WIKIDATA_COASTERS_PATH`** (absolute or repo-relative path).
 
-Required env vars:
+**Supabase Storage (recommended):** apply `supabase/migrations/003_catalog_storage_bucket.sql` once, then after each `wikidata:fetch` run:
+
+- `npm run wikidata:upload-storage` — uploads `data/wikidata_coasters.json` to the public `catalog` bucket and prints the public URL.
+
+Set **`WIKIDATA_COASTERS_URL`** to that URL in Vercel (and locally if you test remote sync). The monthly GitHub Action runs this upload automatically after fetching Wikidata.
+
+Optional env overrides: **`WIKIDATA_STORAGE_BUCKET`** (default `catalog`), **`WIKIDATA_STORAGE_OBJECT`** (default `wikidata_coasters.json`).
+
+**Alternatives:** GitHub Releases asset URL, or S3/R2, if you prefer not to use Storage.
+
+Avoid checking multi‑MB JSON into git; generate in CI and upload to Storage (or elsewhere), then point `WIKIDATA_COASTERS_URL` at the stable URL.
+
+**Queue-Times:** still used for **live wait times** in map popups where a park has a `queue_times_park_id`. Run `POST /api/sync/catalog?source=queue-times` occasionally (or rely on `/api/cron/sync-queue-times`) to attach/update Queue-Times parks and ride names for those APIs.
+
+The GitHub Action `.github/workflows/refresh-wikidata.yml` fetches and enriches Wikidata rows, uploads the JSON to Supabase Storage, then runs `upload-wikidata-to-db.ts` (field-level DB updates). For a **full** park/coaster upsert from the same dataset, trigger `POST /api/sync/catalog` after the snapshot is in Storage (or use local file for dev).
+
+Required env vars for server-side sync:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SYNC_CRON_SECRET`
-- Optional for CSV source: `KAGGLE_CSV_URL`
+- For production without committing the JSON: `WIKIDATA_COASTERS_URL`
 
-Run manually (local dev server):
+Run manually (local dev server, after `wikidata:fetch`):
+
 - `curl -X POST http://localhost:3000/api/sync/catalog -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
-- Kaggle CSV source: `curl -X POST "http://localhost:3000/api/sync/catalog?source=kaggle" -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
+- Queue-Times refresh only: add `?source=queue-times`
 
-Schedule daily (Vercel cron / GitHub Action) to stay inside free-tier usage.
-
-## GitHub Action: Auto-refresh Kaggle CSV
-
-Workflow file: `.github/workflows/refresh-kaggle-dataset.yml`
-
-What it does:
-- Downloads `robikscube/rollercoaster-database` via Kaggle API
-- Extracts `data/coaster_db.csv`
-- Commits/pushes changes automatically (weekly + manual trigger)
-
-One-time GitHub setup:
-1. In GitHub repo, open Settings -> Secrets and variables -> Actions.
-2. Add repository secrets:
-   - `KAGGLE_USERNAME`
-   - `KAGGLE_KEY`
-   - `APP_URL` — your deployed app URL, e.g. `https://coastertrak.vercel.app` (no trailing slash)
-   - `SYNC_CRON_SECRET` — same value as in your `.env.local`
-3. Run the workflow once from Actions tab (`workflow_dispatch`).
-   - This commits `data/coaster_db.csv` **and** immediately calls `/api/cron/sync-catalog` to populate Supabase.
-4. Set `KAGGLE_CSV_URL` in `.env.local` and your Vercel environment variables to:
-   - `https://raw.githubusercontent.com/Sean-404/CoasterTrak/main/data/coaster_db.csv`
-
-After that, everything is fully automatic:
-- Every Monday the Action refreshes the CSV and triggers the sync.
-- Every Tuesday a Vercel Cron double-checks by calling `/api/cron/sync-catalog` again.
+`vercel.json` schedules `/api/cron/sync-catalog` (Wikidata catalog) and `/api/cron/sync-queue-times` (Queue-Times) on cron schedules.

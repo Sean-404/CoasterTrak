@@ -1,5 +1,5 @@
-import { getSupabaseServerClient } from "@/lib/supabase-server";
-import Papa from "papaparse";
+import { findParkMatchForQueueTimes, type ParkForMatch } from "@/lib/park-match";
+import { finishSyncRun, startSyncRun } from "@/lib/sync-run";
 
 type QueueTimesPark = {
   id: number;
@@ -24,8 +24,6 @@ type QueueTimesQueueResponse = {
   lands?: { rides?: QueueTimesRide[] }[];
 };
 
-type KaggleRow = Record<string, string>;
-
 function normalizeType(name: string) {
   const lower = name.toLowerCase();
   if (lower.includes("wood") || lower.includes("timber") || lower.includes("wooden")) return "Wood";
@@ -45,33 +43,7 @@ function normalizeStatus(status?: string, isOpen?: boolean) {
   return "Operating";
 }
 
-function pickValue(row: KaggleRow, keys: string[]) {
-  for (const key of keys) {
-    const value = row[key];
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-  return "";
-}
-
-// Includes both abbreviations and full names (e.g. "uk" + "united kingdom")
-// because the Kaggle CSV uses both forms inconsistently. This set is only used
-// to validate whether a string looks like a real country — not to normalize it.
-const KNOWN_COUNTRIES = new Set([
-  "united states", "united kingdom", "canada", "mexico", "germany", "france",
-  "spain", "italy", "netherlands", "belgium", "austria", "switzerland",
-  "denmark", "sweden", "norway", "finland", "poland", "czech republic",
-  "japan", "china", "south korea", "taiwan", "india", "thailand", "vietnam",
-  "malaysia", "singapore", "indonesia", "philippines", "hong kong",
-  "australia", "new zealand", "brazil", "argentina", "colombia", "chile",
-  "costa rica", "guatemala", "united arab emirates", "qatar", "saudi arabia",
-  "israel", "turkey", "egypt", "south africa", "russia", "ukraine",
-  "ireland", "portugal", "greece", "hungary", "romania", "croatia",
-  "u.s.", "usa", "uk", "uae",
-]);
-
-// Queue-Times and Kaggle sometimes use regions/states instead of countries.
+// Queue-Times sometimes uses regions/states instead of countries.
 const REGION_TO_COUNTRY: Record<string, string> = {
   "england": "United Kingdom", "scotland": "United Kingdom",
   "wales": "United Kingdom", "northern ireland": "United Kingdom",
@@ -96,53 +68,6 @@ function queueTimesUsLongitudeFix(country: string, lat: number, lng: number): nu
   // Contiguous US + Florida / Orlando latitude band: lon must be negative (~-125…-65).
   if (lng > 0 && lat >= 22 && lat <= 50) return -lng;
   return lng;
-}
-
-function inferCountry(location: string, parkName?: string) {
-  if (!location) return "Unknown";
-  const parts = location.split(",").map((part) => part.trim()).filter(Boolean);
-  const candidate = parts.length ? parts[parts.length - 1] : "";
-  if (!candidate) return "Unknown";
-  // Reject values that are clearly not countries (e.g. the park name itself)
-  if (parkName && candidate.toLowerCase() === parkName.toLowerCase()) return "Unknown";
-  if (candidate.includes("Park") || candidate.includes("Land") || candidate.includes("World")) return "Unknown";
-  // Accept known countries or anything with a comma (likely "City, Country")
-  if (KNOWN_COUNTRIES.has(candidate.toLowerCase()) || parts.length >= 2) return candidate;
-  return "Unknown";
-}
-
-async function startSyncRun(source: string) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL");
-  }
-
-  const startedAt = new Date().toISOString();
-  const runStart = await supabase
-    .from("sync_runs")
-    .insert({ source, status: "running", started_at: startedAt })
-    .select("id")
-    .single();
-  return { supabase, startedAt, runId: runStart.data?.id ?? null };
-}
-
-async function finishSyncRun(
-  runId: number | null,
-  status: "success" | "failed",
-  payload: { recordsUpdated?: number; error?: string | null } = {},
-) {
-  const supabase = getSupabaseServerClient();
-  if (!supabase || !runId) return;
-
-  await supabase
-    .from("sync_runs")
-    .update({
-      status,
-      finished_at: new Date().toISOString(),
-      records_updated: payload.recordsUpdated ?? 0,
-      error: payload.error ?? null,
-    })
-    .eq("id", runId);
 }
 
 /** Run up to `limit` async tasks concurrently. */
@@ -171,14 +96,18 @@ export async function syncCatalogFromQueueTimes() {
 
     // Fetch all local parks: those already linked by queue_times_park_id, and those without
     // one (candidates for auto-linking by name match against Queue-Times data).
-    const localParksRes = await supabase.from("parks").select("id, name, queue_times_park_id");
+    const localParksRes = await supabase
+      .from("parks")
+      .select("id, name, queue_times_park_id, latitude, longitude");
     if (localParksRes.error) throw localParksRes.error;
+
+    const parkRows = (localParksRes.data ?? []) as ParkForMatch[];
 
     const localByQueueId = new Map<number, number>();
     const localByName = new Map<string, number>(); // unlinked parks keyed by name
     const allLocalNames = new Set<string>(); // every park name, to detect truly new ones
 
-    for (const park of localParksRes.data ?? []) {
+    for (const park of parkRows) {
       const key = park.name.toLowerCase().trim();
       allLocalNames.add(key);
       if (typeof park.queue_times_park_id === "number") {
@@ -207,13 +136,27 @@ export async function syncCatalogFromQueueTimes() {
 
       if (!localParkId) {
         const nameKey = externalPark.name.toLowerCase().trim();
-        const candidateId = localByName.get(nameKey);
+        let candidateId = localByName.get(nameKey);
+
+        if (!candidateId) {
+          const fuzzy = findParkMatchForQueueTimes(
+            parkRows,
+            externalPark.id,
+            externalPark.name,
+            qtLat,
+            qtLng,
+            12,
+          );
+          if (fuzzy) candidateId = fuzzy.id;
+        }
 
         if (candidateId) {
-          // Auto-link an existing unlinked park (e.g. synced from Kaggle without coordinates).
+          // Auto-link an existing park (exact name, or fuzzy name + nearby coords vs Wikidata/other).
           localParkId = candidateId;
           localByQueueId.set(externalPark.id, localParkId);
-          localByName.delete(nameKey);
+          for (const [k, v] of localByName) {
+            if (v === localParkId) localByName.delete(k);
+          }
         } else if (!allLocalNames.has(nameKey)) {
           // Park doesn't exist in our DB at all — create it from Queue-Times data.
           const insertRes = await supabase
@@ -234,6 +177,14 @@ export async function syncCatalogFromQueueTimes() {
           localParkId = insertRes.data.id as number;
           localByQueueId.set(externalPark.id, localParkId);
           allLocalNames.add(nameKey);
+          parkRows.push({
+            id: localParkId,
+            name: externalPark.name,
+            country: normalizeCountry(externalPark.country),
+            latitude: qtLat,
+            longitude: qtLng,
+            queue_times_park_id: externalPark.id,
+          });
           parkUpdates += 1;
         } else {
           // Name exists under a slightly different spelling — skip to avoid duplicates.
@@ -307,143 +258,4 @@ export async function syncCatalogFromQueueTimes() {
   }
 }
 
-export async function syncCatalogFromKaggleCsv() {
-  const { supabase, startedAt, runId } = await startSyncRun("kaggle");
-
-  try {
-    const csvUrl = process.env.KAGGLE_CSV_URL;
-    if (!csvUrl) {
-      throw new Error("Missing KAGGLE_CSV_URL");
-    }
-
-    const response = await fetch(csvUrl, { next: { revalidate: 86400 } });
-    if (!response.ok) {
-      throw new Error(`Kaggle CSV fetch failed (${response.status})`);
-    }
-
-    const csvText = await response.text();
-    const parsed = Papa.parse<KaggleRow>(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      transformHeader: (header: string) => header.trim(),
-    });
-
-    if (parsed.errors.length) {
-      throw new Error(`Kaggle CSV parse error: ${parsed.errors[0].message}`);
-    }
-
-    const rows = parsed.data;
-    let parkUpdates = 0;
-    let coasterUpdates = 0;
-
-    const parksByKey = new Map<string, number>();
-
-    for (const row of rows) {
-      const coasterName = pickValue(row, ["coaster_name", "Name", "name", "Coaster", "roller_coaster"]);
-      // In this dataset "Location" holds the park name (e.g. "Coney Island")
-      const parkName = pickValue(row, ["park_name", "Park", "park", "amusement_park", "Location", "location"]);
-      const locationField = pickValue(row, ["country", "Country", "Location", "location"]);
-      if (!coasterName || !parkName) continue;
-
-      const country = normalizeCountry(inferCountry(locationField, parkName));
-      const parkKey = `${parkName}::${country}`.toLowerCase();
-      let parkId: number | null = parksByKey.get(parkKey) ?? null;
-
-      const rowLat = parseFloat(pickValue(row, ["latitude", "Latitude", "lat"]));
-      const rowLng = parseFloat(pickValue(row, ["longitude", "Longitude", "lng", "lon"]));
-      const lat = isFinite(rowLat) ? rowLat : 0;
-      const lng = isFinite(rowLng) ? rowLng : 0;
-
-      if (!parkId) {
-        // Look up by name first (ignoring country) so a park that already exists
-        // under a correct country isn't duplicated when the CSV has a bad country
-        // value (e.g. "Location = Alton Towers" → inferCountry returns "Alton Towers").
-        const existingPark = await supabase
-          .from("parks")
-          .select("id, country")
-          .eq("name", parkName)
-          .order("id", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        if (existingPark.error) throw existingPark.error;
-
-        if (existingPark.data?.id) {
-          parkId = existingPark.data.id;
-          const updates: Record<string, unknown> = { last_synced_at: new Date().toISOString() };
-          // Only overwrite the stored country when the inferred one looks like a real
-          // country (i.e. it differs from the park name itself).
-          if (country !== parkName && country !== "Unknown" && existingPark.data.country === parkName) {
-            updates.country = country;
-          }
-          if (lat !== 0 || lng !== 0) {
-            updates.latitude = lat;
-            updates.longitude = lng;
-          }
-          await supabase.from("parks").update(updates).eq("id", parkId);
-        } else {
-          // Don't create parks with no coordinates — they're invisible on the map
-          // and likely have bad country data too. They'll get proper data if/when
-          // the Queue-Times sync runs and finds them.
-          if (lat === 0 && lng === 0) continue;
-
-          const insertedPark = await supabase
-            .from("parks")
-            .insert({
-              name: parkName,
-              country,
-              latitude: lat,
-              longitude: lng,
-              external_source: "kaggle",
-              external_id: null,
-              last_synced_at: new Date().toISOString(),
-            })
-            .select("id")
-            .single();
-          if (insertedPark.error) throw insertedPark.error;
-          parkId = insertedPark.data.id;
-          parkUpdates += 1;
-        }
-
-        if (parkId !== null) {
-          parksByKey.set(parkKey, parkId);
-        }
-      }
-
-      const coasterType = pickValue(row, ["Type_Main", "coaster_type", "Type", "type"]) || normalizeType(coasterName);
-      const manufacturer = pickValue(row, ["manufacturer", "Manufacturer", "Make", "make"]) || null;
-      const status = normalizeStatus(pickValue(row, ["status", "Status"]));
-      const externalId = pickValue(row, ["coaster_id", "id", "Id"]);
-
-      if (parkId === null) continue;
-
-      const coasterUpsert = await supabase.from("coasters").upsert(
-        {
-          park_id: parkId,
-          name: coasterName,
-          coaster_type: coasterType,
-          manufacturer,
-          status,
-          external_source: "kaggle",
-          external_id: externalId || null,
-          last_synced_at: new Date().toISOString(),
-        },
-        { onConflict: "park_id,name" },
-      );
-      if (coasterUpsert.error) throw coasterUpsert.error;
-      coasterUpdates += 1;
-    }
-
-    await finishSyncRun(runId, "success", { recordsUpdated: parkUpdates + coasterUpdates });
-    return {
-      source: "kaggle",
-      startedAt,
-      finishedAt: new Date().toISOString(),
-      parkUpdates,
-      coasterUpdates,
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown sync error";
-    await finishSyncRun(runId, "failed", { error: message });
-    throw error;
-  }
-}
+export { syncCatalogFromWikidata } from "@/lib/wikidata-catalog-sync";

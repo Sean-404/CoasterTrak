@@ -9,6 +9,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
+import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
 import { CoasterActions } from "./coaster-actions";
 
@@ -56,7 +57,7 @@ function normalizeRideName(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-// Strips common suffixes added by Kaggle (e.g. "(roller coaster)", "(steel)") so that
+// Strips common suffixes (e.g. "(roller coaster)", "(steel)") so that
 // "Wicker Man" and "Wicker Man (roller coaster)" collapse to the same key.
 function normalizeCoasterBase(name: string) {
   return name
@@ -110,7 +111,9 @@ function ParkPopupContent({
   return (
     <div className="w-64">
       <h3 className="font-bold text-slate-900">{park.name}</h3>
-      <p className="text-xs text-slate-400">{park.country}</p>
+      <p className="text-xs text-slate-400">
+        {reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null)}
+      </p>
 
       {dedupedCoasters.length > 5 && (
         <input

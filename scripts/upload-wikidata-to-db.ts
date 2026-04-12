@@ -14,8 +14,12 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { cleanCoasterName } from "../src/lib/display";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
+import {
+  inferCoasterType,
+  wikidataInsertName,
+  yearFromDate,
+} from "../src/lib/wikidata-coaster-inference";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -51,7 +55,12 @@ type DbCoaster = {
   park_id: number;
   coaster_type: string | null;
   manufacturer: string | null;
-  parks: { name: string; country: string } | null;
+  parks: {
+    name: string;
+    country: string;
+    latitude: number | null;
+    longitude: number | null;
+  } | null;
 };
 
 type DbPark = {
@@ -81,12 +90,6 @@ type CoasterUpdate = {
 // Matching helpers
 // ---------------------------------------------------------------------------
 
-function yearFromDate(d: string | null): number | null {
-  if (!d) return null;
-  const y = parseInt(d.slice(0, 4), 10);
-  return Number.isNaN(y) ? null : y;
-}
-
 /** Strip common ride-type suffixes so "Hulk Coaster" matches "Hulk". */
 function stripRideSuffix(name: string): string {
   return name
@@ -99,16 +102,6 @@ function stripRideSuffix(name: string): string {
  * Wikidata `label` is often short ("Nemesis") while enwikiTitle matches the live
  * name ("Nemesis Reborn"). Try every variant so we still match the DB row.
  */
-/**
- * For new rows, prefer the English Wikipedia article title — it usually matches
- * Queue-Times / on-park naming ("Nemesis Reborn"), while Wikidata `label` may
- * stay short ("Nemesis").
- */
-function wikidataInsertName(wd: WikidataCoasterRow): string {
-  if (wd.enwikiTitle) return cleanCoasterName(wd.enwikiTitle);
-  return wd.label;
-}
-
 function lookupCandidates(
   index: Map<string, DbCoaster[]>,
   wd: WikidataCoasterRow,
@@ -153,57 +146,6 @@ function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
   return map;
 }
 
-// ---------------------------------------------------------------------------
-// Coaster type inference
-// ---------------------------------------------------------------------------
-
-/** Manufacturers that exclusively or primarily build wooden coasters. */
-const WOOD_MANUFACTURERS = new Set([
-  "great coasters international",
-  "gravity group",
-  "the gravity group",
-  "philadelphia toboggan coasters",
-  "philadelphia toboggan company",
-  "national amusement device",
-  "custom coasters international",
-  "international coasters",
-  "martin & vleminckx",
-  "dinn corporation",
-  "prior & church",
-  "run & fun",
-]);
-
-/** Manufacturers that build RMC-style hybrid (steel rail on wood/steel frame) coasters. */
-const HYBRID_MANUFACTURERS = new Set([
-  "rocky mountain construction",
-]);
-
-/**
- * Derive a normalised coaster_type string from the Wikidata class label
- * (e.g. "wooden roller coaster") with a manufacturer-based fallback.
- * Returns undefined when we can't determine type (so the DB is left unchanged).
- */
-function inferCoasterType(
-  clsLabel: string | null | undefined,
-  manufacturer: string | null | undefined,
-): string | undefined {
-  const cls = (clsLabel ?? "").toLowerCase();
-  if (cls.includes("wooden") || cls.includes("wood")) return "Wood";
-  if (cls.includes("hybrid")) return "Hybrid";
-  if (cls.includes("steel")) return "Steel";
-  if (cls.includes("inverted")) return "Inverted";
-  if (cls.includes("launch")) return "Launch";
-  if (cls.includes("flying")) return "Steel";   // flying coasters are steel
-
-  // Manufacturer fallback
-  const mfr = (manufacturer ?? "").toLowerCase();
-  if (!mfr) return undefined;
-  if (WOOD_MANUFACTURERS.has(mfr)) return "Wood";
-  if (HYBRID_MANUFACTURERS.has(mfr)) return "Hybrid";
-  // Every other known manufacturer makes steel coasters
-  return "Steel";
-}
-
 /** Haversine distance in km between two lat/lon points. */
 function haversineKm(
   lat1: number, lon1: number,
@@ -240,21 +182,75 @@ function nearestPark(
   return best;
 }
 
+/** Last parenthetical in an article title, e.g. "Big Dipper (Blackpool Pleasure Beach)". */
+function extractTitleDisambiguator(title: string | null): string | null {
+  if (!title) return null;
+  const m = /\(([^)]+)\)\s*$/.exec(title.trim());
+  return m ? m[1].trim() : null;
+}
+
+function normalizeLoose(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 function pickBestMatch(
   candidates: DbCoaster[],
   wd: WikidataCoasterRow,
 ): DbCoaster {
   if (candidates.length === 1) return candidates[0];
-  const wdPark = (wd.parkLabel ?? "").toLowerCase();
+
+  const disambig =
+    extractTitleDisambiguator(wd.enwikiTitle) ?? extractTitleDisambiguator(wd.label);
+  const wdPark = wd.parkLabel ?? "";
   const wdCountry = (wd.countryLabel ?? "").toLowerCase();
+  const wdLat = wd.latitude;
+  const wdLon = wd.longitude;
+
+  let best = candidates[0];
+  let bestScore = -Infinity;
+
   for (const c of candidates) {
-    const parkName = (c.parks?.name ?? "").toLowerCase();
+    const parkName = c.parks?.name ?? "";
     const country = (c.parks?.country ?? "").toLowerCase();
-    if (wdPark && (parkName.includes(wdPark) || wdPark.includes(parkName)))
-      return c;
-    if (wdCountry && country.includes(wdCountry)) return c;
+    let score = 0;
+
+    if (disambig) {
+      const disc = normalizeLoose(disambig);
+      const pn = normalizeLoose(parkName);
+      if (disc && pn && (pn.includes(disc) || disc.includes(pn))) score += 200;
+    }
+
+    if (wdPark && parkName) {
+      const w = normalizeLoose(wdPark);
+      const p = normalizeLoose(parkName);
+      if (w && p && (p.includes(w) || w.includes(p))) score += 130;
+    }
+
+    if (wdCountry && (country.includes(wdCountry) || wdCountry.includes(country))) {
+      score += 80;
+    }
+
+    const plat = c.parks?.latitude;
+    const plon = c.parks?.longitude;
+    if (
+      wdLat != null &&
+      wdLon != null &&
+      plat != null &&
+      plon != null &&
+      Number.isFinite(plat) &&
+      Number.isFinite(plon)
+    ) {
+      const km = haversineKm(wdLat, wdLon, plat, plon);
+      score += Math.max(0, 100 - km * 15);
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
   }
-  return candidates[0];
+
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +272,7 @@ async function main() {
   console.error("Loading coasters from Supabase...");
   const { data: dbCoasters, error: dbErr } = await supabase
     .from("coasters")
-    .select("id, name, park_id, coaster_type, manufacturer, parks(name, country)");
+    .select("id, name, park_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)");
   if (dbErr) {
     console.error("Supabase error:", dbErr.message);
     process.exit(1);
@@ -317,7 +313,7 @@ async function main() {
     // Only override status when Wikidata has a confident signal
     if (wd.status === "defunct") update.status = "Defunct";
 
-    // Only fill manufacturer when the DB row has none (Kaggle data takes priority)
+    // Only fill manufacturer when the DB row has none
     const dbManufacturer = match.manufacturer ?? null;
     if (!dbManufacturer && wd.manufacturerLabel) {
       update.manufacturer = wd.manufacturerLabel;
@@ -443,7 +439,7 @@ async function main() {
       park_id: park.id,
       name: insertName,
       wikidata_id: wd.wikidataId,
-      status: wd.status === "defunct" ? "Defunct" : "Open",
+      status: wd.status === "defunct" ? "Defunct" : "Operating",
       coaster_type: inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown",
       length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
       speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,

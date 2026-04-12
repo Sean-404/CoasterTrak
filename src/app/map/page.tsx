@@ -6,6 +6,8 @@ import { SiteHeader } from "@/components/site-header";
 import { sampleCoasters, sampleParks } from "@/lib/sample-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
+import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { parkNamesMatch } from "@/lib/park-match";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
 
@@ -83,7 +85,7 @@ export default function MapPage() {
     });
   }, [parks]);
 
-  // Merge duplicate parks from different sync sources (Kaggle vs Queue-Times).
+  // Merge duplicate parks from different sync sources (e.g. catalog vs Queue-Times).
   // Two parks are considered the same if they share an exact name OR are within 2 km of each
   // other (handles cases like "Alton" vs "Alton Towers" at the same location).
   // The merged entry keeps the queue_times_park_id and coordinates from whichever has them.
@@ -105,10 +107,16 @@ export default function MapPage() {
         base.latitude = duplicate.latitude;
         base.longitude = duplicate.longitude;
       }
-      // Use the longer/more descriptive name (e.g. "Alton Towers" over "Alton")
-      if (duplicate.name.length > base.name.length && !base.queue_times_park_id) {
+      // Prefer the longer/more descriptive name; if one side has Queue-Times, prefer that label when longer.
+      const preferDupName =
+        duplicate.name.length > base.name.length &&
+        (!base.queue_times_park_id || duplicate.queue_times_park_id);
+      if (preferDupName) {
         base.name = duplicate.name;
       }
+      const lat = base.latitude ?? duplicate.latitude ?? null;
+      const lng = base.longitude ?? duplicate.longitude ?? null;
+      base.country = reconcileCountryWithCoords(base.country ?? duplicate.country, lat, lng);
     }
 
     for (const park of parks) {
@@ -120,13 +128,14 @@ export default function MapPage() {
         if (existing.id === park.id) continue;
         if (idRemap.has(existing.id)) continue;
 
-        const sameName = existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
+        const sameName =
+          existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
+        const fuzzyName = parkNamesMatch(existing.name, park.name);
         const dist = distanceKm(existing, park);
-        // Only merge identical names when parks are in the same region (~200 km).
-        // Otherwise two parks worldwide sharing a name (e.g. "Epic Universe" vs a bad row)
-        // get merged and coordinates / queue IDs get corrupted.
-        const sameNameNearby = sameName && dist < 200;
-        const veryClose = dist < 2;
+        // Same region + same or fuzzy name; or very close + fuzzy name (Wikidata vs Queue-Times spelling).
+        const sameNameNearby =
+          (sameName || fuzzyName) && dist < 200;
+        const veryClose = fuzzyName && dist < 5;
 
         if (sameNameNearby || veryClose) {
           mergeInto(existing, park);

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { syncCatalogFromKaggleCsv } from "@/lib/catalog-sync";
+import { syncCatalogFromWikidata } from "@/lib/catalog-sync";
 
-// Called by Vercel Cron (GET) and by the GitHub Action (also GET).
-// Vercel automatically sets Authorization: Bearer $CRON_SECRET on cron requests.
-// The GitHub Action passes SYNC_CRON_SECRET in the same header so one secret covers both.
+export const maxDuration = 300;
+
+// Called by Vercel Cron (GET). Uses SYNC_CRON_SECRET in Authorization: Bearer …
 export async function GET(request: Request) {
   const secret = process.env.SYNC_CRON_SECRET;
   if (!secret) {
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await syncCatalogFromKaggleCsv();
+    const result = await syncCatalogFromWikidata();
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown sync error";

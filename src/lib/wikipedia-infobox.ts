@@ -95,10 +95,15 @@ export function extractCoasterInfobox(html: string): InfoboxExtract {
   const speedStr = pick(rawPairs, [/^speed$/i, /^max speed$/i]);
   const invStr = pick(rawPairs, [/^inversions$/i, /^inversion/i]);
   const durationStr = pick(rawPairs, [
-    /^duration$/i,
+    /^duration\b/i,
     /^ride duration$/i,
     /^length of ride$/i,
     /^ride time$/i,
+    /^run time$/i,
+    /^running time$/i,
+    /^cycle time$/i,
+    /^total time$/i,
+    /^time\s*\(?\s*ride\)?$/i,
   ]);
   const statusStr = pick(rawPairs, [/^status$/i]);
   const closingStr = pick(rawPairs, [
