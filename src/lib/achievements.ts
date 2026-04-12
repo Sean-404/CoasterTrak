@@ -46,6 +46,36 @@ function isIntamin(manufacturer: string | null | undefined): boolean {
   return m.includes("intamin");
 }
 
+function isVekoma(manufacturer: string | null | undefined): boolean {
+  return norm(manufacturer).toLowerCase().includes("vekoma");
+}
+
+function isMackRides(manufacturer: string | null | undefined): boolean {
+  const m = norm(manufacturer).toLowerCase();
+  return m.includes("mack rides") || m.includes("mack gmbh") || m === "mack";
+}
+
+function isRockyMountain(manufacturer: string | null | undefined): boolean {
+  const m = norm(manufacturer).toLowerCase();
+  return m.includes("rocky mountain") || m === "rmc";
+}
+
+function isGerstlauer(manufacturer: string | null | undefined): boolean {
+  return norm(manufacturer).toLowerCase().includes("gerstlauer");
+}
+
+function isPremierRides(manufacturer: string | null | undefined): boolean {
+  return norm(manufacturer).toLowerCase().includes("premier rides");
+}
+
+/** Arrow Dynamics / Development / Huss or S&S Sansei (classic steel loopers). */
+function isArrowOrSS(manufacturer: string | null | undefined): boolean {
+  const m = norm(manufacturer).toLowerCase();
+  if (m.includes("arrow dynamics") || m.includes("arrow development") || m.includes("arrow huss")) return true;
+  if (m.includes("s&s") || m.includes("sansei")) return true;
+  return false;
+}
+
 /** Distinct coasters with effective type Wood (after Unknown → inference). */
 function countWood(rides: AchievementRide[]): number {
   let n = 0;
@@ -73,6 +103,16 @@ function countHybrid(rides: AchievementRide[]): number {
     const c = r.coasters;
     if (!c) continue;
     if (effectiveCoasterType(c.coaster_type, c.manufacturer) === "Hybrid") n++;
+  }
+  return n;
+}
+
+function countEffectiveType(rides: AchievementRide[], type: string): number {
+  let n = 0;
+  for (const r of rides) {
+    const c = r.coasters;
+    if (!c) continue;
+    if (effectiveCoasterType(c.coaster_type, c.manufacturer) === type) n++;
   }
   return n;
 }
@@ -118,7 +158,7 @@ function sumField(
 
 function maxField(
   rides: AchievementRide[],
-  field: "height_ft" | "inversions",
+  field: "height_ft" | "inversions" | "speed_mph",
 ): number {
   let max = 0;
   let any = false;
@@ -136,6 +176,15 @@ function distinctCountries(rides: AchievementRide[]): number {
   for (const r of rides) {
     const c = r.coasters?.parks?.country;
     if (c) set.add(c);
+  }
+  return set.size;
+}
+
+function distinctParks(rides: AchievementRide[]): number {
+  const set = new Set<number>();
+  for (const r of rides) {
+    const pid = r.coasters?.park_id;
+    if (pid != null) set.add(pid);
   }
   return set.size;
 }
@@ -278,6 +327,189 @@ const DEFINITIONS: Def[] = [
     target: 2,
     current: distinctContinents,
     dataNote: "Continents are inferred from country names in the catalog; unmapped countries do not count.",
+  },
+  {
+    id: "veteran_100",
+    title: "Veteran",
+    description: "Ride 100 different coasters.",
+    target: 100,
+    current: (rides) => rides.length,
+  },
+  {
+    id: "legend_200",
+    title: "Legend",
+    description: "Ride 200 different coasters.",
+    target: 200,
+    current: (rides) => rides.length,
+  },
+  {
+    id: "wood_10",
+    title: "Wood devotee",
+    description: "Ride 10 wooden coasters (by type).",
+    target: 10,
+    current: countWood,
+  },
+  {
+    id: "steel_25",
+    title: "Steel regular",
+    description: "Ride 25 steel coasters (by type).",
+    target: 25,
+    current: countSteel,
+  },
+  {
+    id: "hybrid_8",
+    title: "Hybrid specialist",
+    description: "Ride 8 hybrid coasters (by type).",
+    target: 8,
+    current: countHybrid,
+  },
+  {
+    id: "inverted_3",
+    title: "Upside down",
+    description: "Ride 3 inverted coasters (by type).",
+    target: 3,
+    current: (rides) => countEffectiveType(rides, "Inverted"),
+  },
+  {
+    id: "launch_3",
+    title: "Launch fan",
+    description: "Ride 3 launch coasters (by type).",
+    target: 3,
+    current: (rides) => countEffectiveType(rides, "Launch"),
+  },
+  {
+    id: "vekoma_3",
+    title: "Vekoma trio",
+    description: "Ride 3 Vekoma coasters.",
+    target: 3,
+    current: (rides) => countManufacturer(rides, isVekoma),
+  },
+  {
+    id: "mack_3",
+    title: "Mack trio",
+    description: "Ride 3 Mack Rides coasters.",
+    target: 3,
+    current: (rides) => countManufacturer(rides, isMackRides),
+  },
+  {
+    id: "rmc_3",
+    title: "RMC trio",
+    description: "Ride 3 Rocky Mountain Construction coasters.",
+    target: 3,
+    current: (rides) => countManufacturer(rides, isRockyMountain),
+  },
+  {
+    id: "gerstlauer_3",
+    title: "Gerstlauer trio",
+    description: "Ride 3 Gerstlauer coasters.",
+    target: 3,
+    current: (rides) => countManufacturer(rides, isGerstlauer),
+  },
+  {
+    id: "premier_3",
+    title: "Premier trio",
+    description: "Ride 3 Premier Rides coasters.",
+    target: 3,
+    current: (rides) => countManufacturer(rides, isPremierRides),
+  },
+  {
+    id: "arrow_ss_3",
+    title: "Classic steel",
+    description: "Ride 3 coasters by Arrow Dynamics / Development or S&S Sansei.",
+    target: 3,
+    current: (rides) => countManufacturer(rides, isArrowOrSS),
+  },
+  {
+    id: "parks_5",
+    title: "Park hopper",
+    description: "Ride coasters at 5 different parks.",
+    target: 5,
+    current: distinctParks,
+  },
+  {
+    id: "parks_15",
+    title: "Road tripper",
+    description: "Ride coasters at 15 different parks.",
+    target: 15,
+    current: distinctParks,
+  },
+  {
+    id: "speed_60",
+    title: "Fast lane",
+    description: "Ride a coaster that reaches at least 60 mph.",
+    target: 60,
+    current: (rides) => maxField(rides, "speed_mph"),
+    dataNote: "Uses the highest listed speed among your ridden coasters with speed data.",
+  },
+  {
+    id: "speed_100",
+    title: "Triple digits",
+    description: "Ride a coaster that reaches at least 100 mph.",
+    target: 100,
+    current: (rides) => maxField(rides, "speed_mph"),
+    dataNote: "Uses the highest listed speed among your ridden coasters with speed data.",
+  },
+  {
+    id: "countries_5",
+    title: "World traveler",
+    description: "Ride coasters in 5 different countries.",
+    target: 5,
+    current: distinctCountries,
+  },
+  {
+    id: "countries_10",
+    title: "Passport stamp",
+    description: "Ride coasters in 10 different countries.",
+    target: 10,
+    current: distinctCountries,
+  },
+  {
+    id: "continents_3",
+    title: "Intercontinental",
+    description: "Ride coasters on 3 continents (by park country).",
+    target: 3,
+    current: distinctContinents,
+    dataNote: "Continents are inferred from country names in the catalog; unmapped countries do not count.",
+  },
+  {
+    id: "length_two_miles",
+    title: "Two-mile track",
+    description: "Ride at least 10,560 ft of track in total (two miles, sum of credited coasters).",
+    target: 10560,
+    current: (rides) => sumField(rides, "length_ft"),
+    dataNote: "Sums length only for coasters with length data.",
+  },
+  {
+    id: "duration_two_hours",
+    title: "Double feature",
+    description: "Spend at least 2 hours of ride time in total (sum of track durations).",
+    target: 7200,
+    current: (rides) => sumField(rides, "duration_s"),
+    dataNote: "Sums duration only for coasters with duration data.",
+  },
+  {
+    id: "inversions_sum_500",
+    title: "Inversion marathon",
+    description: "Accumulate 500 total inversions across your ridden coasters (counts each coaster once).",
+    target: 500,
+    current: (rides) => sumField(rides, "inversions"),
+    dataNote: "Counts coasters that have inversion data.",
+  },
+  {
+    id: "single_coaster_10_inversions",
+    title: "Ten-looper",
+    description: "Ride a coaster with at least 10 inversions.",
+    target: 10,
+    current: (rides) => maxField(rides, "inversions"),
+    dataNote: "Uses the highest inversion count among your ridden coasters.",
+  },
+  {
+    id: "height_300",
+    title: "Giga guest",
+    description: "Ride a coaster at least 300 ft tall.",
+    target: 300,
+    current: (rides) => maxField(rides, "height_ft"),
+    dataNote: "Uses the tallest height among your ridden coasters with height data.",
   },
 ];
 

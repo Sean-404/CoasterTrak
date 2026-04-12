@@ -1,10 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/sync-queue-times",
-      "schedule": "0 4 * * 2"
-    },
-    {
       "path": "/api/cron/sync-catalog",
       "schedule": "0 5 * * 0"
     }

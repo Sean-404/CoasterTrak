@@ -1,5 +1,5 @@
 /**
- * Match theme-park names across Wikidata, Queue-Times, and DB rows to avoid duplicate pins.
+ * Match theme-park names across Wikidata and DB rows to avoid duplicate pins.
  */
 
 import type { Coaster, Park } from "@/types/domain";
@@ -101,27 +101,7 @@ export type ParkForMatch = {
   country: string | null;
   latitude: number | null;
   longitude: number | null;
-  /** When set to a different Queue-Times id, this row is not a merge candidate for that park. */
-  queue_times_park_id?: number | null;
 };
-
-/**
- * Link a Queue-Times park to an existing DB row: same name+location, but never steal a row
- * already tied to a different Queue-Times park id.
- */
-export function findParkMatchForQueueTimes(
-  candidates: ParkForMatch[],
-  qtParkId: number,
-  name: string,
-  lat: number,
-  lng: number,
-  maxKm: number,
-): ParkForMatch | null {
-  const eligible = candidates.filter(
-    (p) => p.queue_times_park_id == null || p.queue_times_park_id === qtParkId,
-  );
-  return findParkMatchByNameAndLocation(eligible, name, lat, lng, maxKm);
-}
 
 /**
  * Find an existing park row that matches this name + coordinates (same complex).
@@ -245,11 +225,6 @@ export function absorbReverseGeocodeParks(parks: Park[]): {
     if (!best) continue;
 
     idRemap.set(geocode.id, best.id);
-    const tgt = enriched.get(best.id);
-    const src = enriched.get(geocode.id);
-    if (tgt && src && !tgt.queue_times_park_id && src.queue_times_park_id) {
-      tgt.queue_times_park_id = src.queue_times_park_id;
-    }
   }
 
   const out = Array.from(enriched.values()).filter((p) => !idRemap.has(p.id));
@@ -264,7 +239,8 @@ export function snapOrphanCoastersToDisplayParks(
   coasters: Coaster[],
   displayParks: Park[],
   allParksById: Map<number, Park>,
-  maxKm = 5,
+  /** Match catalog / park-merge tolerance — large resorts can have multi-km coord drift between sources. */
+  maxKm = 35,
 ): Coaster[] {
   const displayIds = new Set(displayParks.map((p) => p.id));
 

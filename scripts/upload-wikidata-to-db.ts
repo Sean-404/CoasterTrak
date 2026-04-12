@@ -44,6 +44,8 @@ type DbCoaster = {
   name: string;
   park_id: number;
   wikidata_id: string | null;
+  external_source: string | null;
+  external_id: string | null;
   coaster_type: string | null;
   manufacturer: string | null;
   parks: {
@@ -81,8 +83,19 @@ type CoasterUpdate = {
   coaster_type?: string;
 };
 
-/** Update row sent to Supabase — `name` omitted when we skip a rename to satisfy unique (park_id, name). */
-type PreparedCoasterUpdate = Omit<CoasterUpdate, "name"> & { name?: string };
+/**
+ * Sent to Supabase — omit `name` when skipping rename; omit Wikidata binding fields when
+ * another row already holds the same (park_id, name) or (park_id, wikidata Q-id).
+ */
+type PreparedCoasterUpdate = Omit<
+  CoasterUpdate,
+  "name" | "wikidata_id" | "external_source" | "external_id"
+> & {
+  name?: string;
+  wikidata_id?: string;
+  external_source?: "wikidata";
+  external_id?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Matching helpers
@@ -376,6 +389,135 @@ function resolveParkNameCollisions(
   return out;
 }
 
+const exactNameKey = (parkId: number, name: string) => `${parkId}\0${name}`;
+
+/**
+ * Postgres unique (park_id, name) uses the **exact** name string. Normalized collision
+ * checks can miss cases where two titles normalize the same but differ in punctuation.
+ */
+function resolveExactParkNameCollisions(
+  updates: PreparedCoasterUpdate[],
+  coasters: DbCoaster[],
+): PreparedCoasterUpdate[] {
+  const byId = new Map(coasters.map((c) => [c.id, c]));
+  const owner = new Map<string, number>();
+  for (const c of coasters) {
+    owner.set(exactNameKey(c.park_id, c.name), c.id);
+  }
+
+  const sorted = [...updates].sort((a, b) => a.id - b.id);
+  const out: PreparedCoasterUpdate[] = [];
+
+  for (const u of sorted) {
+    if (u.name === undefined) {
+      out.push(u);
+      continue;
+    }
+    const row = byId.get(u.id);
+    if (!row) {
+      out.push(u);
+      continue;
+    }
+
+    const oldKey = exactNameKey(row.park_id, row.name);
+    const newKey = exactNameKey(row.park_id, u.name);
+    const holder = owner.get(newKey);
+    if (holder !== undefined && holder !== u.id) {
+      const { name: _drop, ...rest } = u;
+      out.push(rest);
+      console.error(
+        `  Skipping exact-name rename for id=${u.id}: "${u.name}" already used at this park (coaster id=${holder}).`,
+      );
+      continue;
+    }
+
+    if (owner.get(oldKey) === u.id) owner.delete(oldKey);
+    owner.set(newKey, u.id);
+    out.push(u);
+  }
+
+  return out;
+}
+
+function buildWikidataHolderMap(coasters: DbCoaster[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const c of coasters) {
+    const pid = c.park_id;
+    const q = c.wikidata_id?.trim();
+    if (q) {
+      const k = `${pid}:${q.toUpperCase()}`;
+      if (!m.has(k)) m.set(k, c.id);
+    }
+    if (c.external_source === "wikidata" && c.external_id?.trim()) {
+      const k = `${pid}:${c.external_id.trim().toUpperCase()}`;
+      if (!m.has(k)) m.set(k, c.id);
+    }
+  }
+  return m;
+}
+
+/**
+ * Unique index (park_id, external_source, external_id) for Wikidata Q-ids — duplicate DB rows
+ * for the same ride must not both claim the same Q-id.
+ */
+function resolveWikidataExternalCollisions(
+  updates: PreparedCoasterUpdate[],
+  coasters: DbCoaster[],
+): PreparedCoasterUpdate[] {
+  const byId = new Map(coasters.map((c) => [c.id, c]));
+  const holder = buildWikidataHolderMap(coasters);
+  const sorted = [...updates].sort((a, b) => a.id - b.id);
+  const out: PreparedCoasterUpdate[] = [];
+
+  for (const u of sorted) {
+    const row = byId.get(u.id);
+    if (!row) {
+      out.push(u);
+      continue;
+    }
+
+    const qNew = (u.wikidata_id ?? u.external_id ?? "").trim().toUpperCase();
+    if (!qNew) {
+      out.push(u);
+      continue;
+    }
+
+    const key = `${row.park_id}:${qNew}`;
+    const existing = holder.get(key);
+    if (existing !== undefined && existing !== u.id) {
+      const {
+        wikidata_id: _w,
+        external_source: _es,
+        external_id: _e,
+        ...rest
+      } = u;
+      out.push(rest);
+      console.error(
+        `  Skipping Wikidata binding for id=${u.id}: Q-id already linked to coaster id=${existing}.`,
+      );
+      continue;
+    }
+
+    const prevQ = row.wikidata_id?.trim();
+    if (prevQ && prevQ.toUpperCase() !== qNew) {
+      const prevKey = `${row.park_id}:${prevQ.toUpperCase()}`;
+      if (holder.get(prevKey) === u.id) holder.delete(prevKey);
+    }
+    if (row.external_source === "wikidata" && row.external_id?.trim()) {
+      const pe = row.external_id.trim().toUpperCase();
+      if (pe !== qNew) {
+        const pk = `${row.park_id}:${pe}`;
+        if (holder.get(pk) === u.id) holder.delete(pk);
+      }
+    }
+
+    holder.set(key, u.id);
+    out.push(u);
+  }
+
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -399,7 +541,7 @@ async function main() {
       supabase
         .from("coasters")
         .select(
-          "id, name, park_id, wikidata_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)",
+          "id, name, park_id, wikidata_id, external_source, external_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)",
         )
         .order("id", { ascending: true })
         .range(from, to),
@@ -481,7 +623,9 @@ async function main() {
     return true;
   });
 
-  const prepared = resolveParkNameCollisions(deduped, coasters);
+  let prepared = resolveParkNameCollisions(deduped, coasters);
+  prepared = resolveExactParkNameCollisions(prepared, coasters);
+  prepared = resolveWikidataExternalCollisions(prepared, coasters);
 
   console.error(
     `Matched ${deduped.length} / ${wdRows.length} Wikidata entries to DB coasters.`,

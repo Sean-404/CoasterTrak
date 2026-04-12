@@ -139,7 +139,7 @@ export async function syncCatalogFromWikidata() {
       (from, to) =>
         supabase
           .from("parks")
-          .select("id, name, country, latitude, longitude, queue_times_park_id")
+          .select("id, name, country, latitude, longitude")
           .order("id", { ascending: true })
           .range(from, to),
     );
@@ -218,19 +218,17 @@ export async function syncCatalogFromWikidata() {
           country,
           latitude: centroid.lat,
           longitude: centroid.lng,
-          queue_times_park_id: null,
         });
         parkUpdates += 1;
       } else {
         const row = parkRows.find((p) => p.id === parkId);
-        const hasQueueTimes = row?.queue_times_park_id != null;
         const updateRes = await supabase
           .from("parks")
           .update({
             country,
             latitude: centroid.lat,
             longitude: centroid.lng,
-            ...(hasQueueTimes ? {} : { external_source: "wikidata" }),
+            external_source: "wikidata",
             last_synced_at: new Date().toISOString(),
           })
           .eq("id", parkId);

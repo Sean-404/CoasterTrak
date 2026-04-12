@@ -2,7 +2,6 @@
 
 CoasterTrak is an MVP rollercoaster tracking app with:
 - Interactive map with park/coaster markers
-- Live queue times in map popups (where available)
 - Email/password auth
 - Wishlist tracking
 - Ride logging and personal stats
@@ -32,12 +31,11 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 
 - `/` - landing page
 - `/map` - interactive map with country and name filter
-- `/api/queue-times/:parkId` - cached proxy for Queue-Times live waits
 - `/login` - sign up / sign in
 - `/wishlist` - user wishlist
 - `/stats` - personal stats dashboard
 - `/api/health` - health endpoint
-- `POST /api/sync/catalog` - protected catalog sync (default: Wikidata JSON → Supabase). Optional: `?source=queue-times` for a Queue-Times–only refresh (live-wait ride lists where that API lists the park).
+- `POST /api/sync/catalog` - protected Wikidata catalog sync (JSON → Supabase).
 
 ## Deploy (Vercel free tier)
 
@@ -49,10 +47,6 @@ CoasterTrak is an MVP rollercoaster tracking app with:
    - map markers visible
    - wishlist and rides saved
    - stats totals update
-
-## Live queue data credits
-
-Queue data is powered by [Queue-Times.com](https://queue-times.com/).
 
 ## Automated catalog sync
 
@@ -70,8 +64,6 @@ Optional env overrides: **`WIKIDATA_STORAGE_BUCKET`** (default `catalog`), **`WI
 
 Avoid checking multi‑MB JSON into git; generate in CI and upload to Storage (or elsewhere), then point `WIKIDATA_COASTERS_URL` at the stable URL.
 
-**Queue-Times:** still used for **live wait times** in map popups where a park has a `queue_times_park_id`. Run `POST /api/sync/catalog?source=queue-times` occasionally (or rely on `/api/cron/sync-queue-times`) to attach/update Queue-Times parks and ride names for those APIs.
-
 The GitHub Action `.github/workflows/refresh-wikidata.yml` runs **monthly**: it fetches and enriches Wikidata rows, uploads the JSON to Supabase Storage, then runs `upload-wikidata-to-db.ts` (field-level DB updates). For a **full** park/coaster upsert from the same dataset, Vercel’s weekly cron hits `/api/cron/sync-catalog` so `syncCatalogFromWikidata` re-reads `WIKIDATA_COASTERS_URL` and applies parks/coasters (you can still trigger `POST /api/sync/catalog` manually after a fresh snapshot).
 
 Required env vars for server-side sync:
@@ -82,15 +74,14 @@ Required env vars for server-side sync:
 Run manually (local dev server, after `wikidata:fetch`):
 
 - `curl -X POST http://localhost:3000/api/sync/catalog -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
-- Queue-Times refresh only: add `?source=queue-times`
 
-`vercel.json` schedules `/api/cron/sync-catalog` **weekly** (Sundays 05:00 UTC — Wikidata catalog apply) and `/api/cron/sync-queue-times` **weekly on Tuesdays** (Queue-Times ride names / links).
+`vercel.json` schedules `/api/cron/sync-catalog` **weekly** (Sundays 05:00 UTC — Wikidata catalog apply).
 
 ### Why some coasters have no length / height / speed
 
-CoasterTrak does **not** scrape Wikipedia pages. Stats come from **Wikidata** (structured data, SPARQL query → `data/wikidata_coasters.json`) and are written to your database when you run **`npx tsx scripts/upload-wikidata-to-db.ts`** (with `SUPABASE_SERVICE_ROLE_KEY`) or when CI runs that script after a fetch. Queue-Times only supplies **names and live waits**; enrichment is a **separate batch step**.
+CoasterTrak does **not** scrape Wikipedia pages. Stats come from **Wikidata** (structured data, SPARQL query → `data/wikidata_coasters.json`) and are written to your database when you run **`npx tsx scripts/upload-wikidata-to-db.ts`** (with `SUPABASE_SERVICE_ROLE_KEY`) or when CI runs that script after a fetch.
 
-If a ride shows up but has empty stats: the row may not have matched a Wikidata item yet (name differences between Queue-Times and Wikidata), the snapshot was never uploaded to production, or the upload job has not been run since the coaster was added. Re-run `wikidata:fetch`, upload the JSON (or rely on `WIKIDATA_COASTERS_URL`), then run `upload-wikidata-to-db.ts` so name matching can attach `wikidata_id` and numeric fields.
+If a ride shows up but has empty stats: the row may not have matched a Wikidata item yet (name differences in the catalog), the snapshot was never uploaded to production, or the upload job has not been run since the coaster was added. Re-run `wikidata:fetch`, upload the JSON (or rely on `WIKIDATA_COASTERS_URL`), then run `upload-wikidata-to-db.ts` so name matching can attach `wikidata_id` and numeric fields.
 
 **Wikipedia infobox fallback (optional):** For rows that already have `wikidata_id` but still lack some numbers, you can backfill from the English **`{{Infobox roller coaster}}`** via the MediaWiki API (wikitext, not HTML scraping):
 

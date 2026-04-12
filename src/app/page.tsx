@@ -56,7 +56,7 @@ export default function Home() {
           <FeatureCard
             icon={<MapIcon />}
             title="World Map"
-            description="Find coasters at parks across every continent with live queue times from Queue-Times.com."
+            description="Find coasters at parks across every continent on an interactive map."
             href="/map"
           />
           <FeatureCard

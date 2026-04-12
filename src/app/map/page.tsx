@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { SiteHeader } from "@/components/site-header";
-import { sampleCoasters, sampleParks } from "@/lib/sample-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { matchesSearchQuery } from "@/lib/display";
@@ -19,14 +18,6 @@ import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
-
-type QueueRide = {
-  id: number;
-  name: string;
-  isOpen: boolean;
-  waitTime: number;
-  lastUpdated: string;
-};
 
 const CONTINENTS = ["All", "North America", "South America", "Europe", "Asia", "Oceania", "Africa"] as const;
 type Continent = (typeof CONTINENTS)[number];
@@ -58,9 +49,9 @@ function getContinent(lat: number, lng: number): Continent {
 }
 
 export default function MapPage() {
-  const [parks, setParks] = useState<Park[]>(sampleParks);
-  const [coasters, setCoasters] = useState<Coaster[]>(sampleCoasters);
-  const [queueTimesByParkId, setQueueTimesByParkId] = useState<Record<number, QueueRide[]>>({});
+  const [parks, setParks] = useState<Park[]>([]);
+  const [coasters, setCoasters] = useState<Coaster[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [continent, setContinent] = useState<Continent>("All");
   const [search, setSearch] = useState("");
   const { units, setUnits } = useUnits();
@@ -68,22 +59,29 @@ export default function MapPage() {
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
+    if (!supabase) {
+      setCatalogLoading(false);
+      return;
+    }
 
     let cancelled = false;
     void (async () => {
-      const [parksRes, coastersRes] = await Promise.all([
-        fetchAllPages<Park>(SUPABASE_PAGE_SIZE, (from, to) =>
-          supabase.from("parks").select("*").order("id", { ascending: true }).range(from, to),
-        ),
-        fetchAllPages<Coaster>(SUPABASE_PAGE_SIZE, (from, to) =>
-          supabase.from("coasters").select("*").order("id", { ascending: true }).range(from, to),
-        ),
-      ]);
-      if (cancelled) return;
-      if (!parksRes.error && parksRes.data.length) setParks(parksRes.data.map(fixUsParkLongitude));
-      if (!coastersRes.error && coastersRes.data.length) {
-        setCoasters(coastersRes.data.map(applyCoasterKnownFixes));
+      try {
+        const [parksRes, coastersRes] = await Promise.all([
+          fetchAllPages<Park>(SUPABASE_PAGE_SIZE, (from, to) =>
+            supabase.from("parks").select("*").order("id", { ascending: true }).range(from, to),
+          ),
+          fetchAllPages<Coaster>(SUPABASE_PAGE_SIZE, (from, to) =>
+            supabase.from("coasters").select("*").order("id", { ascending: true }).range(from, to),
+          ),
+        ]);
+        if (cancelled) return;
+        if (!parksRes.error && parksRes.data.length) setParks(parksRes.data.map(fixUsParkLongitude));
+        if (!coastersRes.error && coastersRes.data.length) {
+          setCoasters(coastersRes.data.map(applyCoasterKnownFixes));
+        }
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
       }
     })();
     return () => {
@@ -91,37 +89,30 @@ export default function MapPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const queueTimesParkIds = [...new Set(parks.map((park) => park.queue_times_park_id).filter((id): id is number => Number.isFinite(id)))];
-    if (!queueTimesParkIds.length) return;
-
-    Promise.all(
-      queueTimesParkIds.map(async (queueParkId) => {
-        const response = await fetch(`/api/queue-times/${queueParkId}`);
-        if (!response.ok) return [queueParkId, []] as const;
-        const data = (await response.json()) as { rides?: QueueRide[] };
-        return [queueParkId, data.rides ?? []] as const;
-      }),
-    ).then((entries) => {
-      setQueueTimesByParkId(Object.fromEntries(entries));
-    });
-  }, [parks]);
-
   // Wikidata sometimes creates a park row named like "Alton, Staffordshire, England" from a
   // centroid — wrong pin next to "Alton Towers". Merge into the real resort and remap coasters.
   const geoAbsorb = useMemo(() => absorbReverseGeocodeParks(parks), [parks]);
 
-  // Merge duplicate parks from different sync sources (e.g. catalog vs Queue-Times).
+  // Merge duplicate parks from different sync sources (e.g. centroid vs resort name).
   // Exact same name: allow a wide radius (bad coords / different geocoders).
-  // Fuzzy name match only: keep a *tight* radius so we do not merge different venues that
-  // merely share a city (e.g. "Ocean Park Hong Kong" vs "Hong Kong Disneyland" ~15 km apart).
-  // The merged entry keeps the queue_times_park_id and coordinates from whichever has them.
+  // Fuzzy name match: allow a moderate radius — Wikidata/OSM vs other geocoders can differ by km.
   const deduplicatedParks = useMemo(() => {
     const canonical = new Map<number, Park>(); // canonical id → merged park
     const idRemap = new Map<number, number>(); // duplicate id → canonical id
 
     function distanceKm(a: Park, b: Park) {
-      if (!a.latitude || !b.latitude) return Infinity;
+      if (
+        a.latitude == null ||
+        b.latitude == null ||
+        a.longitude == null ||
+        b.longitude == null ||
+        !Number.isFinite(a.latitude) ||
+        !Number.isFinite(b.latitude) ||
+        !Number.isFinite(a.longitude) ||
+        !Number.isFinite(b.longitude)
+      ) {
+        return Infinity;
+      }
       const dlat = (b.latitude - a.latitude) * 111;
       const dlng = (b.longitude - a.longitude) * 111 * Math.cos((a.latitude * Math.PI) / 180);
       return Math.sqrt(dlat * dlat + dlng * dlng);
@@ -129,20 +120,13 @@ export default function MapPage() {
 
     function mergeInto(base: Park, duplicate: Park) {
       idRemap.set(duplicate.id, base.id);
-      if (!base.queue_times_park_id && duplicate.queue_times_park_id) {
-        base.queue_times_park_id = duplicate.queue_times_park_id;
-        base.latitude = duplicate.latitude;
-        base.longitude = duplicate.longitude;
-      }
-      // Prefer the longer/more descriptive name; if one side has Queue-Times, prefer that label when longer.
-      const preferDupName =
-        duplicate.name.length > base.name.length &&
-        (!base.queue_times_park_id || duplicate.queue_times_park_id);
-      if (preferDupName) {
+      if (duplicate.name.length > base.name.length) {
         base.name = duplicate.name;
       }
-      const lat = base.latitude ?? duplicate.latitude ?? null;
-      const lng = base.longitude ?? duplicate.longitude ?? null;
+      base.latitude = duplicate.latitude ?? base.latitude;
+      base.longitude = duplicate.longitude ?? base.longitude;
+      const lat = base.latitude ?? null;
+      const lng = base.longitude ?? null;
       base.country = reconcileCountryWithCoords(base.country ?? duplicate.country, lat, lng);
     }
 
@@ -160,7 +144,7 @@ export default function MapPage() {
         const fuzzyName = parkNamesMatch(existing.name, park.name);
         const dist = distanceKm(existing, park);
         const sameNameNearby = sameName && dist < 200;
-        const fuzzyNameNearby = fuzzyName && !sameName && dist < 10;
+        const fuzzyNameNearby = fuzzyName && !sameName && dist < 40;
 
         if (sameNameNearby || fuzzyNameNearby) {
           mergeInto(existing, park);
@@ -198,6 +182,14 @@ export default function MapPage() {
 
   const filteredParks = useMemo(() => {
     return deduplicatedParks.parks.filter((park) => {
+      if (
+        park.latitude == null ||
+        park.longitude == null ||
+        !Number.isFinite(park.latitude) ||
+        !Number.isFinite(park.longitude)
+      ) {
+        return false;
+      }
       if (park.latitude === 0 && park.longitude === 0) return false;
       const byContinent = continent === "All" || getContinent(park.latitude, park.longitude) === continent;
       const bySearch =
@@ -244,14 +236,15 @@ export default function MapPage() {
             ))}
           </div>
         </div>
-        <ParkMap parks={filteredParks} coasters={remappedCoasters} queueTimesByParkId={queueTimesByParkId} units={units} continent={continent} />
-        <p className="mt-3 text-xs text-slate-500">
-          Queue data powered by{" "}
-          <a className="underline" href="https://queue-times.com/" target="_blank" rel="noreferrer">
-            Queue-Times.com
-          </a>
-          .
-        </p>
+        {catalogLoading && (
+          <p className="mb-2 text-sm text-slate-500" role="status">
+            Loading catalog&hellip;
+          </p>
+        )}
+        {!catalogLoading && deduplicatedParks.parks.length === 0 && (
+          <p className="mb-2 text-sm text-slate-600">No parks in the catalog yet.</p>
+        )}
+        <ParkMap parks={filteredParks} coasters={remappedCoasters} units={units} continent={continent} />
       </main>
     </div>
   );

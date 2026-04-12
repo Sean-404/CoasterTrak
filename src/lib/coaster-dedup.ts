@@ -5,7 +5,7 @@ import type { Coaster } from "@/types/domain";
  * Normalizes coaster names so alternate spellings of the same ride collapse in the map UI
  * (e.g. "The Big One" vs "Big One", "TH13TEEN" vs "Thirteen").
  */
-/** Same ride, different queue lines in Queue-Times (strip before alphanumeric key). */
+/** Same ride, different queue-line suffixes on the name (strip before alphanumeric key). */
 function stripQueueVariantPhrases(s: string): string {
   let t = s;
   t = t.replace(/\s*[-–—]\s*single rider\s*$/i, "").trim();
@@ -33,7 +33,7 @@ export function normalizeCoasterDedupKey(raw: string): string {
 }
 
 /**
- * When two rows share a dedup key, prefer the one we should show (stats + queue match).
+ * When two rows share a dedup key, prefer the one we should show (richer stats, cleaner name).
  * `preferCoasterForDedup` returns the coaster to keep.
  */
 export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
@@ -54,19 +54,21 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
 
 /** Heuristic for optional “hide small rides” — conservative to avoid hiding major coasters. */
 export function isLikelySmallFamilyCoaster(c: Coaster): boolean {
-  const n = c.name.toLowerCase();
+  const n = cleanCoasterName(c.name).toLowerCase();
   if (
     /\b(big apple|ladybird|lady bug|octonauts|gallopers|blue flyer|egg\s*timer|farmyard)\b/i.test(n)
   ) {
     return true;
   }
-  // Queue-Times / park names rarely say “family” in coaster_type; match on signage-style titles.
+  // Catalog names rarely say “family” in coaster_type; match on signage-style titles.
   if (
     /\b(kiddie|kiddy|children'?s|family\s+coaster|family\s+ride|junior|preschool)\b/i.test(n) ||
     /\bjr\.?\b/i.test(n)
   ) {
     return true;
   }
+  // Common on-park names that don’t include “kiddie” (Mack powered, etc.).
+  if (/\bflying fish\b/i.test(n)) return true;
 
   const h = c.height_ft;
   const len = c.length_ft;
@@ -74,24 +76,30 @@ export function isLikelySmallFamilyCoaster(c: Coaster): boolean {
   const inv = c.inversions ?? 0;
 
   if (h != null && len != null && h <= 48 && len <= 750) return true;
-  if (h != null && h <= 40 && (len == null || len <= 900)) return true;
+  if (h != null && h <= 45 && (len == null || len <= 900)) return true;
 
   // Many DB rows only have one of height / length / speed — treat obvious kiddie tiers.
   if (h != null && h <= 38) return true;
   if (spd != null && spd <= 25 && inv === 0) return true;
   if (len != null && len <= 480 && spd != null && spd <= 34 && inv === 0) return true;
 
+  /**
+   * Indoor / family “coaster” dark rides: modest height + speed, no inversions, not hyper-long.
+   * (e.g. Thorpe Park “The Walking Dead: The Ride” — tall enough to miss the h≤40 ∧ len≤900 rule.)
+   */
+  if (
+    inv === 0 &&
+    h != null &&
+    h <= 55 &&
+    spd != null &&
+    spd <= 40 &&
+    (len == null || len <= 2600)
+  ) {
+    return true;
+  }
+
   const t = (c.coaster_type ?? "").toLowerCase();
-  if (t.includes("family") || t.includes("kiddie") || t.includes("junior")) return true;
+  if (t.includes("family") || t.includes("kiddie") || t.includes("junior") || t.includes("powered")) return true;
 
   return false;
-}
-
-/** Short label for a queue chip when the ride name encodes the line (e.g. Single rider). */
-export function queueLineLabel(coasterName: string): string | null {
-  const n = cleanCoasterName(coasterName).toLowerCase();
-  if (/\bsingle\s+rider\b/.test(n)) return "Single rider";
-  if (/\bstandby\b/.test(n)) return "Standby";
-  if (/lightning\s+lane|rider\s+switch|genie\+/i.test(n)) return "Paid / LL";
-  return null;
 }
