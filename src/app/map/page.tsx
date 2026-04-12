@@ -86,8 +86,9 @@ export default function MapPage() {
   }, [parks]);
 
   // Merge duplicate parks from different sync sources (e.g. catalog vs Queue-Times).
-  // Two parks are considered the same if they share an exact name OR are within 2 km of each
-  // other (handles cases like "Alton" vs "Alton Towers" at the same location).
+  // Exact same name: allow a wide radius (bad coords / different geocoders).
+  // Fuzzy name match only: keep a *tight* radius so we do not merge different venues that
+  // merely share a city (e.g. "Ocean Park Hong Kong" vs "Hong Kong Disneyland" ~15 km apart).
   // The merged entry keeps the queue_times_park_id and coordinates from whichever has them.
   const deduplicatedParks = useMemo(() => {
     const canonical = new Map<number, Park>(); // canonical id → merged park
@@ -132,12 +133,10 @@ export default function MapPage() {
           existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
         const fuzzyName = parkNamesMatch(existing.name, park.name);
         const dist = distanceKm(existing, park);
-        // Same region + same or fuzzy name; or very close + fuzzy name (Wikidata vs Queue-Times spelling).
-        const sameNameNearby =
-          (sameName || fuzzyName) && dist < 200;
-        const veryClose = fuzzyName && dist < 5;
+        const sameNameNearby = sameName && dist < 200;
+        const fuzzyNameNearby = fuzzyName && !sameName && dist < 10;
 
-        if (sameNameNearby || veryClose) {
+        if (sameNameNearby || fuzzyNameNearby) {
           mergeInto(existing, park);
           canonical.delete(park.id);
           break;
