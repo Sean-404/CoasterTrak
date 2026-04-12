@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
+  findNearestParkForCoords,
   findParkMatchByNameAndLocation,
   type ParkForMatch,
 } from "@/lib/park-match";
@@ -238,6 +239,28 @@ export async function syncCatalogFromWikidata() {
         coasterBatch.push(coasterUpsertPayload(wd, parkId));
         if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
       }
+    }
+
+    // Rows with no park label (common on Wikidata) still have coords — snap to nearest resort.
+    const missingParkLabel = merged.filter(
+      (r) =>
+        !r.parkLabel?.trim() &&
+        r.latitude != null &&
+        r.longitude != null &&
+        Number.isFinite(r.latitude) &&
+        Number.isFinite(r.longitude),
+    );
+    for (const wd of missingParkLabel) {
+      const linked = findNearestParkForCoords(
+        parkRows,
+        wd.latitude!,
+        wd.longitude!,
+        4,
+        wd.countryLabel,
+      );
+      if (!linked) continue;
+      coasterBatch.push(coasterUpsertPayload(wd, linked.id));
+      if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
     }
 
     await flushCoasters();

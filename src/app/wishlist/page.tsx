@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
 import { cleanCoasterName } from "@/lib/display";
+import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type WishlistItem = {
@@ -123,6 +124,9 @@ export default function WishlistPage() {
               {items.map((item) => {
                 const coaster = item.coasters;
                 const busy = pending[item.coaster_id];
+                const typeLabel = coaster
+                  ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
+                  : "Unknown";
                 return (
                   <li
                     key={item.coaster_id}
@@ -136,9 +140,9 @@ export default function WishlistPage() {
                         <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
                       )}
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {coaster?.coaster_type && (
+                        {typeLabel !== "Unknown" && (
                           <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                            {coaster.coaster_type}
+                            {typeLabel}
                           </span>
                         )}
                         {coaster?.manufacturer && (

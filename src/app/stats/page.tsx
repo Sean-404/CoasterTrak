@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
-import { cleanCoasterName } from "@/lib/display";
+import { cleanCoasterName, formatParkLabel } from "@/lib/display";
+import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
@@ -33,7 +34,7 @@ type WishlistRow = {
     name: string;
     coaster_type: string;
     manufacturer: string | null;
-    parks?: { name: string } | null;
+    parks?: { name: string; country: string } | null;
   } | null;
 };
 
@@ -61,7 +62,7 @@ export default function StatsPage() {
           .eq("user_id", data.user.id),
         supabase
           .from("wishlist")
-          .select("coaster_id, coasters(name, coaster_type, manufacturer, parks(name))")
+          .select("coaster_id, coasters(name, coaster_type, manufacturer, parks(name, country))")
           .eq("user_id", data.user.id),
       ]);
 
@@ -93,16 +94,21 @@ export default function StatsPage() {
   );
 
   const parksVisited = useMemo(
-    () => new Set(uniqueRides.map((r) => r.coasters?.parks?.name).filter(Boolean)).size,
+    () =>
+      new Set(
+        uniqueRides
+          .map((r) => formatParkLabel(r.coasters?.parks?.name, r.coasters?.parks?.country))
+          .filter(Boolean),
+      ).size,
     [uniqueRides],
   );
 
   const topParks = useMemo(() => {
     const counter = new Map<string, number>();
     for (const ride of uniqueRides) {
-      const name = ride.coasters?.parks?.name;
-      if (!name) continue;
-      counter.set(name, (counter.get(name) ?? 0) + 1);
+      const label = formatParkLabel(ride.coasters?.parks?.name, ride.coasters?.parks?.country);
+      if (!label) continue;
+      counter.set(label, (counter.get(label) ?? 0) + 1);
     }
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [uniqueRides]);
@@ -120,7 +126,7 @@ export default function StatsPage() {
         if (top === null || v > top.value) {
           top = {
             name: cleanCoasterName(r.coasters?.name ?? ""),
-            park: r.coasters?.parks?.name ?? "",
+            park: formatParkLabel(r.coasters?.parks?.name, r.coasters?.parks?.country),
             value: v,
           };
         }
@@ -149,7 +155,9 @@ export default function StatsPage() {
       return (
         cleanCoasterName(c?.name ?? "").toLowerCase().includes(q) ||
         (c?.parks?.name ?? "").toLowerCase().includes(q) ||
+        (c?.parks?.country ?? "").toLowerCase().includes(q) ||
         (c?.coaster_type ?? "").toLowerCase().includes(q) ||
+        effectiveCoasterType(c?.coaster_type, c?.manufacturer).toLowerCase().includes(q) ||
         (c?.manufacturer ?? "").toLowerCase().includes(q)
       );
     });
@@ -163,7 +171,9 @@ export default function StatsPage() {
       return (
         cleanCoasterName(c?.name ?? "").toLowerCase().includes(q) ||
         (c?.parks?.name ?? "").toLowerCase().includes(q) ||
+        (c?.parks?.country ?? "").toLowerCase().includes(q) ||
         (c?.coaster_type ?? "").toLowerCase().includes(q) ||
+        effectiveCoasterType(c?.coaster_type, c?.manufacturer).toLowerCase().includes(q) ||
         (c?.manufacturer ?? "").toLowerCase().includes(q)
       );
     });
@@ -351,15 +361,20 @@ export default function StatsPage() {
                     {filteredRides.length === 0 && (
                       <p className="text-xs text-slate-400">No matches</p>
                     )}
-                    {filteredRides.map((ride) => (
+                    {filteredRides.map((ride) => {
+                      const parkLine = formatParkLabel(
+                        ride.coasters?.parks?.name,
+                        ride.coasters?.parks?.country,
+                      );
+                      return (
                       <li key={ride.coaster_id} className="group flex items-start justify-between gap-2 border-t border-slate-100 pt-2 first:border-0 first:pt-0">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-slate-900">
                             {cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`)}
                           </p>
                           <p className="text-xs text-slate-500">
-                            {ride.coasters?.parks?.name && <span>{ride.coasters.parks.name} &middot; </span>}
-                            {ride.coasters?.coaster_type}
+                            {parkLine && <span>{parkLine} &middot; </span>}
+                            {effectiveCoasterType(ride.coasters?.coaster_type, ride.coasters?.manufacturer)}
                             {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
                           </p>
                         </div>
@@ -381,7 +396,8 @@ export default function StatsPage() {
                           )}
                         </button>
                       </li>
-                    ))}
+                    );
+                    })}
                   </ul>
                 </>
               )}
@@ -442,7 +458,7 @@ export default function StatsPage() {
                               {cleanCoasterName(item.coasters?.name ?? `Coaster ${item.coaster_id}`)}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {item.coasters?.parks?.name}
+                              {formatParkLabel(item.coasters?.parks?.name, item.coasters?.parks?.country)}
                               {item.coasters?.manufacturer && <span> &middot; {item.coasters.manufacturer}</span>}
                             </p>
                           </div>

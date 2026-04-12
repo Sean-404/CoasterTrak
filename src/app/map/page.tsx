@@ -7,7 +7,11 @@ import { sampleCoasters, sampleParks } from "@/lib/sample-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
-import { parkNamesMatch } from "@/lib/park-match";
+import {
+  absorbReverseGeocodeParks,
+  parkNamesMatch,
+  snapOrphanCoastersToDisplayParks,
+} from "@/lib/park-match";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
 
@@ -85,6 +89,10 @@ export default function MapPage() {
     });
   }, [parks]);
 
+  // Wikidata sometimes creates a park row named like "Alton, Staffordshire, England" from a
+  // centroid — wrong pin next to "Alton Towers". Merge into the real resort and remap coasters.
+  const geoAbsorb = useMemo(() => absorbReverseGeocodeParks(parks), [parks]);
+
   // Merge duplicate parks from different sync sources (e.g. catalog vs Queue-Times).
   // Exact same name: allow a wide radius (bad coords / different geocoders).
   // Fuzzy name match only: keep a *tight* radius so we do not merge different venues that
@@ -120,7 +128,7 @@ export default function MapPage() {
       base.country = reconcileCountryWithCoords(base.country ?? duplicate.country, lat, lng);
     }
 
-    for (const park of parks) {
+    for (const park of geoAbsorb.parks) {
       if (idRemap.has(park.id)) continue;
 
       canonical.set(park.id, { ...park });
@@ -145,16 +153,30 @@ export default function MapPage() {
     }
 
     return { parks: Array.from(canonical.values()), idRemap };
-  }, [parks]);
+  }, [geoAbsorb.parks]);
+
+  const rawParkById = useMemo(() => new Map(parks.map((p) => [p.id, p])), [parks]);
 
   const remappedCoasters = useMemo(() => {
-    const { idRemap } = deduplicatedParks;
-    if (!idRemap.size) return coasters;
-    return coasters.map((c) => {
-      const canonical = idRemap.get(c.park_id);
-      return canonical ? { ...c, park_id: canonical } : c;
+    const geo = geoAbsorb.idRemap;
+    const dedupe = deduplicatedParks.idRemap;
+    const afterRemap = coasters.map((c) => {
+      let pid = c.park_id;
+      const g = geo.get(pid);
+      if (g !== undefined) pid = g;
+      const d = dedupe.get(pid);
+      if (d !== undefined) pid = d;
+      return pid !== c.park_id ? { ...c, park_id: pid } : c;
     });
-  }, [coasters, deduplicatedParks]);
+    // If a coaster still references a removed geocode row, snap to nearest visible pin by distance.
+    return snapOrphanCoastersToDisplayParks(afterRemap, deduplicatedParks.parks, rawParkById);
+  }, [
+    coasters,
+    geoAbsorb.idRemap,
+    deduplicatedParks.idRemap,
+    deduplicatedParks.parks,
+    rawParkById,
+  ]);
 
   const filteredParks = useMemo(() => {
     const term = search.toLowerCase();

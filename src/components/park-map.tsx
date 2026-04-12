@@ -9,6 +9,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
+import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
 import { CoasterActions } from "./coaster-actions";
@@ -143,13 +144,14 @@ function ParkPopupContent({
           const dur = fmtDuration(coaster.duration_s);
           if (dur) stats.push(dur);
 
+          const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">
               <p className="text-sm font-semibold leading-tight text-slate-900">{cleanCoasterName(coaster.name)}</p>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                {coaster.coaster_type && coaster.coaster_type !== "Unknown" && (
+                {rideType !== "Unknown" && (
                   <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                    {coaster.coaster_type}
+                    {rideType}
                   </span>
                 )}
                 {coaster.manufacturer && (

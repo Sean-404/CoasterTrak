@@ -25,6 +25,18 @@ export const WOOD_MANUFACTURERS = new Set([
 /** Manufacturers that build RMC-style hybrid (steel rail on wood/steel frame) coasters. */
 export const HYBRID_MANUFACTURERS = new Set(["rocky mountain construction"]);
 
+function manufacturerImpliesType(
+  mfr: string,
+  phrases: Set<string>,
+  minSubstringLen: number,
+): boolean {
+  if (phrases.has(mfr)) return true;
+  for (const phrase of phrases) {
+    if (phrase.length >= minSubstringLen && mfr.includes(phrase)) return true;
+  }
+  return false;
+}
+
 /**
  * Derive a normalised coaster_type string from the Wikidata class label
  * (e.g. "wooden roller coaster") with a manufacturer-based fallback.
@@ -41,11 +53,28 @@ export function inferCoasterType(
   if (cls.includes("launch")) return "Launch";
   if (cls.includes("flying")) return "Steel";
 
-  const mfr = (manufacturer ?? "").toLowerCase();
+  const mfr = (manufacturer ?? "").toLowerCase().trim();
   if (!mfr) return undefined;
-  if (WOOD_MANUFACTURERS.has(mfr)) return "Wood";
-  if (HYBRID_MANUFACTURERS.has(mfr)) return "Hybrid";
+  // Common abbreviation for Great Coasters International (Queue-Times / hand edits).
+  if (mfr === "gci" || mfr.startsWith("gci ") || mfr.endsWith(" gci") || mfr.includes(" gci ")) {
+    return "Wood";
+  }
+  if (manufacturerImpliesType(mfr, WOOD_MANUFACTURERS, 8)) return "Wood";
+  if (manufacturerImpliesType(mfr, HYBRID_MANUFACTURERS, 6)) return "Hybrid";
   return "Steel";
+}
+
+/**
+ * Prefer stored `coaster_type` unless it is missing or "Unknown" — then infer from manufacturer.
+ * Queue-Times sync often leaves "Unknown" even when manufacturer is filled from Wikidata later.
+ */
+export function effectiveCoasterType(
+  coasterType: string | null | undefined,
+  manufacturer: string | null | undefined,
+): string {
+  const t = (coasterType ?? "").trim();
+  if (t && t !== "Unknown") return t;
+  return inferCoasterType(undefined, manufacturer) ?? "Unknown";
 }
 
 /** Prefer English Wikipedia title for names that match on-park signage. */
