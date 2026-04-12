@@ -84,6 +84,20 @@ function normalizeCountry(country: string): string {
   return REGION_TO_COUNTRY[country.toLowerCase()] ?? country;
 }
 
+/**
+ * Queue-Times has published at least one US park (Epic Universe) with a positive
+ * longitude that should be western-hemisphere (e.g. +81.45 instead of -81.45),
+ * which places the pin in Nepal. Real US parks in the contiguous / Orlando band
+ * always have negative longitude.
+ */
+function queueTimesUsLongitudeFix(country: string, lat: number, lng: number): number {
+  const c = normalizeCountry(country).toLowerCase();
+  if (c !== "united states") return lng;
+  // Contiguous US + Florida / Orlando latitude band: lon must be negative (~-125…-65).
+  if (lng > 0 && lat >= 22 && lat <= 50) return -lng;
+  return lng;
+}
+
 function inferCountry(location: string, parkName?: string) {
   if (!location) return "Unknown";
   const parts = location.split(",").map((part) => part.trim()).filter(Boolean);
@@ -182,6 +196,13 @@ export async function syncCatalogFromQueueTimes() {
     const resolvedParks: Array<{ externalPark: (typeof allParks)[number]; localParkId: number }> = [];
 
     for (const externalPark of allParks) {
+      const qtLat = Number.parseFloat(externalPark.latitude);
+      const qtLng = queueTimesUsLongitudeFix(
+        externalPark.country,
+        qtLat,
+        Number.parseFloat(externalPark.longitude),
+      );
+
       let localParkId = localByQueueId.get(externalPark.id);
 
       if (!localParkId) {
@@ -200,8 +221,8 @@ export async function syncCatalogFromQueueTimes() {
             .insert({
               name: externalPark.name,
               country: normalizeCountry(externalPark.country),
-              latitude: Number.parseFloat(externalPark.latitude),
-              longitude: Number.parseFloat(externalPark.longitude),
+              latitude: qtLat,
+              longitude: qtLng,
               queue_times_park_id: externalPark.id,
               external_source: "queue-times",
               external_id: String(externalPark.id),
@@ -226,8 +247,8 @@ export async function syncCatalogFromQueueTimes() {
           queue_times_park_id: externalPark.id,
           external_source: "queue-times",
           external_id: String(externalPark.id),
-          latitude: Number.parseFloat(externalPark.latitude),
-          longitude: Number.parseFloat(externalPark.longitude),
+          latitude: qtLat,
+          longitude: qtLng,
           last_synced_at: new Date().toISOString(),
         })
         .eq("id", localParkId);

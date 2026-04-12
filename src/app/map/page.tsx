@@ -22,16 +22,29 @@ type QueueRide = {
 const CONTINENTS = ["All", "North America", "South America", "Europe", "Asia", "Oceania", "Africa"] as const;
 type Continent = (typeof CONTINENTS)[number];
 
+/** Queue-Times once shipped Epic Universe with +81°E instead of -81°W; fix display until DB sync overwrites. */
+function fixUsParkLongitude(p: Park): Park {
+  const lat = p.latitude ?? 0;
+  const lng = p.longitude ?? 0;
+  const country = (p.country ?? "").toLowerCase();
+  if (country.includes("united states") && lng > 0 && lat >= 22 && lat <= 50) {
+    return { ...p, longitude: -lng };
+  }
+  return p;
+}
+
 function getContinent(lat: number, lng: number): Continent {
   if (lat > 15 && lat < 72 && lng > -168 && lng < -52) return "North America";
   if (lat > -56 && lat < 15 && lng > -82 && lng < -34) return "South America";
   // Europe before Asia so Turkey/western Russia stay in Europe
   if (lat > 34 && lat < 72 && lng > -25 && lng < 40) return "Europe";
   if (lat > -47 && lat < -10 && lng > 110 && lng < 180) return "Oceania";
-  // Asia before Africa — Middle East (Saudi, UAE, Qatar) overlaps Africa's bbox
-  // and must be caught here first
-  if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
+  // Arabian Peninsula + Gulf — classify as Asia (not Africa). Must run before Africa bbox.
+  if (lat > 12 && lat < 33 && lng > 34 && lng < 62) return "Asia";
+  // Africa (Egypt through Maghreb + sub-Saharan). lng < 52 keeps Horn of Africa in Africa.
   if (lat > -35 && lat < 38 && lng > -18 && lng < 52) return "Africa";
+  // Remaining eastern hemisphere: central Asia, India, Russia east of Europe, etc.
+  if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
   return "All";
 }
 
@@ -49,7 +62,7 @@ export default function MapPage() {
     if (!supabase) return;
 
     Promise.all([supabase.from("parks").select("*"), supabase.from("coasters").select("*")]).then(([parksRes, coastersRes]) => {
-      if (!parksRes.error && parksRes.data?.length) setParks(parksRes.data);
+      if (!parksRes.error && parksRes.data?.length) setParks(parksRes.data.map(fixUsParkLongitude));
       if (!coastersRes.error && coastersRes.data?.length) setCoasters(coastersRes.data);
     });
   }, []);
@@ -108,9 +121,14 @@ export default function MapPage() {
         if (idRemap.has(existing.id)) continue;
 
         const sameName = existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
-        const nearby = distanceKm(existing, park) < 2;
+        const dist = distanceKm(existing, park);
+        // Only merge identical names when parks are in the same region (~200 km).
+        // Otherwise two parks worldwide sharing a name (e.g. "Epic Universe" vs a bad row)
+        // get merged and coordinates / queue IDs get corrupted.
+        const sameNameNearby = sameName && dist < 200;
+        const veryClose = dist < 2;
 
-        if (sameName || nearby) {
+        if (sameNameNearby || veryClose) {
           mergeInto(existing, park);
           canonical.delete(park.id);
           break;
