@@ -7,7 +7,7 @@ import { cleanCoasterName } from "./display";
 import type { WikidataCoasterRow } from "./wikidata-coasters";
 
 /** Manufacturers that exclusively or primarily build wooden coasters. */
-export const WOOD_MANUFACTURERS = new Set([
+const WOOD_MANUFACTURERS = new Set([
   "great coasters international",
   "gravity group",
   "the gravity group",
@@ -23,7 +23,7 @@ export const WOOD_MANUFACTURERS = new Set([
 ]);
 
 /** Manufacturers that build RMC-style hybrid (steel rail on wood/steel frame) coasters. */
-export const HYBRID_MANUFACTURERS = new Set(["rocky mountain construction"]);
+const HYBRID_MANUFACTURERS = new Set(["rocky mountain construction"]);
 
 function manufacturerImpliesType(
   mfr: string,

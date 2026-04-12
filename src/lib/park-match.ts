@@ -5,8 +5,6 @@
 import type { Coaster, Park } from "@/types/domain";
 import { haversineKm } from "@/lib/geo";
 
-export { haversineKm };
-
 /** Lowercase, strip noise words, collapse punctuation for comparison. */
 export function normalizeParkNameForMatch(name: string): string {
   return name

@@ -4,7 +4,7 @@
  */
 
 /** Bounding boxes are intentionally loose for park-scale use (not border disputes). */
-export function countryHintFromLatLng(lat: number, lng: number): string | null {
+function countryHintFromLatLng(lat: number, lng: number): string | null {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   // India (mainland + usual park lat/lng bands)
   if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 97) return "India";

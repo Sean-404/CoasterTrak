@@ -8,7 +8,7 @@ import { normalizeNameKey } from "./wikidata-coasters";
 
 export type CsvCoasterRow = Record<string, string>;
 
-export type WikidataMatch = {
+type WikidataMatch = {
   coaster_name: string;
   Location: string;
   wikidataId: string | null;
@@ -24,7 +24,7 @@ function getField(row: CsvCoasterRow, keys: string[]): string {
   return "";
 }
 
-export function matchCsvRowToWikidata(
+function matchCsvRowToWikidata(
   csvRow: CsvCoasterRow,
   byNormalizedName: Map<string, WikidataCoasterRow[]>,
 ): WikidataCoasterRow | null {
@@ -47,7 +47,7 @@ export function matchCsvRowToWikidata(
   return candidates[0];
 }
 
-export function indexWikidataByNormalizedName(
+function indexWikidataByNormalizedName(
   rows: WikidataCoasterRow[],
 ): Map<string, WikidataCoasterRow[]> {
   const map = new Map<string, WikidataCoasterRow[]>();

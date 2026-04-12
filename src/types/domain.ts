@@ -25,7 +25,3 @@ export type Coaster = {
   opening_year?: number | null;
   closing_year?: number | null;
 };
-
-export type CoasterWithPark = Coaster & {
-  park?: Park;
-};

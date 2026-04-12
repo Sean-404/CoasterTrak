@@ -11,10 +11,10 @@ import {
   parseSpeedMphFromText,
 } from "./wikidata-coasters";
 
-export const WIKIPEDIA_USER_AGENT =
+const WIKIPEDIA_USER_AGENT =
   "CoasterTrak/0.1 (roller coaster catalog sync; https://github.com/)";
 
-export type InfoboxExtract = {
+type InfoboxExtract = {
   lengthM: number | null;
   heightM: number | null;
   speedMph: number | null;
@@ -35,7 +35,7 @@ function parseHeightMetersFromText(s: string): number | null {
 }
 
 /** Map first-column infobox labels to row text (English Wikipedia). */
-export function parseInfoboxTable(html: string): Record<string, string> {
+function parseInfoboxTable(html: string): Record<string, string> {
   const $ = cheerio.load(html);
   const table = $("table.infobox").first();
   const out: Record<string, string> = {};
