@@ -155,7 +155,9 @@ export function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxC
 
   const inv = p.get("inversions");
   if (inv) {
-    const m = /^(\d+)/.exec(inv.trim());
+    const stripped = inv.replace(/\{\{[^}]*\}\}/g, "").trim();
+    // Reject values like "2:28" (duration leak) or "2 trains" (only a leading digit would wrongly match).
+    const m = /^(\d{1,2})\s*$/.exec(stripped);
     if (m) out.inversions = parseInt(m[1], 10);
   }
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
+import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -13,6 +14,7 @@ import { UnitsToggle } from "@/components/units-toggle";
 
 type RideCoaster = {
   name: string;
+  wikidata_id?: string | null;
   coaster_type: string;
   manufacturer: string | null;
   length_ft: number | null;
@@ -47,14 +49,22 @@ export default function StatsPage() {
 
       const ridesRes = await supabase
         .from("rides")
-        .select("coaster_id, coasters(name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))")
+        .select(
+          "coaster_id, coasters(name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+        )
         .eq("user_id", data.user.id);
 
       if (ridesRes.error) {
         setFetchError(true);
       }
 
-      setRides((ridesRes.data ?? []) as unknown as RideRow[]);
+      const rows = (ridesRes.data ?? []) as unknown as RideRow[];
+      setRides(
+        rows.map((r) => ({
+          ...r,
+          coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
+        })),
+      );
       setLoading(false);
     }).catch(() => {
       setFetchError(true);

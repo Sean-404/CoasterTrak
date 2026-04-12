@@ -1,4 +1,5 @@
 import { continentIdForCountryLabel } from "@/lib/country-continent";
+import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 
 /** One row per distinct coaster, with joined coaster + park fields (matches stats query + park_id). */
@@ -7,6 +8,7 @@ export type AchievementRide = {
   coasters?: {
     park_id: number;
     name: string;
+    wikidata_id?: string | null;
     coaster_type: string;
     manufacturer: string | null;
     length_ft: number | null;
@@ -283,9 +285,17 @@ const DEFINITIONS: Def[] = [
  * Evaluate all achievements from deduplicated-by-coaster ride rows.
  * `current` is the raw metric (may exceed `target`); UI can clamp the progress bar.
  */
+function ridesWithCatalogFixes(rides: AchievementRide[]): AchievementRide[] {
+  return rides.map((r) => ({
+    ...r,
+    coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
+  }));
+}
+
 export function evaluateAchievements(uniqueRides: AchievementRide[]): AchievementEval[] {
+  const rides = ridesWithCatalogFixes(uniqueRides);
   return DEFINITIONS.map((d) => {
-    const raw = d.current(uniqueRides);
+    const raw = d.current(rides);
     const current = Math.max(0, raw);
     const unlocked = current >= d.target;
     return {

@@ -64,7 +64,7 @@ export default function AchievementsPage() {
         const ridesRes = await supabase
           .from("rides")
           .select(
-            "coaster_id, coasters(park_id, name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+            "coaster_id, coasters(park_id, name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
           )
           .eq("user_id", data.user.id);
 

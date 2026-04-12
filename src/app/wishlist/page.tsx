@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
+import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -12,6 +13,7 @@ type WishlistItem = {
   coaster_id: number;
   coasters?: {
     name: string;
+    wikidata_id?: string | null;
     coaster_type: string;
     manufacturer: string | null;
     status: string;
@@ -36,12 +38,16 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, coasters(name, coaster_type, manufacturer, status, parks(name))")
+        .select("coaster_id, coasters(name, wikidata_id, coaster_type, manufacturer, status, parks(name))")
         .eq("user_id", data.user.id)
         .order("coaster_id");
 
       if (error) setToast("Failed to load wishlist. Please refresh.");
-      setItems((rows ?? []) as unknown as WishlistItem[]);
+      const mapped = ((rows ?? []) as unknown as WishlistItem[]).map((item) => ({
+        ...item,
+        coasters: item.coasters ? applyCoasterKnownFixes(item.coasters) : null,
+      }));
+      setItems(mapped);
       setLoading(false);
     }).catch(() => {
       setToast("Failed to load wishlist. Please refresh.");

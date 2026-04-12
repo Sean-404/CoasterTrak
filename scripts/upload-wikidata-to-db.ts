@@ -94,6 +94,11 @@ function stripRideSuffix(name: string): string {
     .trim();
 }
 
+/** Former Queue-Times / DB titles that never matched Wikidata after a park rename. */
+const WIKIDATA_LEGACY_DB_NAMES: Record<string, string[]> = {
+  Q885702: ["Zipper Dipper"],
+};
+
 /**
  * Wikidata `label` is often short ("Nemesis") while enwikiTitle matches the live
  * name ("Nemesis Reborn"). Try every variant so we still match the DB row.
@@ -115,6 +120,18 @@ function lookupCandidates(
       normalizeCoasterDedupKey(wd.enwikiTitle),
       normalizeCoasterDedupKey(stripRideSuffix(wd.enwikiTitle)),
     );
+  }
+  const qid = wd.wikidataId?.trim().toUpperCase();
+  const legacy = qid ? WIKIDATA_LEGACY_DB_NAMES[qid] : undefined;
+  if (legacy) {
+    for (const alt of legacy) {
+      keys.push(
+        normalizeNameKey(alt),
+        normalizeNameKey(stripRideSuffix(alt)),
+        normalizeCoasterDedupKey(alt),
+        normalizeCoasterDedupKey(stripRideSuffix(alt)),
+      );
+    }
   }
   const seen = new Set<string>();
   for (const key of keys) {

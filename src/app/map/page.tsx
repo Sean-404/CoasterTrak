@@ -8,6 +8,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { matchesSearchQuery } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import {
   absorbReverseGeocodeParks,
   parkNamesMatch,
@@ -81,7 +82,9 @@ export default function MapPage() {
       ]);
       if (cancelled) return;
       if (!parksRes.error && parksRes.data.length) setParks(parksRes.data.map(fixUsParkLongitude));
-      if (!coastersRes.error && coastersRes.data.length) setCoasters(coastersRes.data);
+      if (!coastersRes.error && coastersRes.data.length) {
+        setCoasters(coastersRes.data.map(applyCoasterKnownFixes));
+      }
     })();
     return () => {
       cancelled = true;
