@@ -13,8 +13,8 @@ export const WIKIDATA_USER_AGENT =
 
 /**
  * Full SPARQL: instances of roller coaster or any subclass of Q204832.
- * Second hop on P361 uses Wikidata classes only: Q2416723 (theme park), Q875912 (resort) —
- * so a ride “in” a land resolves to the gate park label, not app-specific rules.
+ * Second hop on P361 uses direct P31 only (no wdt:P279* — that path timed out WDQS on full runs).
+ * Q2416723 = theme park, Q3363942 = amusement park; exclude Q875912 = resort.
  */
 export const ROLLER_COASTER_SPARQL = `
 PREFIX wd: <http://www.wikidata.org/entity/>
@@ -36,8 +36,11 @@ WHERE {
   OPTIONAL { ?item wdt:P361 ?park . }
   OPTIONAL {
     ?park wdt:P361 ?parkParent .
-    FILTER( EXISTS { ?parkParent wdt:P31/wdt:P279* wd:Q2416723 . } )
-    FILTER( NOT EXISTS { ?parkParent wdt:P31/wdt:P279* wd:Q875912 . } )
+    FILTER(
+      EXISTS { ?parkParent wdt:P31 wd:Q2416723 . }
+      || EXISTS { ?parkParent wdt:P31 wd:Q3363942 . }
+    )
+    FILTER( NOT EXISTS { ?parkParent wdt:P31 wd:Q875912 . } )
   }
   OPTIONAL { ?item wdt:P176 ?manufacturer . }
   OPTIONAL { ?item p:P2043/psn:P2043/wikibase:quantityAmount ?lengthM . }
@@ -264,16 +267,19 @@ export function mergeRowsByItem(rows: WikidataCoasterRow[]): WikidataCoasterRow[
   return [...map.values()];
 }
 
+/** WDQS allows a longer server-side cap via query string (ms); anonymous limit may still apply. */
+const WDQS_SPARQL_URL = `${WIKIDATA_SPARQL_ENDPOINT}?format=json&timeout=300000`;
+
 export async function fetchWikidataSparqlPage(
   query: string,
   offset: number,
   limit: number,
-  retries = 4,
+  retries = 7,
 ): Promise<SparqlJsonResponse> {
   const q = `${query.trim()}\nORDER BY ?item\nLIMIT ${limit}\nOFFSET ${offset}\n`;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(`${WIKIDATA_SPARQL_ENDPOINT}?format=json`, {
+    const res = await fetch(WDQS_SPARQL_URL, {
       method: "POST",
       headers: {
         Accept: "application/sparql-results+json",
@@ -291,9 +297,13 @@ export async function fetchWikidataSparqlPage(
       throw new Error(`Wikidata SPARQL ${res.status}: ${text.slice(0, 500)}`);
     }
 
-    const delay = res.status === 429
-      ? 10_000
-      : Math.min(3_000 * 2 ** attempt, 30_000);
+    const is504 = res.status === 504;
+    const delay =
+      res.status === 429
+        ? 12_000
+        : is504
+          ? Math.min(8_000 * 2 ** attempt, 90_000)
+          : Math.min(3_000 * 2 ** attempt, 45_000);
     console.error(
       `  Wikidata ${res.status} on offset ${offset}, retry ${attempt + 1}/${retries} in ${delay / 1000}s…`,
     );
@@ -309,9 +319,10 @@ export async function fetchAllRollerCoasters(options?: {
   onPage?: (page: WikidataCoasterRow[], offset: number) => void | Promise<void>;
   delayMs?: number;
 }): Promise<WikidataCoasterRow[]> {
-  const pageSize = options?.pageSize ?? 5000;
+  /** Smaller pages avoid WDQS 504s on heavy OPTIONALs; override via options. */
+  const pageSize = options?.pageSize ?? 2000;
   const maxRows = options?.maxRows ?? Infinity;
-  const delayMs = options?.delayMs ?? 1200;
+  const delayMs = options?.delayMs ?? 2000;
 
   const out: WikidataCoasterRow[] = [];
   let offset = 0;
