@@ -3,8 +3,8 @@
 import "leaflet/dist/leaflet.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
-import { useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { useEffect, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
@@ -21,11 +21,35 @@ const icon = L.icon({
 
 type QueueRide = { name: string; isOpen: boolean; waitTime: number; lastUpdated: string };
 
+const CONTINENT_VIEWS: Record<string, { center: [number, number]; zoom: number }> = {
+  "North America": { center: [42, -98],  zoom: 3 },
+  "South America": { center: [-15, -58], zoom: 3 },
+  "Europe":        { center: [52, 14],   zoom: 4 },
+  "Asia":          { center: [32, 105],  zoom: 3 },
+  "Oceania":       { center: [-28, 140], zoom: 4 },
+  "Africa":        { center: [5, 22],    zoom: 3 },
+};
+
+function MapController({ continent }: { continent: string }) {
+  const map = useMap();
+  useEffect(() => {
+    if (continent === "All") {
+      map.flyTo([25, 10], 2, { duration: 1 });
+    } else {
+      const view = CONTINENT_VIEWS[continent];
+      if (view) map.flyTo(view.center, view.zoom, { duration: 1 });
+    }
+    return () => { try { map.stop(); } catch { /* map not yet ready */ } };
+  }, [continent, map]);
+  return null;
+}
+
 type Props = {
   parks: Park[];
   coasters: Coaster[];
   queueTimesByParkId?: Record<number, QueueRide[]>;
   units?: Units;
+  continent?: string;
 };
 
 function normalizeRideName(name: string) {
@@ -156,17 +180,18 @@ function ParkPopupContent({
   );
 }
 
-export function ParkMap({ parks, coasters, queueTimesByParkId = {}, units = "imperial" }: Props) {
+export function ParkMap({ parks, coasters, queueTimesByParkId = {}, units = "imperial", continent = "All" }: Props) {
   return (
     <MapContainer
       center={[25, 10]}
       zoom={2}
       scrollWheelZoom
       worldCopyJump={false}
-      maxBounds={[[-90, -180], [90, 180]]}
-      maxBoundsViscosity={1.0}
+      maxBounds={[[-85, -210], [85, 210]]}
+      maxBoundsViscosity={0.7}
       className="h-[65vh] w-full rounded border border-slate-200"
     >
+      <MapController continent={continent} />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"

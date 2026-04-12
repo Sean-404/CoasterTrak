@@ -5,7 +5,7 @@ import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
 import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { useUnits } from "@/hooks/use-units";
+import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
 

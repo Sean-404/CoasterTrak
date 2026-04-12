@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { sampleCoasters, sampleParks } from "@/lib/sample-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
-import { useUnits } from "@/hooks/use-units";
+import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
@@ -42,6 +42,7 @@ export default function MapPage() {
   const [continent, setContinent] = useState<Continent>("All");
   const [search, setSearch] = useState("");
   const { units, setUnits } = useUnits();
+
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -148,15 +149,19 @@ export default function MapPage() {
       <SiteHeader />
       <main className="mx-auto max-w-6xl p-6">
         <h1 className="mb-4 text-2xl font-bold text-slate-900">Coaster map</h1>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by park or coaster…"
-            aria-label="Search by park or coaster"
-            className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
-          />
-          <UnitsToggle units={units} onChange={setUnits} />
+        <div className="mb-4 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by park or coaster…"
+              aria-label="Search by park or coaster"
+              className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
+            />
+            <div className="ml-auto shrink-0">
+              <UnitsToggle units={units} onChange={setUnits} />
+            </div>
+          </div>
           <div className="flex gap-1 flex-wrap">
             {CONTINENTS.map((c) => (
               <button
@@ -174,7 +179,7 @@ export default function MapPage() {
             ))}
           </div>
         </div>
-        <ParkMap parks={filteredParks} coasters={remappedCoasters} queueTimesByParkId={queueTimesByParkId} units={units} />
+        <ParkMap parks={filteredParks} coasters={remappedCoasters} queueTimesByParkId={queueTimesByParkId} units={units} continent={continent} />
         <p className="mt-3 text-xs text-slate-500">
           Queue data powered by{" "}
           <a className="underline" href="https://queue-times.com/" target="_blank" rel="noreferrer">
