@@ -72,7 +72,7 @@ Avoid checking multi‑MB JSON into git; generate in CI and upload to Storage (o
 
 **Queue-Times:** still used for **live wait times** in map popups where a park has a `queue_times_park_id`. Run `POST /api/sync/catalog?source=queue-times` occasionally (or rely on `/api/cron/sync-queue-times`) to attach/update Queue-Times parks and ride names for those APIs.
 
-The GitHub Action `.github/workflows/refresh-wikidata.yml` fetches and enriches Wikidata rows, uploads the JSON to Supabase Storage, then runs `upload-wikidata-to-db.ts` (field-level DB updates). For a **full** park/coaster upsert from the same dataset, trigger `POST /api/sync/catalog` after the snapshot is in Storage (or use local file for dev).
+The GitHub Action `.github/workflows/refresh-wikidata.yml` runs **monthly**: it fetches and enriches Wikidata rows, uploads the JSON to Supabase Storage, then runs `upload-wikidata-to-db.ts` (field-level DB updates). For a **full** park/coaster upsert from the same dataset, Vercel’s weekly cron hits `/api/cron/sync-catalog` so `syncCatalogFromWikidata` re-reads `WIKIDATA_COASTERS_URL` and applies parks/coasters (you can still trigger `POST /api/sync/catalog` manually after a fresh snapshot).
 
 Required env vars for server-side sync:
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -84,4 +84,4 @@ Run manually (local dev server, after `wikidata:fetch`):
 - `curl -X POST http://localhost:3000/api/sync/catalog -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
 - Queue-Times refresh only: add `?source=queue-times`
 
-`vercel.json` schedules `/api/cron/sync-catalog` (Wikidata catalog) and `/api/cron/sync-queue-times` (Queue-Times) on cron schedules.
+`vercel.json` schedules `/api/cron/sync-catalog` **weekly** (Sundays 05:00 UTC — Wikidata catalog apply) and `/api/cron/sync-queue-times` **weekly on Tuesdays** (Queue-Times ride names / links).

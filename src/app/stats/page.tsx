@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
-import { cleanCoasterName, formatParkLabel } from "@/lib/display";
+import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
@@ -149,32 +149,30 @@ export default function StatsPage() {
 
   const filteredRides = useMemo(() => {
     if (!rideFilter.trim()) return uniqueRides;
-    const q = rideFilter.toLowerCase();
     return uniqueRides.filter((r) => {
       const c = r.coasters;
       return (
-        cleanCoasterName(c?.name ?? "").toLowerCase().includes(q) ||
-        (c?.parks?.name ?? "").toLowerCase().includes(q) ||
-        (c?.parks?.country ?? "").toLowerCase().includes(q) ||
-        (c?.coaster_type ?? "").toLowerCase().includes(q) ||
-        effectiveCoasterType(c?.coaster_type, c?.manufacturer).toLowerCase().includes(q) ||
-        (c?.manufacturer ?? "").toLowerCase().includes(q)
+        matchesSearchQuery(cleanCoasterName(c?.name ?? ""), rideFilter) ||
+        matchesSearchQuery(c?.parks?.name ?? "", rideFilter) ||
+        matchesSearchQuery(c?.parks?.country ?? "", rideFilter) ||
+        matchesSearchQuery(c?.coaster_type ?? "", rideFilter) ||
+        matchesSearchQuery(effectiveCoasterType(c?.coaster_type, c?.manufacturer), rideFilter) ||
+        matchesSearchQuery(c?.manufacturer ?? "", rideFilter)
       );
     });
   }, [uniqueRides, rideFilter]);
 
   const filteredWishlist = useMemo(() => {
     if (!wishFilter.trim()) return wishlist;
-    const q = wishFilter.toLowerCase();
     return wishlist.filter((item) => {
       const c = item.coasters;
       return (
-        cleanCoasterName(c?.name ?? "").toLowerCase().includes(q) ||
-        (c?.parks?.name ?? "").toLowerCase().includes(q) ||
-        (c?.parks?.country ?? "").toLowerCase().includes(q) ||
-        (c?.coaster_type ?? "").toLowerCase().includes(q) ||
-        effectiveCoasterType(c?.coaster_type, c?.manufacturer).toLowerCase().includes(q) ||
-        (c?.manufacturer ?? "").toLowerCase().includes(q)
+        matchesSearchQuery(cleanCoasterName(c?.name ?? ""), wishFilter) ||
+        matchesSearchQuery(c?.parks?.name ?? "", wishFilter) ||
+        matchesSearchQuery(c?.parks?.country ?? "", wishFilter) ||
+        matchesSearchQuery(c?.coaster_type ?? "", wishFilter) ||
+        matchesSearchQuery(effectiveCoasterType(c?.coaster_type, c?.manufacturer), wishFilter) ||
+        matchesSearchQuery(c?.manufacturer ?? "", wishFilter)
       );
     });
   }, [wishlist, wishFilter]);

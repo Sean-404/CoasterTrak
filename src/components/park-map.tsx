@@ -8,7 +8,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
-import { cleanCoasterName } from "@/lib/display";
+import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
@@ -106,8 +106,9 @@ function ParkPopupContent({
     return Array.from(seen.values());
   })();
 
-  const term = filter.toLowerCase();
-  const visible = term ? dedupedCoasters.filter((c) => c.name.toLowerCase().includes(term)) : dedupedCoasters;
+  const visible = filter.trim()
+    ? dedupedCoasters.filter((c) => matchesSearchQuery(c.name, filter))
+    : dedupedCoasters;
 
   return (
     <div className="w-64">

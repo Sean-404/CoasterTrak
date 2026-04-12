@@ -77,6 +77,9 @@ type CoasterUpdate = {
   coaster_type?: string;
 };
 
+/** Update row sent to Supabase — `name` omitted when we skip a rename to satisfy unique (park_id, name). */
+type PreparedCoasterUpdate = Omit<CoasterUpdate, "name"> & { name?: string };
+
 // ---------------------------------------------------------------------------
 // Matching helpers
 // ---------------------------------------------------------------------------
@@ -228,6 +231,58 @@ function pickBestMatch(
   return best;
 }
 
+/**
+ * Wikidata cleanup can make two different DB rows want the same display name at one park.
+ * The DB enforces unique (park_id, name). Drop `name` from conflicting updates so enrichment
+ * fields still apply without violating the constraint.
+ */
+function resolveParkNameCollisions(
+  updates: CoasterUpdate[],
+  coasters: DbCoaster[],
+): PreparedCoasterUpdate[] {
+  const byId = new Map(coasters.map((c) => [c.id, c]));
+  const occ = new Map<string, number>();
+  for (const c of coasters) {
+    occ.set(`${c.park_id}:${normalizeNameKey(c.name)}`, c.id);
+  }
+
+  const sorted = [...updates].sort((a, b) => a.id - b.id);
+  const out: PreparedCoasterUpdate[] = [];
+
+  for (const u of sorted) {
+    const row = byId.get(u.id);
+    if (!row) {
+      out.push(u);
+      continue;
+    }
+    const parkId = row.park_id;
+    const nkOld = normalizeNameKey(row.name);
+    const nkNew = normalizeNameKey(u.name);
+    if (nkOld === nkNew) {
+      out.push(u);
+      continue;
+    }
+
+    const oldKey = `${parkId}:${nkOld}`;
+    const newKey = `${parkId}:${nkNew}`;
+    const holder = occ.get(newKey);
+    if (holder !== undefined && holder !== u.id) {
+      const { name: _drop, ...rest } = u;
+      out.push(rest);
+      console.error(
+        `  Skipping rename for id=${u.id}: "${u.name}" already used at this park (coaster id=${holder}).`,
+      );
+      continue;
+    }
+
+    if (occ.get(oldKey) === u.id) occ.delete(oldKey);
+    occ.set(newKey, u.id);
+    out.push(u);
+  }
+
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -327,21 +382,23 @@ async function main() {
     return true;
   });
 
+  const prepared = resolveParkNameCollisions(deduped, coasters);
+
   console.error(
     `Matched ${deduped.length} / ${wdRows.length} Wikidata entries to DB coasters.`,
   );
 
   if (DRY_RUN) {
-    console.error(`--dry-run: would update ${deduped.length} coasters (sample below).`);
-    console.log(JSON.stringify(deduped.slice(0, 3), null, 2));
+    console.error(`--dry-run: would update ${prepared.length} coasters (sample below).`);
+    console.log(JSON.stringify(prepared.slice(0, 3), null, 2));
   }
 
   let updated = 0;
   if (!DRY_RUN) {
     // Batch updates in chunks of 200
     const CHUNK = 200;
-    for (let i = 0; i < deduped.length; i += CHUNK) {
-      const chunk = deduped.slice(i, i + CHUNK);
+    for (let i = 0; i < prepared.length; i += CHUNK) {
+      const chunk = prepared.slice(i, i + CHUNK);
       for (const u of chunk) {
         const { id, ...fields } = u;
         const { error } = await supabase
@@ -354,7 +411,7 @@ async function main() {
           updated += 1;
         }
       }
-      console.error(`  ${Math.min(i + CHUNK, deduped.length)} / ${deduped.length} updated...`);
+      console.error(`  ${Math.min(i + CHUNK, prepared.length)} / ${prepared.length} updated...`);
     }
     console.error(`Done. Updated ${updated} coasters in Supabase.`);
   }
@@ -455,23 +512,77 @@ async function main() {
     return;
   }
 
-  let inserted = 0;
-  let upserted = 0;
-  for (const row of inserts) {
-    const { error } = await supabase
+  let appliedNewRides = 0;
+  if (inserts.length > 0) {
+    // PostgREST upsert(onConflict: park_id,external_source,external_id) fails when Postgres
+    // cannot match ON CONFLICT to the partial unique index (migration 004). Avoid upsert:
+    // prefetch existing Wikidata-linked rows and insert or update by primary key.
+    const parkIds = [...new Set(inserts.map((r) => r.park_id))];
+    const { data: existingRows, error: loadExistingErr } = await supabase
       .from("coasters")
-      .upsert(row, {
-        onConflict: "park_id,external_source,external_id",
-        ignoreDuplicates: false,
-      });
-    if (error) {
-      console.error(`  Upsert failed for "${row.name}" (park_id=${row.park_id}): ${error.message}`);
+      .select("id, park_id, external_id")
+      .eq("external_source", "wikidata")
+      .in("park_id", parkIds);
+
+    if (loadExistingErr) {
+      console.error("Could not load existing Wikidata coasters:", loadExistingErr.message);
     } else {
-      upserted += 1;
+      const idByParkExternal = new Map<string, number>();
+      for (const r of existingRows ?? []) {
+        const ext = r.external_id as string | null;
+        if (ext) idByParkExternal.set(`${r.park_id}:${ext}`, Number(r.id));
+      }
+
+      const toInsert: CoasterInsert[] = [];
+      const toUpdate: { id: number; row: CoasterInsert }[] = [];
+
+      for (const row of inserts) {
+        const key = `${row.park_id}:${row.external_id}`;
+        const existingId = idByParkExternal.get(key);
+        if (existingId != null) {
+          toUpdate.push({ id: existingId, row });
+        } else {
+          toInsert.push(row);
+        }
+      }
+
+      for (const { id, row } of toUpdate) {
+        const { error } = await supabase.from("coasters").update(row).eq("id", id);
+        if (error) {
+          console.error(
+            `  Update (new-ride path) failed for "${row.name}" (id=${id}): ${error.message}`,
+          );
+        } else {
+          appliedNewRides += 1;
+        }
+      }
+
+      const CHUNK = 100;
+      for (let i = 0; i < toInsert.length; i += CHUNK) {
+        const chunk = toInsert.slice(i, i + CHUNK);
+        const { error } = await supabase.from("coasters").insert(chunk);
+        if (!error) {
+          appliedNewRides += chunk.length;
+          continue;
+        }
+        console.error(
+          `  Batch insert failed (${chunk.length} rows): ${error.message}; retrying one-by-one.`,
+        );
+        for (const row of chunk) {
+          const { error: e2 } = await supabase.from("coasters").insert(row);
+          if (e2) {
+            console.error(`  Insert failed for "${row.name}" (park_id=${row.park_id}): ${e2.message}`);
+          } else {
+            appliedNewRides += 1;
+          }
+        }
+      }
     }
   }
-  // Count true inserts vs updates is hard to distinguish with upsert, so report total upserts.
-  console.error(`Done. Upserted ${upserted} coasters from Wikidata (new inserts + enrichment updates for name-mismatched rides).`);
+
+  console.error(
+    `Done. Applied ${appliedNewRides} new-ride rows from Wikidata (insert or update by park + external id).`,
+  );
 }
 
 runMain(main);

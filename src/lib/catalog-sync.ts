@@ -1,3 +1,4 @@
+import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
 import { findParkMatchForQueueTimes, type ParkForMatch } from "@/lib/park-match";
 import { finishSyncRun, startSyncRun } from "@/lib/sync-run";
 
@@ -209,8 +210,9 @@ export async function syncCatalogFromQueueTimes() {
       resolvedParks.push({ externalPark, localParkId });
     }
 
-    // Pass 2 (parallel, concurrency=12): fetch each park's live queue times and upsert rides.
+    // Pass 2 (parallel, concurrency=12): fetch each park's live queue times, then apply rows.
     // Running in parallel cuts the wall-clock time from ~5 min down to ~30 s.
+    const queueCoasterRows: Record<string, unknown>[] = [];
     await withConcurrency(resolvedParks, 12, async ({ externalPark, localParkId }) => {
       const queueRes = await fetch(
         `https://queue-times.com/parks/${externalPark.id}/queue_times.json`,
@@ -225,22 +227,22 @@ export async function syncCatalogFromQueueTimes() {
       ];
 
       for (const ride of rides) {
-        const upsertRes = await supabase.from("coasters").upsert(
-          {
-            park_id: localParkId,
-            name: ride.name,
-            coaster_type: normalizeType(ride.name),
-            status: normalizeStatus(undefined, ride.is_open),
-            external_source: "queue-times",
-            external_id: String(ride.id),
-            last_synced_at: new Date().toISOString(),
-          },
-          { onConflict: "park_id,external_source,external_id" },
-        );
-        if (upsertRes.error) throw upsertRes.error;
-        coasterUpdates += 1;
+        queueCoasterRows.push({
+          park_id: localParkId,
+          name: ride.name,
+          coaster_type: normalizeType(ride.name),
+          status: normalizeStatus(undefined, ride.is_open),
+          external_source: "queue-times",
+          external_id: String(ride.id),
+          last_synced_at: new Date().toISOString(),
+        });
       }
     });
+
+    if (queueCoasterRows.length) {
+      await upsertCoastersByExternalKeys(supabase, queueCoasterRows);
+    }
+    coasterUpdates += queueCoasterRows.length;
 
     await finishSyncRun(runId, "success", { recordsUpdated: parkUpdates + coasterUpdates });
 

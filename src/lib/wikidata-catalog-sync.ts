@@ -12,6 +12,7 @@ import {
   wikidataInsertName,
   yearFromDate,
 } from "@/lib/wikidata-coaster-inference";
+import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
 import { mergeRowsByItem, type WikidataCoasterRow } from "@/lib/wikidata-coasters";
 
 async function loadWikidataRows(): Promise<WikidataCoasterRow[]> {
@@ -152,10 +153,10 @@ export async function syncCatalogFromWikidata() {
     async function flushCoasters() {
       if (!coasterBatch.length) return;
       const chunk = coasterBatch.splice(0, UPSERT_CHUNK);
-      const { error } = await supabase.from("coasters").upsert(chunk, {
-        onConflict: "park_id,external_source,external_id",
-      });
-      if (error) throw error;
+      await upsertCoastersByExternalKeys(
+        supabase,
+        chunk as unknown as Record<string, unknown>[],
+      );
       coasterUpdates += chunk.length;
     }
 

@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { sampleCoasters, sampleParks } from "@/lib/sample-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
+import { matchesSearchQuery } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   absorbReverseGeocodeParks,
@@ -179,15 +180,14 @@ export default function MapPage() {
   ]);
 
   const filteredParks = useMemo(() => {
-    const term = search.toLowerCase();
     return deduplicatedParks.parks.filter((park) => {
       if (park.latitude === 0 && park.longitude === 0) return false;
       const byContinent = continent === "All" || getContinent(park.latitude, park.longitude) === continent;
-      const coasterNames = remappedCoasters
-        .filter((c) => c.park_id === park.id)
-        .map((c) => c.name.toLowerCase())
-        .join(" ");
-      const bySearch = !term || park.name.toLowerCase().includes(term) || coasterNames.includes(term);
+      const bySearch =
+        matchesSearchQuery(park.name, search) ||
+        remappedCoasters
+          .filter((c) => c.park_id === park.id)
+          .some((c) => matchesSearchQuery(c.name, search));
       return byContinent && bySearch;
     });
   }, [continent, search, deduplicatedParks, remappedCoasters]);

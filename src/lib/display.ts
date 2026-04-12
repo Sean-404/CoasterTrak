@@ -19,3 +19,16 @@ export function formatParkLabel(
   if (!n) return c;
   return `${n} · ${c}`;
 }
+
+/**
+ * Loose substring match for search inputs: ignores case, apostrophes, and punctuation
+ * so queries like "Falcon's Flight" still match stored names like "Falcons Flight".
+ */
+export function matchesSearchQuery(haystack: string, query: string): boolean {
+  const q = query.trim();
+  if (!q) return true;
+  const needle = q.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!needle) return false;
+  const h = haystack.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return h.includes(needle);
+}
