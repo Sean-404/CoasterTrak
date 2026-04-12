@@ -5,6 +5,8 @@ import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
 import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { useUnits } from "@/hooks/use-units";
+import { fmtLength, fmtHeight, fmtSpeed } from "@/lib/units";
 
 type RideCoaster = {
   name: string;
@@ -39,6 +41,7 @@ export default function StatsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState(false);
+  const { units, toggle: toggleUnits } = useUnits();
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -222,7 +225,15 @@ export default function StatsPage() {
           {/* Personal records */}
           {(loading || hasAnyRecord) && (
             <div className="mt-6">
-              <h2 className="mb-3 font-semibold text-slate-900">Personal records</h2>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold text-slate-900">Personal records</h2>
+                <button
+                  onClick={toggleUnits}
+                  className="rounded border border-slate-300 px-2.5 py-1 text-xs text-slate-500 hover:border-slate-400 transition-colors"
+                >
+                  {units === "imperial" ? "ft / mph" : "m / km/h"}
+                </button>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {(
                   [
@@ -230,10 +241,11 @@ export default function StatsPage() {
                       key: "longest",
                       label: "Longest",
                       record: personalRecords.longest,
-                      format: (v: number) => `${v.toLocaleString()} ft`,
+                      format: (v: number) => fmtLength(v, units) ?? `${v.toLocaleString()} ft`,
                       icon: (
+                        // arrows-right-left: horizontal span / track length
                         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M12.293 2.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 8H3a1 1 0 010-2h11.586l-2.293-2.293a1 1 0 010-1.414zM7.707 10.293a1 1 0 010 1.414L5.414 14H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M13.2 2.24a.75.75 0 00.04 1.06l2.1 1.95H6.75a.75.75 0 000 1.5h8.59l-2.1 1.95a.75.75 0 101.02 1.1l3.5-3.25a.75.75 0 000-1.1l-3.5-3.25a.75.75 0 00-1.06.04zm-6.4 8a.75.75 0 00-1.06-.04l-3.5 3.25a.75.75 0 000 1.1l3.5 3.25a.75.75 0 101.02-1.1l-2.1-1.95h8.59a.75.75 0 000-1.5H4.66l2.1-1.95a.75.75 0 00.04-1.06z" clipRule="evenodd" />
                         </svg>
                       ),
                     },
@@ -241,10 +253,11 @@ export default function StatsPage() {
                       key: "tallest",
                       label: "Tallest",
                       record: personalRecords.tallest,
-                      format: (v: number) => `${v} ft`,
+                      format: (v: number) => fmtHeight(v, units) ?? `${v} ft`,
                       icon: (
+                        // arrow-up: height
                         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v10.586l2.293-2.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 14.586V4a1 1 0 011-1z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clipRule="evenodd" />
                         </svg>
                       ),
                     },
@@ -252,10 +265,13 @@ export default function StatsPage() {
                       key: "fastest",
                       label: "Fastest",
                       record: personalRecords.fastest,
-                      format: (v: number) => `${v} mph`,
+                      format: (v: number) => fmtSpeed(v, units) ?? `${v} mph`,
                       icon: (
+                        // speedometer: dial ring + needle + hub
                         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                          <path d="M2 13A8 8 0 1 1 18 13L15.5 13A5.5 5.5 0 1 0 4.5 13Z" />
+                          <path d="M9.5 12.5 10.5 13.5 14.5 9.5Z" />
+                          <circle cx="10" cy="13" r="1.2" />
                         </svg>
                       ),
                     },
@@ -265,8 +281,9 @@ export default function StatsPage() {
                       record: personalRecords.mostInversions,
                       format: (v: number) => `${v}`,
                       icon: (
+                        // arrow-path: full 360° loop — inversions
                         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                          <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
                         </svg>
                       ),
                     },

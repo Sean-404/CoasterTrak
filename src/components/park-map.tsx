@@ -9,6 +9,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
+import { fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
 import { CoasterActions } from "./coaster-actions";
 
 const icon = L.icon({
@@ -24,6 +25,7 @@ type Props = {
   parks: Park[];
   coasters: Coaster[];
   queueTimesByParkId?: Record<number, QueueRide[]>;
+  units?: Units;
 };
 
 function normalizeRideName(name: string) {
@@ -47,10 +49,12 @@ function ParkPopupContent({
   park,
   parkCoasters,
   queueByName,
+  units = "imperial",
 }: {
   park: Park;
   parkCoasters: Coaster[];
   queueByName: Map<string, QueueRide>;
+  units?: Units;
 }) {
   const [filter, setFilter] = useState("");
 
@@ -102,9 +106,12 @@ function ParkPopupContent({
           const isOpen = !isDefunct && (queueRide ? queueRide.isOpen : coaster.status === "Operating");
 
           const stats: string[] = [];
-          if (coaster.length_ft) stats.push(`${coaster.length_ft.toLocaleString()} ft`);
-          if (coaster.speed_mph) stats.push(`${coaster.speed_mph} mph`);
-          if (coaster.height_ft) stats.push(`${coaster.height_ft} ft tall`);
+          const len = fmtLength(coaster.length_ft, units);
+          const spd = fmtSpeed(coaster.speed_mph, units);
+          const ht = fmtHeight(coaster.height_ft, units);
+          if (len) stats.push(len);
+          if (spd) stats.push(spd);
+          if (ht) stats.push(`${ht} tall`);
           if (coaster.inversions != null) stats.push(`${coaster.inversions} inv`);
 
           return (
@@ -149,7 +156,7 @@ function ParkPopupContent({
   );
 }
 
-export function ParkMap({ parks, coasters, queueTimesByParkId = {} }: Props) {
+export function ParkMap({ parks, coasters, queueTimesByParkId = {}, units = "imperial" }: Props) {
   return (
     <MapContainer
       center={[25, 10]}
@@ -172,7 +179,7 @@ export function ParkMap({ parks, coasters, queueTimesByParkId = {} }: Props) {
           return (
             <Marker key={park.id} position={[park.latitude, park.longitude]} icon={icon}>
               <Popup>
-                <ParkPopupContent park={park} parkCoasters={parkCoasters} queueByName={queueByName} />
+                <ParkPopupContent park={park} parkCoasters={parkCoasters} queueByName={queueByName} units={units} />
               </Popup>
             </Marker>
           );

@@ -48,6 +48,7 @@ type DbCoaster = {
   id: number;
   name: string;
   park_id: number;
+  manufacturer: string | null;
   parks: { name: string; country: string } | null;
 };
 
@@ -61,6 +62,7 @@ type CoasterUpdate = {
   opening_year: number | null;
   closing_year: number | null;
   status?: string;
+  manufacturer?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -120,7 +122,7 @@ async function main() {
   console.error("Loading coasters from Supabase...");
   const { data: dbCoasters, error: dbErr } = await supabase
     .from("coasters")
-    .select("id, name, park_id, parks(name, country)");
+    .select("id, name, park_id, manufacturer, parks(name, country)");
   if (dbErr) {
     console.error("Supabase error:", dbErr.message);
     process.exit(1);
@@ -153,6 +155,12 @@ async function main() {
 
     // Only override status when Wikidata has a confident signal
     if (wd.status === "defunct") update.status = "Defunct";
+
+    // Only fill manufacturer when the DB row has none (Kaggle data takes priority)
+    const dbManufacturer = match.manufacturer ?? null;
+    if (!dbManufacturer && wd.manufacturerLabel) {
+      update.manufacturer = wd.manufacturerLabel;
+    }
 
     updates.push(update);
   }
