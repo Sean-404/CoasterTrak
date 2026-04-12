@@ -35,9 +35,18 @@ async function enrichFromWikipedia(
   limit: number,
   enrichExtra: boolean,
 ): Promise<WikidataCoasterRow[]> {
-  const out: WikidataCoasterRow[] = [];
+  /** Process likely-WD-false-defunct rows first so --enrich-limit burns on status fixes. */
+  const priorityDefunct = (r: WikidataCoasterRow) =>
+    r.status === "defunct" && Boolean(r.enwikiTitle?.trim());
+  const processQueue = [...rows].sort((a, b) => {
+    const pa = priorityDefunct(a) ? 0 : 1;
+    const pb = priorityDefunct(b) ? 0 : 1;
+    return pa - pb;
+  });
+
+  const byId = new Map<string, WikidataCoasterRow>();
   let done = 0;
-  for (const row of rows) {
+  for (const row of processQueue) {
     const statGaps =
       row.lengthM == null ||
       row.speedMs == null ||
@@ -47,9 +56,12 @@ async function enrichFromWikipedia(
     const metaGaps =
       enrichExtra && row.inversions == null;
     const statusUnknown = row.status === "unknown";
-    const gaps = statGaps || metaGaps || statusUnknown;
+    /** WD can mark defunct from an old site after relocation; still fetch enwiki to correct. */
+    const statusMayNeedEnwiki =
+      row.status === "defunct" && Boolean(row.enwikiTitle?.trim());
+    const gaps = statGaps || metaGaps || statusUnknown || statusMayNeedEnwiki;
     if (!row.enwikiTitle || !gaps || done >= limit) {
-      out.push(derivedFromBase(row));
+      byId.set(row.wikidataId, derivedFromBase(row));
       continue;
     }
     try {
@@ -61,17 +73,27 @@ async function enrichFromWikipedia(
         row.speedMs ??
         (ex.speedMph != null ? ex.speedMph / 2.23693629 : null);
 
-      // Use Wikipedia infobox status/closing date to improve defunct detection.
-      // Wikidata often lacks P730/P576 for removed rides.
+      // Use Wikipedia infobox status / closing date. Wikidata may mark defunct from a former
+      // location; enwiki Status usually reflects the current installation.
       let status = row.status;
-      if (status === "unknown") {
-        const inferred = inferStatusFromText(ex.statusText);
-        if (inferred) {
-          status = inferred;
+      const inferred = inferStatusFromText(ex.statusText);
+      if (inferred === "operating") {
+        status = "operating";
+      } else if (status === "unknown") {
+        if (inferred === "defunct") {
+          status = "defunct";
         } else if (ex.closingDate) {
-          const closing = new Date(ex.closingDate);
-          if (!Number.isNaN(closing.getTime()) && closing < new Date()) {
-            status = "defunct";
+          const st = (ex.statusText ?? "").toLowerCase();
+          const relocationHint =
+            /\brelocated\b/.test(st) ||
+            /\bmoved to\b/.test(st) ||
+            /\breopened\b/.test(st) ||
+            /\boperating\b/.test(st);
+          if (!relocationHint) {
+            const closing = new Date(ex.closingDate);
+            if (!Number.isNaN(closing.getTime()) && closing < new Date()) {
+              status = "defunct";
+            }
           }
         }
       }
@@ -85,14 +107,14 @@ async function enrichFromWikipedia(
         durationS: row.durationS ?? ex.durationS,
         status,
       });
-      out.push(merged);
+      byId.set(row.wikidataId, merged);
       done += 1;
       await new Promise((r) => setTimeout(r, 800));
     } catch {
-      out.push(derivedFromBase(row));
+      byId.set(row.wikidataId, derivedFromBase(row));
     }
   }
-  return out;
+  return rows.map((r) => byId.get(r.wikidataId) ?? derivedFromBase(r));
 }
 
 async function main() {

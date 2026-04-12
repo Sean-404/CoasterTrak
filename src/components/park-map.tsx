@@ -93,7 +93,7 @@ function ParkPopupContent({
   })();
 
   const rideGroupIsSmall = (g: { members: Coaster[]; primary: Coaster }) =>
-    g.members.some((c) => isLikelySmallFamilyCoaster(c));
+    g.members.some((c) => isLikelySmallFamilyCoaster(c, park.name));
 
   const listForDisplay = hideSmallRides
     ? rideGroups.filter((g) => !rideGroupIsSmall(g))

@@ -34,6 +34,28 @@ function parseHeightMetersFromText(s: string): number | null {
   return parseLengthMetersFromText(s);
 }
 
+/**
+ * Relocated rides often have two "Status" rows (current site + former site). Prefer the row
+ * that indicates the ride still exists (e.g. "Operating") over "Removed" from the old park.
+ */
+function mergeDuplicateStatusCell(prev: string | undefined, next: string): string {
+  if (!prev) return next;
+  const score = (s: string) => {
+    const t = s.toLowerCase();
+    if (/\boperating\b/.test(t) || t === "open" || /\breopened\b/.test(t)) return 2;
+    if (
+      /\bremoved\b/.test(t) ||
+      t.includes("defunct") ||
+      t.includes("sbno") ||
+      t.includes("demol") ||
+      t.includes("scrap")
+    )
+      return 0;
+    return 1;
+  };
+  return score(next) > score(prev) ? next : prev;
+}
+
 /** Map first-column infobox labels to row text (English Wikipedia). */
 function parseInfoboxTable(html: string): Record<string, string> {
   const $ = cheerio.load(html);
@@ -42,7 +64,13 @@ function parseInfoboxTable(html: string): Record<string, string> {
   table.find("tr").each((_, tr) => {
     const th = $(tr).find("th").first().text().replace(/\s+/g, " ").trim();
     const td = $(tr).find("td").first().text().replace(/\s+/g, " ").trim();
-    if (th && td) out[normalizeKey(th)] = td;
+    if (!th || !td) return;
+    const k = normalizeKey(th);
+    if (k === "status") {
+      out[k] = mergeDuplicateStatusCell(out[k], td);
+    } else {
+      out[k] = td;
+    }
   });
   return out;
 }
@@ -67,6 +95,19 @@ export function inferStatusFromText(
 ): "operating" | "defunct" | null {
   if (!text) return null;
   const t = text.toLowerCase().trim();
+  // Prefer still-open signals first: Wikidata often encodes an old closure (relocation) while
+  // enwiki Status still describes the current installation ("Operating", "Relocated to …").
+  if (
+    /\boperating\b/.test(t) ||
+    t === "open" ||
+    /\breopened\b/.test(t) ||
+    /\brelocated to\b/.test(t) ||
+    /\bmoved to\b/.test(t) ||
+    /\boperating at\b/.test(t) ||
+    /\bopen at\b/.test(t)
+  ) {
+    return "operating";
+  }
   if (
     t.includes("remov") ||
     t.includes("demol") ||
@@ -78,7 +119,6 @@ export function inferStatusFromText(
     t.includes("scrap")
   )
     return "defunct";
-  if (t === "operating" || t === "open") return "operating";
   return null;
 }
 

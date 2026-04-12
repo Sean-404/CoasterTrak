@@ -53,8 +53,18 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
 }
 
 /** Heuristic for optional “hide small rides” — conservative to avoid hiding major coasters. */
-export function isLikelySmallFamilyCoaster(c: Coaster): boolean {
+export function isLikelySmallFamilyCoaster(c: Coaster, parkName?: string | null): boolean {
   const n = cleanCoasterName(c.name).toLowerCase();
+  const park = (parkName ?? "").toLowerCase();
+  const blackpoolLike =
+    park.includes("blackpool") || park.includes("pleasure beach");
+
+  // Blackpool — tame family wood / bobsled that sit above generic height cutoffs.
+  if (/\bnickelodeon streak\b/i.test(n)) return true;
+  if (blackpoolLike && /\bavalanche\b/i.test(n)) return true;
+  // Only one notable “Steeplechase” in our catalog (Blackpool horse-racing wood).
+  if (/\bsteeplechase\b/i.test(n)) return true;
+
   if (
     /\b(big apple|ladybird|lady bug|octonauts|gallopers|blue flyer|egg\s*timer|farmyard)\b/i.test(n)
   ) {

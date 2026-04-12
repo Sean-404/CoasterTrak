@@ -11,7 +11,11 @@ export const WIKIDATA_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 export const WIKIDATA_USER_AGENT =
   "CoasterTrak/0.1 (roller coaster catalog sync; https://github.com/)";
 
-/** Full SPARQL: instances of roller coaster or any subclass of Q204832. */
+/**
+ * Full SPARQL: instances of roller coaster or any subclass of Q204832.
+ * Second hop on P361 uses Wikidata classes only: Q2416723 (theme park), Q875912 (resort) —
+ * so a ride “in” a land resolves to the gate park label, not app-specific rules.
+ */
 export const ROLLER_COASTER_SPARQL = `
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
@@ -23,12 +27,18 @@ SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
   ?clsLabel
   ?lengthM ?speedMs ?heightM ?durationS
   ?opening ?retirement ?demolished ?rcdbId ?enwiki
+  ?park ?parkParent
 WHERE {
   ?item wdt:P31 ?cls .
   ?cls wdt:P279* wd:Q204832 .
   OPTIONAL { ?item wdt:P625 ?coord . }
   OPTIONAL { ?item wdt:P17 ?country . }
   OPTIONAL { ?item wdt:P361 ?park . }
+  OPTIONAL {
+    ?park wdt:P361 ?parkParent .
+    FILTER( EXISTS { ?parkParent wdt:P31/wdt:P279* wd:Q2416723 . } )
+    FILTER( NOT EXISTS { ?parkParent wdt:P31/wdt:P279* wd:Q875912 . } )
+  }
   OPTIONAL { ?item wdt:P176 ?manufacturer . }
   OPTIONAL { ?item p:P2043/psn:P2043/wikibase:quantityAmount ?lengthM . }
   OPTIONAL { ?item p:P2052/psn:P2052/wikibase:quantityAmount ?speedMs . }
@@ -184,13 +194,18 @@ export function bindingsToRow(
   const lengthFt = lengthM != null ? lengthM * 3.28084 : null;
   const heightFt = heightM != null ? heightM * 3.28084 : null;
 
+  /** Immediate P361 (e.g. themed land) vs parent gate (amusement park), from Wikidata ontology — not app-specific. */
+  const immediateParkLabel = bindingLiteral(b.parkLabel) ?? null;
+  const parentParkLabel = bindingLiteral(b.parkParentLabel) ?? null;
+  const resolvedParkLabel = parentParkLabel ?? immediateParkLabel;
+
   return {
     wikidataId,
     label,
     latitude: geo?.lat ?? null,
     longitude: geo?.lon ?? null,
     countryLabel: bindingLiteral(b.countryLabel) ?? null,
-    parkLabel: bindingLiteral(b.parkLabel) ?? null,
+    parkLabel: resolvedParkLabel,
     manufacturerLabel: bindingLiteral(b.manufacturerLabel) ?? null,
     lengthM,
     speedMs,
