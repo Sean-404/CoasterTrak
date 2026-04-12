@@ -14,6 +14,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+import { cleanCoasterName } from "../src/lib/display";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 
 // ---------------------------------------------------------------------------
@@ -98,6 +99,16 @@ function stripRideSuffix(name: string): string {
  * Wikidata `label` is often short ("Nemesis") while enwikiTitle matches the live
  * name ("Nemesis Reborn"). Try every variant so we still match the DB row.
  */
+/**
+ * For new rows, prefer the English Wikipedia article title — it usually matches
+ * Queue-Times / on-park naming ("Nemesis Reborn"), while Wikidata `label` may
+ * stay short ("Nemesis").
+ */
+function wikidataInsertName(wd: WikidataCoasterRow): string {
+  if (wd.enwikiTitle) return cleanCoasterName(wd.enwikiTitle);
+  return wd.label;
+}
+
 function lookupCandidates(
   index: Map<string, DbCoaster[]>,
   wd: WikidataCoasterRow,
@@ -424,12 +435,13 @@ async function main() {
 
     if (!park) continue; // park not in our DB — skip
 
-    const nameKey = normalizeNameKey(wd.label);
+    const insertName = wikidataInsertName(wd);
+    const nameKey = normalizeNameKey(insertName);
     if (existingKeys.has(`${park.id}:${nameKey}`)) continue; // already exists
 
     inserts.push({
       park_id: park.id,
-      name: wd.label,
+      name: insertName,
       wikidata_id: wd.wikidataId,
       status: wd.status === "defunct" ? "Defunct" : "Open",
       coaster_type: inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown",
