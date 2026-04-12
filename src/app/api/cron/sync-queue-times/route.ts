@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { syncCatalogFromQueueTimes } from "@/lib/catalog-sync";
 
+export const maxDuration = 300; // 5 min — maximum allowed by Vercel
+
 // Called by Vercel Cron on a weekly schedule.
 // Vercel automatically sets Authorization: Bearer $CRON_SECRET on cron requests.
 export async function GET(request: Request) {

@@ -129,6 +129,21 @@ async function finishSyncRun(
     .eq("id", runId);
 }
 
+/** Run up to `limit` async tasks concurrently. */
+async function withConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  const iter = items[Symbol.iterator]();
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (let next = iter.next(); !next.done; next = iter.next()) {
+      await fn(next.value);
+    }
+  });
+  await Promise.all(workers);
+}
+
 export async function syncCatalogFromQueueTimes() {
   const { supabase, startedAt, runId } = await startSyncRun("queue-times");
   try {
@@ -160,6 +175,10 @@ export async function syncCatalogFromQueueTimes() {
     let coasterUpdates = 0;
     let parkUpdates = 0;
 
+    // Pass 1 (serial): resolve local park IDs — insert/link parks in the DB.
+    // This must be serial to avoid race conditions on the shared maps.
+    const resolvedParks: Array<{ externalPark: (typeof allParks)[number]; localParkId: number }> = [];
+
     for (const externalPark of allParks) {
       let localParkId = localByQueueId.get(externalPark.id);
 
@@ -174,7 +193,6 @@ export async function syncCatalogFromQueueTimes() {
           localByName.delete(nameKey);
         } else if (!allLocalNames.has(nameKey)) {
           // Park doesn't exist in our DB at all — create it from Queue-Times data.
-          // This covers parks like Energylandia that aren't in the Kaggle dataset.
           const insertRes = await supabase
             .from("parks")
             .insert({
@@ -195,7 +213,7 @@ export async function syncCatalogFromQueueTimes() {
           allLocalNames.add(nameKey);
           parkUpdates += 1;
         } else {
-          // Name exists but under a slightly different spelling — skip to avoid duplicates.
+          // Name exists under a slightly different spelling — skip to avoid duplicates.
           continue;
         }
       }
@@ -214,13 +232,23 @@ export async function syncCatalogFromQueueTimes() {
       if (updatePark.error) throw updatePark.error;
       parkUpdates += 1;
 
-      const queueRes = await fetch(`https://queue-times.com/parks/${externalPark.id}/queue_times.json`, {
-        next: { revalidate: 300 },
-      });
-      if (!queueRes.ok) continue;
+      resolvedParks.push({ externalPark, localParkId });
+    }
+
+    // Pass 2 (parallel, concurrency=12): fetch each park's live queue times and upsert rides.
+    // Running in parallel cuts the wall-clock time from ~5 min down to ~30 s.
+    await withConcurrency(resolvedParks, 12, async ({ externalPark, localParkId }) => {
+      const queueRes = await fetch(
+        `https://queue-times.com/parks/${externalPark.id}/queue_times.json`,
+        { next: { revalidate: 300 } },
+      );
+      if (!queueRes.ok) return;
 
       const queuePayload = (await queueRes.json()) as QueueTimesQueueResponse;
-      const rides = [...(queuePayload.rides ?? []), ...(queuePayload.lands?.flatMap((l) => l.rides ?? []) ?? [])];
+      const rides = [
+        ...(queuePayload.rides ?? []),
+        ...(queuePayload.lands?.flatMap((l) => l.rides ?? []) ?? []),
+      ];
 
       for (const ride of rides) {
         const upsertRes = await supabase.from("coasters").upsert(
@@ -238,7 +266,7 @@ export async function syncCatalogFromQueueTimes() {
         if (upsertRes.error) throw upsertRes.error;
         coasterUpdates += 1;
       }
-    }
+    });
 
     await finishSyncRun(runId, "success", { recordsUpdated: parkUpdates + coasterUpdates });
 
