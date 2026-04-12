@@ -52,15 +52,23 @@ type DbCoaster = {
   parks: { name: string; country: string } | null;
 };
 
+type DbPark = {
+  id: number;
+  name: string;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
 type CoasterUpdate = {
   id: number;
   wikidata_id: string;
   length_ft: number | null;
   speed_mph: number | null;
   height_ft: number | null;
-  inversions: number | null;
-  opening_year: number | null;
-  closing_year: number | null;
+  inversions?: number;       // omit rather than null — never wipe existing value
+  opening_year?: number;
+  closing_year?: number;
   status?: string;
   manufacturer?: string;
 };
@@ -75,15 +83,68 @@ function yearFromDate(d: string | null): number | null {
   return Number.isNaN(y) ? null : y;
 }
 
+/** Strip common ride-type suffixes so "Hulk Coaster" matches "Hulk". */
+function stripRideSuffix(name: string): string {
+  return name
+    .replace(/\s+(roller\s+)?coaster\s*$/i, "")
+    .replace(/\s+ride\s*$/i, "")
+    .trim();
+}
+
 function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
   const map = new Map<string, DbCoaster[]>();
   for (const r of rows) {
+    // Primary key
     const k = normalizeNameKey(r.name);
     const list = map.get(k) ?? [];
     list.push(r);
     map.set(k, list);
+
+    // Secondary key — strip trailing "coaster" / "roller coaster" / "ride"
+    const k2 = normalizeNameKey(stripRideSuffix(r.name));
+    if (k2 !== k) {
+      const list2 = map.get(k2) ?? [];
+      list2.push(r);
+      map.set(k2, list2);
+    }
   }
   return map;
+}
+
+/** Haversine distance in km between two lat/lon points. */
+function haversineKm(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Find the nearest DB park within maxKm, or undefined. */
+function nearestPark(
+  lat: number,
+  lon: number,
+  parks: DbPark[],
+  maxKm = 2,
+): DbPark | undefined {
+  let best: DbPark | undefined;
+  let bestDist = maxKm;
+  for (const p of parks) {
+    if (p.latitude == null || p.longitude == null) continue;
+    const d = haversineKm(lat, lon, p.latitude, p.longitude);
+    if (d < bestDist) {
+      bestDist = d;
+      best = p;
+    }
+  }
+  return best;
 }
 
 function pickBestMatch(
@@ -132,25 +193,33 @@ async function main() {
 
   const index = buildIndex(coasters);
 
-  // Build update list
+  // Build update list; track unmatched entries for potential inserts
   const updates: CoasterUpdate[] = [];
+  const unmatched: WikidataCoasterRow[] = [];
   for (const wd of wdRows) {
+    // Try primary key, then suffix-stripped fallback (e.g. "Hulk" matches "Hulk Coaster")
     const k = normalizeNameKey(wd.label);
-    const candidates = index.get(k);
-    if (!candidates?.length) continue;
+    const k2 = normalizeNameKey(stripRideSuffix(wd.label));
+    const candidates = index.get(k) ?? (k2 !== k ? index.get(k2) : undefined);
+    if (!candidates?.length) {
+      unmatched.push(wd);
+      continue;
+    }
 
     const match = pickBestMatch(candidates, wd);
 
     const update: CoasterUpdate = {
       id: match.id,
       wikidata_id: wd.wikidataId,
+      // Only write numeric fields when Wikidata actually has a value —
+      // never overwrite an existing DB value with null.
       length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
       speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
       height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
-      inversions: wd.inversions,
-      opening_year: yearFromDate(wd.openingDate),
+      inversions: wd.inversions ?? undefined,
+      opening_year: yearFromDate(wd.openingDate) ?? undefined,
       closing_year:
-        yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate),
+        (yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate)) ?? undefined,
     };
 
     // Only override status when Wikidata has a confident signal
@@ -178,32 +247,138 @@ async function main() {
   );
 
   if (DRY_RUN) {
-    console.error("--dry-run: skipping DB writes.");
-    console.log(JSON.stringify(deduped.slice(0, 5), null, 2));
+    console.error(`--dry-run: would update ${deduped.length} coasters (sample below).`);
+    console.log(JSON.stringify(deduped.slice(0, 3), null, 2));
+  }
+
+  let updated = 0;
+  if (!DRY_RUN) {
+    // Batch updates in chunks of 200
+    const CHUNK = 200;
+    for (let i = 0; i < deduped.length; i += CHUNK) {
+      const chunk = deduped.slice(i, i + CHUNK);
+      for (const u of chunk) {
+        const { id, ...fields } = u;
+        const { error } = await supabase
+          .from("coasters")
+          .update(fields)
+          .eq("id", id);
+        if (error) {
+          console.error(`  Update failed for id=${id}: ${error.message}`);
+        } else {
+          updated += 1;
+        }
+      }
+      console.error(`  ${Math.min(i + CHUNK, deduped.length)} / ${deduped.length} updated...`);
+    }
+    console.error(`Done. Updated ${updated} coasters in Supabase.`);
+  }
+
+  // -------------------------------------------------------------------------
+  // Insert new coasters from Wikidata whose park already exists in the DB
+  // -------------------------------------------------------------------------
+  console.error(`\nChecking ${unmatched.length} unmatched Wikidata entries for insertable new rides...`);
+
+  const { data: dbParks, error: parksErr } = await supabase
+    .from("parks")
+    .select("id, name, country, latitude, longitude");
+  if (parksErr) {
+    console.error("Could not load parks:", parksErr.message);
     return;
   }
 
-  // Batch updates in chunks of 200
-  const CHUNK = 200;
-  let updated = 0;
-  for (let i = 0; i < deduped.length; i += CHUNK) {
-    const chunk = deduped.slice(i, i + CHUNK);
-    for (const u of chunk) {
-      const { id, ...fields } = u;
-      const { error } = await supabase
-        .from("coasters")
-        .update(fields)
-        .eq("id", id);
-      if (error) {
-        console.error(`  Update failed for id=${id}: ${error.message}`);
-      } else {
-        updated += 1;
-      }
-    }
-    console.error(`  ${Math.min(i + CHUNK, deduped.length)} / ${deduped.length} updated...`);
+  const allDbParks = (dbParks ?? []) as DbPark[];
+
+  // Index parks by normalised name for fast exact-match lookup
+  const parkByName = new Map<string, DbPark>();
+  for (const p of allDbParks) {
+    parkByName.set(p.name.toLowerCase().trim(), p);
   }
 
-  console.error(`Done. Updated ${updated} coasters in Supabase.`);
+  // Build a set of "park_id:normalised_name" keys for every existing coaster
+  // so we can skip Wikidata entries that are effectively already in the DB
+  // under a slightly different raw name (the main update loop would have caught
+  // them if the names were close enough).
+  const existingKeys = new Set<string>();
+  for (const c of coasters) {
+    existingKeys.add(`${c.park_id}:${normalizeNameKey(c.name)}`);
+  }
+
+  type CoasterInsert = {
+    park_id: number;
+    name: string;
+    wikidata_id: string;
+    status: string;
+    coaster_type: string;
+    length_ft: number | null;
+    speed_mph: number | null;
+    height_ft: number | null;
+    inversions: number | null;
+    opening_year: number | null;
+    closing_year: number | null;
+    manufacturer: string | null;
+    external_source: string;
+    last_synced_at: string;
+  };
+
+  const inserts: CoasterInsert[] = [];
+  for (const wd of unmatched) {
+    if (!wd.parkLabel) continue;
+
+    // Primary: exact park name match
+    let park = parkByName.get(wd.parkLabel.toLowerCase().trim());
+
+    // Fallback: nearest DB park by coordinates (handles sub-area names like
+    // "Marvel Super Hero Island" → "Islands of Adventure")
+    if (!park && wd.latitude != null && wd.longitude != null) {
+      park = nearestPark(wd.latitude, wd.longitude, allDbParks);
+    }
+
+    if (!park) continue; // park not in our DB — skip
+
+    const nameKey = normalizeNameKey(wd.label);
+    if (existingKeys.has(`${park.id}:${nameKey}`)) continue; // already exists
+
+    inserts.push({
+      park_id: park.id,
+      name: wd.label,
+      wikidata_id: wd.wikidataId,
+      status: wd.status === "defunct" ? "Defunct" : "Open",
+      coaster_type: "Unknown",
+      length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
+      speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
+      height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
+      inversions: wd.inversions,
+      opening_year: yearFromDate(wd.openingDate),
+      closing_year: yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate),
+      manufacturer: wd.manufacturerLabel ?? null,
+      external_source: "wikidata",
+      last_synced_at: new Date().toISOString(),
+    });
+  }
+
+  console.error(`  ${inserts.length} new coasters to insert (park matched, not yet in DB).`);
+
+  if (DRY_RUN) {
+    console.error(`--dry-run: would insert ${inserts.length} new coasters (sample below).`);
+    console.log(JSON.stringify(inserts.slice(0, 5), null, 2));
+    return;
+  }
+
+  let inserted = 0;
+  let upserted = 0;
+  for (const row of inserts) {
+    const { error } = await supabase
+      .from("coasters")
+      .upsert(row, { onConflict: "park_id,name", ignoreDuplicates: false });
+    if (error) {
+      console.error(`  Upsert failed for "${row.name}" (park_id=${row.park_id}): ${error.message}`);
+    } else {
+      upserted += 1;
+    }
+  }
+  // Count true inserts vs updates is hard to distinguish with upsert, so report total upserts.
+  console.error(`Done. Upserted ${upserted} coasters from Wikidata (new inserts + enrichment updates for name-mismatched rides).`);
 }
 
 main().catch((e) => {
