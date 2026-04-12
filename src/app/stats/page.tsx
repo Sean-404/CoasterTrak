@@ -6,7 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { cleanCoasterName } from "@/lib/display";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
-import { fmtLength, fmtHeight, fmtSpeed } from "@/lib/units";
+import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
 
 type RideCoaster = {
@@ -17,6 +17,8 @@ type RideCoaster = {
   speed_mph: number | null;
   height_ft: number | null;
   inversions: number | null;
+  /** Ride duration (track time), seconds */
+  duration_s: number | null;
   parks?: { name: string; country: string } | null;
 };
 
@@ -55,7 +57,7 @@ export default function StatsPage() {
       const [ridesRes, wishRes] = await Promise.all([
         supabase
           .from("rides")
-          .select("coaster_id, coasters(name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, parks(name, country))")
+          .select("coaster_id, coasters(name, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))")
           .eq("user_id", data.user.id),
         supabase
           .from("wishlist")
@@ -109,7 +111,7 @@ export default function StatsPage() {
 
   const personalRecords = useMemo(() => {
     function best(
-      field: keyof Pick<RideCoaster, "length_ft" | "speed_mph" | "height_ft" | "inversions">,
+      field: keyof Pick<RideCoaster, "length_ft" | "speed_mph" | "height_ft" | "inversions" | "duration_s">,
     ): RecordEntry | null {
       let top: RecordEntry | null = null;
       for (const r of uniqueRides) {
@@ -130,6 +132,7 @@ export default function StatsPage() {
       tallest: best("height_ft"),
       fastest: best("speed_mph"),
       mostInversions: best("inversions"),
+      longestDuration: best("duration_s"),
     };
   }, [uniqueRides]);
 
@@ -230,7 +233,7 @@ export default function StatsPage() {
                 <h2 className="font-semibold text-slate-900">Personal records</h2>
                 <UnitsToggle units={units} onChange={setUnits} />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 {(
                   [
                     {
@@ -280,6 +283,21 @@ export default function StatsPage() {
                         // arrow-path: full 360° loop — inversions
                         <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      key: "longestDuration",
+                      label: "Longest ride",
+                      record: personalRecords.longestDuration,
+                      format: (v: number) => fmtDuration(v) ?? `${v}s`,
+                      icon: (
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5.69l3.22 3.22a.75.75 0 101.06-1.06l-2.78-2.78V5z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       ),
                     },

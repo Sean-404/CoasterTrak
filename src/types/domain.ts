@@ -20,6 +20,8 @@ export type Coaster = {
   speed_mph?: number | null;
   height_ft?: number | null;
   inversions?: number | null;
+  /** Ride duration (track time), seconds — Wikidata / Wikipedia */
+  duration_s?: number | null;
   opening_year?: number | null;
   closing_year?: number | null;
 };

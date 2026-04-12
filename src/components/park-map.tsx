@@ -9,7 +9,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
-import { fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
+import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
 import { CoasterActions } from "./coaster-actions";
 
 const icon = L.icon({
@@ -137,6 +137,8 @@ function ParkPopupContent({
           if (spd) stats.push(spd);
           if (ht) stats.push(`${ht} tall`);
           if (coaster.inversions != null) stats.push(`${coaster.inversions} inv`);
+          const dur = fmtDuration(coaster.duration_s);
+          if (dur) stats.push(dur);
 
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">

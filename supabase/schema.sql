@@ -28,6 +28,7 @@ create table if not exists coasters (
   inversions    integer,
   opening_year  integer,
   closing_year  integer,
+  duration_s    integer,
   unique (park_id, name)
 );
 

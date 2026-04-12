@@ -5,6 +5,7 @@
 
 import * as cheerio from "cheerio";
 import {
+  parseDurationSecondsFromText,
   parseInversionsFromText,
   parseLengthMetersFromText,
   parseSpeedMphFromText,
@@ -18,6 +19,8 @@ export type InfoboxExtract = {
   heightM: number | null;
   speedMph: number | null;
   inversions: number | null;
+  /** Ride duration (track time), seconds */
+  durationS: number | null;
   statusText: string | null;
   closingDate: string | null;
   rawPairs: Record<string, string>;
@@ -91,6 +94,12 @@ export function extractCoasterInfobox(html: string): InfoboxExtract {
   const heightStr = pick(rawPairs, [/^height$/i, /^max height$/i, /^lift height$/i]);
   const speedStr = pick(rawPairs, [/^speed$/i, /^max speed$/i]);
   const invStr = pick(rawPairs, [/^inversions$/i, /^inversion/i]);
+  const durationStr = pick(rawPairs, [
+    /^duration$/i,
+    /^ride duration$/i,
+    /^length of ride$/i,
+    /^ride time$/i,
+  ]);
   const statusStr = pick(rawPairs, [/^status$/i]);
   const closingStr = pick(rawPairs, [
     /^clos(?:ing|e) date$/i,
@@ -104,6 +113,7 @@ export function extractCoasterInfobox(html: string): InfoboxExtract {
     heightM: heightStr ? parseHeightMetersFromText(heightStr) : null,
     speedMph: speedStr ? parseSpeedMphFromText(speedStr) : null,
     inversions: invStr ? parseInversionsFromText(invStr) : null,
+    durationS: durationStr ? parseDurationSecondsFromText(durationStr) : null,
     statusText: statusStr ?? null,
     closingDate: closingStr
       ? (() => {

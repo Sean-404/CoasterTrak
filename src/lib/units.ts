@@ -30,3 +30,12 @@ export function fmtSpeed(mph: number | null | undefined, units: Units): string |
   if (useMph(units)) return `${mph} mph`;
   return `${Math.round(mph * 1.60934)} km/h`;
 }
+
+/** Format ride duration (track time) from seconds — not unit-dependent. */
+export function fmtDuration(seconds: number | null | undefined): string | null {
+  if (seconds == null || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  if (m === 0) return `${s}s`;
+  return `${m}m ${s.toString().padStart(2, "0")}s`;
+}

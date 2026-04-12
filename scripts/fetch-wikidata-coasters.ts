@@ -51,7 +51,8 @@ async function enrichFromWikipedia(
       row.lengthM == null ||
       row.speedMs == null ||
       row.heightM == null ||
-      row.inversions == null;
+      row.inversions == null ||
+      row.durationS == null;
     const metaGaps =
       enrichExtra && row.inversions == null;
     const statusUnknown = row.status === "unknown";
@@ -90,6 +91,7 @@ async function enrichFromWikipedia(
         heightM,
         speedMs,
         inversions: row.inversions ?? ex.inversions,
+        durationS: row.durationS ?? ex.durationS,
         status,
       });
       out.push(merged);

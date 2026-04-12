@@ -377,6 +377,32 @@ export function parseInversionsFromText(s: string): number | null {
   return null;
 }
 
+/** Parse ride duration from Wikipedia infobox: "2:15", "1:30", "135 seconds", "3 minutes". → seconds */
+export function parseDurationSecondsFromText(s: string): number | null {
+  const t = s.replace(/\u00a0/g, " ").trim();
+  if (!t) return null;
+  // mm:ss (most common for coasters)
+  const colon = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(t);
+  if (colon) {
+    const p0 = parseInt(colon[1], 10);
+    const p1 = parseInt(colon[2], 10);
+    const p2 = colon[3] ? parseInt(colon[3], 10) : null;
+    if (p2 != null) return p0 * 3600 + p1 * 60 + p2;
+    return p0 * 60 + p1;
+  }
+  const lower = t.toLowerCase();
+  const sec = /([\d.]+)\s*(?:seconds?|secs?)\b/.exec(lower);
+  if (sec) return Math.round(parseFloat(sec[1]));
+  const minSec =
+    /([\d.]+)\s*(?:minutes?|mins?)\s+([\d.]+)\s*(?:seconds?|secs?)?/i.exec(t);
+  if (minSec) {
+    return Math.round(parseFloat(minSec[1]) * 60 + parseFloat(minSec[2]));
+  }
+  const minOnly = /^([\d.]+)\s*(?:minutes?|mins?)\b/i.exec(lower);
+  if (minOnly) return Math.round(parseFloat(minOnly[1]) * 60);
+  return null;
+}
+
 export function normalizeNameKey(name: string): string {
   return cleanCoasterName(name).toLowerCase().replace(/\s+/g, " ").trim();
 }

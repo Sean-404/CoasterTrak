@@ -68,6 +68,7 @@ type CoasterUpdate = {
   speed_mph: number | null;
   height_ft: number | null;
   inversions?: number;       // omit rather than null — never wipe existing value
+  duration_s?: number;
   opening_year?: number;
   closing_year?: number;
   status?: string;
@@ -270,6 +271,8 @@ async function main() {
       speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
       height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
       inversions: wd.inversions ?? undefined,
+      duration_s:
+        wd.durationS != null ? Math.round(wd.durationS) : undefined,
       opening_year: yearFromDate(wd.openingDate) ?? undefined,
       closing_year:
         (yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate)) ?? undefined,
@@ -373,6 +376,7 @@ async function main() {
     speed_mph: number | null;
     height_ft: number | null;
     inversions: number | null;
+    duration_s: number | null;
     opening_year: number | null;
     closing_year: number | null;
     manufacturer: string | null;
@@ -408,6 +412,7 @@ async function main() {
       speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
       height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
       inversions: wd.inversions,
+      duration_s: wd.durationS != null ? Math.round(wd.durationS) : null,
       opening_year: yearFromDate(wd.openingDate),
       closing_year: yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate),
       manufacturer: wd.manufacturerLabel ?? null,
