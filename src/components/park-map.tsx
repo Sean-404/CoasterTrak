@@ -16,6 +16,7 @@ import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
+import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { CoasterActions } from "./coaster-actions";
 
 const icon = L.icon({
@@ -114,8 +115,10 @@ function ParkPopupContent({
       <div className="mt-2 max-h-64 overflow-y-auto pr-0.5">
         {visible.length === 0 && <p className="text-xs text-slate-400">No matches</p>}
         {visible.map(({ members, primary: coaster }) => {
-          const isDefunct = coaster.status === "Defunct";
-          const operating = coaster.status === "Operating";
+          const lifecycle = normalizeLifecycleStatus(coaster.status, {
+            closingYear: coaster.closing_year,
+          });
+          const isDefunct = lifecycle === "Defunct";
 
           const stats: string[] = [];
           const len = fmtLength(coaster.length_ft, units);
@@ -144,17 +147,9 @@ function ParkPopupContent({
                     {coaster.manufacturer}
                   </span>
                 )}
-                {isDefunct ? (
+                {isDefunct && (
                   <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
                     Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
-                  </span>
-                ) : (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                      operating ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {operating ? "Operating" : coaster.status}
                   </span>
                 )}
               </div>

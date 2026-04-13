@@ -8,6 +8,7 @@ import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 
 type WishlistItem = {
   coaster_id: number;
@@ -133,6 +134,7 @@ export default function WishlistPage() {
                 const typeLabel = coaster
                   ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
                   : "Unknown";
+                const lifecycle = normalizeLifecycleStatus(coaster?.status);
                 return (
                   <li
                     key={item.coaster_id}
@@ -157,13 +159,11 @@ export default function WishlistPage() {
                           </span>
                         )}
                         {coaster?.status && (
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            coaster.status === "Operating"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-slate-100 text-slate-500"
-                          }`}>
-                            {coaster.status}
-                          </span>
+                          lifecycle === "Defunct" && (
+                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+                              Defunct
+                            </span>
+                          )
                         )}
                       </div>
                     </div>

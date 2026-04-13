@@ -13,7 +13,8 @@
     "wikidata:merge": "tsx scripts/merge-wikidata-coasters.ts",
     "wikidata:upload": "tsx --env-file=.env.local scripts/upload-wikidata-to-db.ts",
     "wikidata:upload-storage": "tsx --env-file=.env.local scripts/upload-wikidata-to-storage.ts",
-    "wikipedia:backfill": "tsx --env-file=.env.local scripts/wikipedia-infobox-backfill.ts"
+    "wikipedia:backfill": "tsx --env-file=.env.local scripts/wikipedia-infobox-backfill.ts",
+    "status:normalize": "tsx scripts/normalize-coaster-statuses.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.1",
