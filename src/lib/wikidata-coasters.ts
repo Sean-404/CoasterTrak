@@ -269,6 +269,28 @@ export function mergeRowsByItem(rows: WikidataCoasterRow[]): WikidataCoasterRow[
 
 /** WDQS allows a longer server-side cap via query string (ms); anonymous limit may still apply. */
 const WDQS_SPARQL_URL = `${WIKIDATA_SPARQL_ENDPOINT}?format=json&timeout=300000`;
+const MIN_WDQS_PAGE_SIZE = 200;
+
+class WikidataSparqlError extends Error {
+  status: number;
+  transient: boolean;
+
+  constructor(status: number, message: string, transient: boolean) {
+    super(message);
+    this.name = "WikidataSparqlError";
+    this.status = status;
+    this.transient = transient;
+  }
+}
+
+function retryAfterToMs(retryAfter: string | null): number | null {
+  if (!retryAfter) return null;
+  const asSeconds = Number(retryAfter);
+  if (Number.isFinite(asSeconds)) return Math.max(0, asSeconds * 1000);
+  const asDateMs = Date.parse(retryAfter);
+  if (Number.isNaN(asDateMs)) return null;
+  return Math.max(0, asDateMs - Date.now());
+}
 
 export async function fetchWikidataSparqlPage(
   query: string,
@@ -279,33 +301,54 @@ export async function fetchWikidataSparqlPage(
   const q = `${query.trim()}\nORDER BY ?item\nLIMIT ${limit}\nOFFSET ${offset}\n`;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const res = await fetch(WDQS_SPARQL_URL, {
-      method: "POST",
-      headers: {
-        Accept: "application/sparql-results+json",
-        "Content-Type": "application/sparql-query",
-        "User-Agent": WIKIDATA_USER_AGENT,
-      },
-      body: q,
-    });
+    let res: Response;
+    try {
+      res = await fetch(WDQS_SPARQL_URL, {
+        method: "POST",
+        headers: {
+          Accept: "application/sparql-results+json",
+          "Content-Type": "application/sparql-query",
+          "User-Agent": WIKIDATA_USER_AGENT,
+        },
+        body: q,
+      });
+    } catch (err) {
+      if (attempt === retries) {
+        throw new Error(
+          `Wikidata SPARQL network error after ${retries + 1} attempts: ${String(err)}`,
+        );
+      }
+      const delay = Math.min(4_000 * 2 ** attempt, 60_000);
+      console.error(
+        `  Wikidata network error on offset ${offset}, retry ${attempt + 1}/${retries} in ${delay / 1000}s…`,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+      continue;
+    }
 
     if (res.ok) return res.json() as Promise<SparqlJsonResponse>;
 
     const isTransient = res.status === 429 || res.status >= 500;
+    const text = await res.text();
     if (!isTransient || attempt === retries) {
-      const text = await res.text();
-      throw new Error(`Wikidata SPARQL ${res.status}: ${text.slice(0, 500)}`);
+      throw new WikidataSparqlError(
+        res.status,
+        `Wikidata SPARQL ${res.status}: ${text.slice(0, 500)}`,
+        isTransient,
+      );
     }
 
     const is504 = res.status === 504;
-    const delay =
+    const retryAfterMs = retryAfterToMs(res.headers.get("retry-after"));
+    const baseDelay =
       res.status === 429
         ? 12_000
         : is504
           ? Math.min(8_000 * 2 ** attempt, 90_000)
           : Math.min(3_000 * 2 ** attempt, 45_000);
+    const delay = Math.max(baseDelay, retryAfterMs ?? 0);
     console.error(
-      `  Wikidata ${res.status} on offset ${offset}, retry ${attempt + 1}/${retries} in ${delay / 1000}s…`,
+      `  Wikidata ${res.status} on offset ${offset}, retry ${attempt + 1}/${retries} in ${Math.round(delay / 1000)}s…`,
     );
     await new Promise((r) => setTimeout(r, delay));
   }
@@ -325,14 +368,35 @@ export async function fetchAllRollerCoasters(options?: {
   const delayMs = options?.delayMs ?? 2000;
 
   const out: WikidataCoasterRow[] = [];
+  let currentPageSize = pageSize;
   let offset = 0;
 
   for (;;) {
-    const json = await fetchWikidataSparqlPage(
-      ROLLER_COASTER_SPARQL,
-      offset,
-      pageSize,
-    );
+    let json: SparqlJsonResponse;
+    try {
+      json = await fetchWikidataSparqlPage(
+        ROLLER_COASTER_SPARQL,
+        offset,
+        currentPageSize,
+      );
+    } catch (err) {
+      const canShrink =
+        err instanceof WikidataSparqlError &&
+        err.transient &&
+        currentPageSize > MIN_WDQS_PAGE_SIZE;
+      if (!canShrink) throw err;
+
+      const nextPageSize = Math.max(
+        MIN_WDQS_PAGE_SIZE,
+        Math.floor(currentPageSize / 2),
+      );
+      console.error(
+        `  WDQS transient failure at offset ${offset}; reducing page size ${currentPageSize} -> ${nextPageSize} and retrying...`,
+      );
+      currentPageSize = nextPageSize;
+      await new Promise((r) => setTimeout(r, 4_000));
+      continue;
+    }
     const bindings = json.results?.bindings ?? [];
     if (bindings.length === 0) break;
 
@@ -347,8 +411,11 @@ export async function fetchAllRollerCoasters(options?: {
 
     const uniqueSoFar = mergeRowsByItem(out);
     if (uniqueSoFar.length >= maxRows) break;
-    if (bindings.length < pageSize) break;
-    offset += pageSize;
+    if (bindings.length < currentPageSize) break;
+    offset += currentPageSize;
+    if (currentPageSize < pageSize) {
+      currentPageSize = Math.min(pageSize, currentPageSize * 2);
+    }
     if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
   }
 
