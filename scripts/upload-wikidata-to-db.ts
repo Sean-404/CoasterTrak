@@ -223,7 +223,9 @@ function findParkForWikidataInsert(
   for (const p of matches) {
     if (countryAlignedWithWikidata(countryHint, p)) return p;
   }
-  return matches[0];
+  // Ambiguous fuzzy matches (e.g. "Six Flags ...") should not snap to the first row.
+  // Let caller fall back to coordinate-based matching or create a new park row instead.
+  return undefined;
 }
 
 function countryAlignedWithWikidata(

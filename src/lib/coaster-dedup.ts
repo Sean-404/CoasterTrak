@@ -8,12 +8,16 @@ import type { Coaster } from "@/types/domain";
 /** Same ride, different queue-line suffixes on the name (strip before alphanumeric key). */
 function stripQueueVariantPhrases(s: string): string {
   let t = s;
+  t = t.replace(/^(?:fast\s*pass|fastpass)\s+/i, "").trim();
   t = t.replace(/\s*[-–—]\s*single rider\s*$/i, "").trim();
   t = t.replace(/\s+single rider\s*$/i, "").trim();
   t = t.replace(/\s*\(single rider\)\s*$/i, "").trim();
   t = t.replace(/\s*[-–—]\s*standby(\s+only)?\s*$/i, "").trim();
   t = t.replace(/\s*[-–—]\s*lightning\s+lane\s*$/i, "").trim();
   t = t.replace(/\s*[-–—]\s*rider\s+switch\s*$/i, "").trim();
+  t = t.replace(/\s+\bkol\s+licznik\b\s*$/i, "").trim();
+  t = t.replace(/\s+\blicznik\b\s*$/i, "").trim();
+  t = t.replace(/\s+\brc\b\s*$/i, "").trim();
   return t;
 }
 

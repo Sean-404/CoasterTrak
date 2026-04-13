@@ -16,6 +16,7 @@ import {
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
+import { isLikelySmallFamilyCoaster } from "@/lib/coaster-dedup";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
 
@@ -54,6 +55,7 @@ export default function MapPage() {
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [continent, setContinent] = useState<Continent>("All");
   const [search, setSearch] = useState("");
+  const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
   const { units, setUnits } = useUnits();
 
 
@@ -158,6 +160,10 @@ export default function MapPage() {
   }, [geoAbsorb.parks]);
 
   const rawParkById = useMemo(() => new Map(parks.map((p) => [p.id, p])), [parks]);
+  const dedupedParkById = useMemo(
+    () => new Map(deduplicatedParks.parks.map((p) => [p.id, p])),
+    [deduplicatedParks.parks],
+  );
 
   const remappedCoasters = useMemo(() => {
     const geo = geoAbsorb.idRemap;
@@ -180,6 +186,20 @@ export default function MapPage() {
     rawParkById,
   ]);
 
+  const visibleCoasters = useMemo(() => {
+    if (includeFamilyRides) return remappedCoasters;
+    return remappedCoasters.filter((c) => {
+      const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
+      return !isLikelySmallFamilyCoaster(c, parkName);
+    });
+  }, [includeFamilyRides, remappedCoasters, dedupedParkById]);
+
+  const visibleParkIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const c of visibleCoasters) ids.add(c.park_id);
+    return ids;
+  }, [visibleCoasters]);
+
   const filteredParks = useMemo(() => {
     return deduplicatedParks.parks.filter((park) => {
       if (
@@ -191,15 +211,16 @@ export default function MapPage() {
         return false;
       }
       if (park.latitude === 0 && park.longitude === 0) return false;
+      if (!visibleParkIds.has(park.id)) return false;
       const byContinent = continent === "All" || getContinent(park.latitude, park.longitude) === continent;
       const bySearch =
         matchesSearchQuery(park.name, search) ||
-        remappedCoasters
+        visibleCoasters
           .filter((c) => c.park_id === park.id)
           .some((c) => matchesSearchQuery(c.name, search));
       return byContinent && bySearch;
     });
-  }, [continent, search, deduplicatedParks, remappedCoasters]);
+  }, [continent, search, deduplicatedParks, visibleCoasters, visibleParkIds]);
 
   return (
     <div className="min-h-screen">
@@ -235,6 +256,15 @@ export default function MapPage() {
               </button>
             ))}
           </div>
+          <label className="mt-1 inline-flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={includeFamilyRides}
+              onChange={(e) => setIncludeFamilyRides(e.target.checked)}
+              className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+            />
+            Include kiddie / family-style rides
+          </label>
         </div>
         {catalogLoading && (
           <p className="mb-2 text-sm text-slate-500" role="status">
@@ -244,7 +274,7 @@ export default function MapPage() {
         {!catalogLoading && deduplicatedParks.parks.length === 0 && (
           <p className="mb-2 text-sm text-slate-600">No parks in the catalog yet.</p>
         )}
-        <ParkMap parks={filteredParks} coasters={remappedCoasters} units={units} continent={continent} />
+        <ParkMap parks={filteredParks} coasters={visibleCoasters} units={units} continent={continent} />
       </main>
     </div>
   );

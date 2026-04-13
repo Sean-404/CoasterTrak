@@ -9,7 +9,6 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import {
-  isLikelySmallFamilyCoaster,
   normalizeCoasterDedupKey,
   preferCoasterForDedup,
 } from "@/lib/coaster-dedup";
@@ -72,7 +71,6 @@ function ParkPopupContent({
   units?: Units;
 }) {
   const [filter, setFilter] = useState("");
-  const [hideSmallRides, setHideSmallRides] = useState(false);
 
   /** Same physical ride: merged spellings + queue variants (e.g. Standby vs Single rider). */
   const rideGroups = (() => {
@@ -92,16 +90,9 @@ function ParkPopupContent({
     });
   })();
 
-  const rideGroupIsSmall = (g: { members: Coaster[]; primary: Coaster }) =>
-    g.members.some((c) => isLikelySmallFamilyCoaster(c, park.name));
-
-  const listForDisplay = hideSmallRides
-    ? rideGroups.filter((g) => !rideGroupIsSmall(g))
-    : rideGroups;
-
   const visible = filter.trim()
-    ? listForDisplay.filter((g) => g.members.some((c) => matchesSearchQuery(c.name, filter)))
-    : listForDisplay;
+    ? rideGroups.filter((g) => g.members.some((c) => matchesSearchQuery(c.name, filter)))
+    : rideGroups;
 
   return (
     <div className="w-64">
@@ -110,19 +101,7 @@ function ParkPopupContent({
         {reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null)}
       </p>
 
-      {rideGroups.length > 0 && (
-        <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-slate-600">
-          <input
-            type="checkbox"
-            checked={hideSmallRides}
-            onChange={(e) => setHideSmallRides(e.target.checked)}
-            className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
-          />
-          Hide small / family-style rides
-        </label>
-      )}
-
-      {listForDisplay.length > 5 && (
+      {rideGroups.length > 5 && (
         <input
           value={filter}
           onChange={(e) => setFilter(e.target.value)}

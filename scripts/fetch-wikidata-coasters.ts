@@ -59,19 +59,21 @@ async function enrichFromWikipedia(
     /** WD can mark defunct from an old site after relocation; still fetch enwiki to correct. */
     const statusMayNeedEnwiki =
       row.status === "defunct" && Boolean(row.enwikiTitle?.trim());
-    const gaps = statGaps || metaGaps || statusUnknown || statusMayNeedEnwiki;
-    if (!row.enwikiTitle || !gaps || done >= limit) {
+    const allowStatEnrich = (statGaps || metaGaps || statusUnknown) && done < limit;
+    const allowStatusRepair = statusMayNeedEnwiki;
+    if (!row.enwikiTitle || (!allowStatEnrich && !allowStatusRepair)) {
       byId.set(row.wikidataId, derivedFromBase(row));
       continue;
     }
     try {
       const html = await fetchWikipediaArticleHtml(row.enwikiTitle);
       const ex = extractCoasterInfobox(html);
-      const lengthM = row.lengthM ?? ex.lengthM;
-      const heightM = row.heightM ?? ex.heightM;
-      const speedMs =
-        row.speedMs ??
-        (ex.speedMph != null ? ex.speedMph / 2.23693629 : null);
+      const lengthM = allowStatEnrich ? (row.lengthM ?? ex.lengthM) : row.lengthM;
+      const heightM = allowStatEnrich ? (row.heightM ?? ex.heightM) : row.heightM;
+      const speedMs = allowStatEnrich
+        ? (row.speedMs ??
+          (ex.speedMph != null ? ex.speedMph / 2.23693629 : null))
+        : row.speedMs;
 
       // Use Wikipedia infobox status / closing date. Wikidata may mark defunct from a former
       // location; enwiki Status usually reflects the current installation.
@@ -103,12 +105,12 @@ async function enrichFromWikipedia(
         lengthM,
         heightM,
         speedMs,
-        inversions: row.inversions ?? ex.inversions,
-        durationS: row.durationS ?? ex.durationS,
+        inversions: allowStatEnrich ? (row.inversions ?? ex.inversions) : row.inversions,
+        durationS: allowStatEnrich ? (row.durationS ?? ex.durationS) : row.durationS,
         status,
       });
       byId.set(row.wikidataId, merged);
-      done += 1;
+      if (allowStatEnrich) done += 1;
       await new Promise((r) => setTimeout(r, 800));
     } catch {
       byId.set(row.wikidataId, derivedFromBase(row));

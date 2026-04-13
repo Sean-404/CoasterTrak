@@ -11,8 +11,11 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
+import { isLikelySmallFamilyCoaster } from "@/lib/coaster-dedup";
 
 type RideCoaster = {
+  id?: number;
+  park_id?: number;
   name: string;
   wikidata_id?: string | null;
   coaster_type: string;
@@ -23,6 +26,9 @@ type RideCoaster = {
   inversions: number | null;
   /** Ride duration (track time), seconds */
   duration_s: number | null;
+  status?: string;
+  opening_year?: number | null;
+  closing_year?: number | null;
   parks?: { name: string; country: string } | null;
 };
 
@@ -37,6 +43,7 @@ export default function StatsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState(false);
+  const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
   const { units, setUnits } = useUnits();
 
   useEffect(() => {
@@ -81,35 +88,61 @@ export default function StatsPage() {
     });
   }, [rides]);
 
+  const filteredUniqueRides = useMemo(() => {
+    if (includeFamilyRides) return uniqueRides;
+    return uniqueRides.filter((r) => {
+      const c = r.coasters;
+      if (!c) return false;
+      return !isLikelySmallFamilyCoaster(
+        {
+          id: c.id ?? r.coaster_id,
+          park_id: c.park_id ?? 0,
+          name: c.name,
+          coaster_type: c.coaster_type,
+          manufacturer: c.manufacturer ?? null,
+          status: c.status ?? "Operating",
+          length_ft: c.length_ft ?? null,
+          speed_mph: c.speed_mph ?? null,
+          height_ft: c.height_ft ?? null,
+          inversions: c.inversions ?? null,
+          duration_s: c.duration_s ?? null,
+          opening_year: c.opening_year ?? null,
+          closing_year: c.closing_year ?? null,
+        },
+        c.parks?.name ?? null,
+      );
+    });
+  }, [includeFamilyRides, uniqueRides]);
+
   const countriesVisited = useMemo(
-    () => new Set(uniqueRides.map((r) => r.coasters?.parks?.country).filter(Boolean)).size,
-    [uniqueRides],
+    () => new Set(filteredUniqueRides.map((r) => r.coasters?.parks?.country).filter(Boolean)).size,
+    [filteredUniqueRides],
   );
 
   const parksVisited = useMemo(
     () =>
       new Set(
-        uniqueRides
+        filteredUniqueRides
           .map((r) => formatParkLabel(r.coasters?.parks?.name, r.coasters?.parks?.country))
           .filter(Boolean),
       ).size,
-    [uniqueRides],
+    [filteredUniqueRides],
   );
 
   const topParks = useMemo(() => {
     const counter = new Map<string, number>();
-    for (const ride of uniqueRides) {
+    for (const ride of filteredUniqueRides) {
       const label = formatParkLabel(ride.coasters?.parks?.name, ride.coasters?.parks?.country);
       if (!label) continue;
       counter.set(label, (counter.get(label) ?? 0) + 1);
     }
     return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
-  }, [uniqueRides]);
+  }, [filteredUniqueRides]);
 
   /** Unique countries from ridden coasters, with ride counts, most rides first */
   const countriesWithRideCounts = useMemo(() => {
     const counter = new Map<string, number>();
-    for (const ride of uniqueRides) {
+    for (const ride of filteredUniqueRides) {
       const country = ride.coasters?.parks?.country;
       if (!country) continue;
       counter.set(country, (counter.get(country) ?? 0) + 1);
@@ -118,7 +151,7 @@ export default function StatsPage() {
       if (b[1] !== a[1]) return b[1] - a[1];
       return a[0].localeCompare(b[0]);
     });
-  }, [uniqueRides]);
+  }, [filteredUniqueRides]);
 
   type RecordEntry = { name: string; park: string; value: number };
 
@@ -127,7 +160,7 @@ export default function StatsPage() {
       field: keyof Pick<RideCoaster, "length_ft" | "speed_mph" | "height_ft" | "inversions" | "duration_s">,
     ): RecordEntry | null {
       let top: RecordEntry | null = null;
-      for (const r of uniqueRides) {
+      for (const r of filteredUniqueRides) {
         const v = r.coasters?.[field];
         if (v == null) continue;
         if (top === null || v > top.value) {
@@ -147,15 +180,15 @@ export default function StatsPage() {
       mostInversions: best("inversions"),
       longestDuration: best("duration_s"),
     };
-  }, [uniqueRides]);
+  }, [filteredUniqueRides]);
 
   const hasAnyRecord = Object.values(personalRecords).some(Boolean);
 
   const [rideFilter, setRideFilter] = useState("");
 
   const filteredRides = useMemo(() => {
-    if (!rideFilter.trim()) return uniqueRides;
-    return uniqueRides.filter((r) => {
+    if (!rideFilter.trim()) return filteredUniqueRides;
+    return filteredUniqueRides.filter((r) => {
       const c = r.coasters;
       return (
         matchesSearchQuery(cleanCoasterName(c?.name ?? ""), rideFilter) ||
@@ -166,7 +199,7 @@ export default function StatsPage() {
         matchesSearchQuery(c?.manufacturer ?? "", rideFilter)
       );
     });
-  }, [uniqueRides, rideFilter]);
+  }, [filteredUniqueRides, rideFilter]);
 
   async function removeRide(coasterId: number, name: string) {
     if (!confirm(`Remove "${name}" from your ridden list?`)) return;
@@ -181,7 +214,7 @@ export default function StatsPage() {
   }
 
   const statCards = [
-    { label: "Coasters ridden", value: uniqueRides.length },
+    { label: "Coasters ridden", value: filteredUniqueRides.length },
     { label: "Parks visited", value: parksVisited },
     { label: "Countries visited", value: countriesVisited },
   ];
@@ -315,9 +348,18 @@ export default function StatsPage() {
             {/* Rides ridden */}
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
+              <label className="mb-3 inline-flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={includeFamilyRides}
+                  onChange={(e) => setIncludeFamilyRides(e.target.checked)}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                />
+                Include kiddie / family-style rides
+              </label>
               {loading ? (
                 <p className="text-sm text-slate-400">Loading&hellip;</p>
-              ) : uniqueRides.length === 0 ? (
+              ) : filteredUniqueRides.length === 0 ? (
                 <p className="text-sm text-slate-500">
                   No rides logged yet. Mark rides as ridden from the map or your{" "}
                   <Link href="/wishlist" className="font-medium text-amber-700 underline decoration-amber-300 underline-offset-2 hover:text-amber-800">
@@ -327,7 +369,7 @@ export default function StatsPage() {
                 </p>
               ) : (
                 <>
-                  {uniqueRides.length > 3 && (
+                  {filteredUniqueRides.length > 3 && (
                     <input
                       type="text"
                       value={rideFilter}
