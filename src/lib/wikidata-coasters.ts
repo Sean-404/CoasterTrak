@@ -60,6 +60,39 @@ WHERE {
 }
 `;
 
+/**
+ * Lighter fallback query for WDQS outage windows.
+ * Drops expensive quantity statement paths and park-parent traversal so CI can still progress.
+ */
+export const ROLLER_COASTER_SPARQL_LITE = `
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX schema: <http://schema.org/>
+
+SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
+  ?clsLabel
+  ?opening ?retirement ?demolished ?rcdbId ?enwiki
+WHERE {
+  ?item wdt:P31 ?cls .
+  ?cls wdt:P279* wd:Q204832 .
+  OPTIONAL { ?item wdt:P625 ?coord . }
+  OPTIONAL { ?item wdt:P17 ?country . }
+  OPTIONAL { ?item wdt:P361 ?park . }
+  OPTIONAL { ?item wdt:P176 ?manufacturer . }
+  OPTIONAL { ?item wdt:P1619 ?opening . }
+  OPTIONAL { ?item wdt:P730 ?retirement . }
+  OPTIONAL { ?item wdt:P576 ?demolished . }
+  OPTIONAL { ?item wdt:P2751 ?rcdbId . }
+  OPTIONAL {
+    ?article schema:about ?item ;
+             schema:isPartOf <https://en.wikipedia.org/> ;
+             schema:name ?enwiki .
+  }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+`;
+
 export type SparqlJsonBinding = {
   type: "uri" | "literal" | "bnode";
   value: string;
@@ -369,22 +402,46 @@ export async function fetchAllRollerCoasters(options?: {
 
   const out: WikidataCoasterRow[] = [];
   let currentPageSize = pageSize;
+  let activeQuery = ROLLER_COASTER_SPARQL;
+  let usingLiteQuery = false;
+  let hardTransientRetries = 0;
+  const maxHardTransientRetries = 8;
   let offset = 0;
 
   for (;;) {
     let json: SparqlJsonResponse;
     try {
       json = await fetchWikidataSparqlPage(
-        ROLLER_COASTER_SPARQL,
+        activeQuery,
         offset,
         currentPageSize,
       );
+      hardTransientRetries = 0;
     } catch (err) {
-      const canShrink =
-        err instanceof WikidataSparqlError &&
-        err.transient &&
-        currentPageSize > MIN_WDQS_PAGE_SIZE;
-      if (!canShrink) throw err;
+      const isTransientSparqlError =
+        err instanceof WikidataSparqlError && err.transient;
+      const canShrink = isTransientSparqlError && currentPageSize > MIN_WDQS_PAGE_SIZE;
+      if (!isTransientSparqlError) throw err;
+      if (!canShrink && !usingLiteQuery) {
+        usingLiteQuery = true;
+        activeQuery = ROLLER_COASTER_SPARQL_LITE;
+        currentPageSize = MIN_WDQS_PAGE_SIZE;
+        console.error(
+          "  WDQS still unstable at minimum page size; switching to lite SPARQL query and retrying...",
+        );
+        await new Promise((r) => setTimeout(r, 8_000));
+        continue;
+      }
+      if (!canShrink) {
+        if (hardTransientRetries >= maxHardTransientRetries) throw err;
+        hardTransientRetries += 1;
+        const cooldown = Math.min(15_000 * hardTransientRetries, 120_000);
+        console.error(
+          `  WDQS still transient at offset ${offset}; cooldown retry ${hardTransientRetries}/${maxHardTransientRetries} in ${Math.round(cooldown / 1000)}s...`,
+        );
+        await new Promise((r) => setTimeout(r, cooldown));
+        continue;
+      }
 
       const nextPageSize = Math.max(
         MIN_WDQS_PAGE_SIZE,
@@ -413,7 +470,7 @@ export async function fetchAllRollerCoasters(options?: {
     if (uniqueSoFar.length >= maxRows) break;
     if (bindings.length < currentPageSize) break;
     offset += currentPageSize;
-    if (currentPageSize < pageSize) {
+    if (currentPageSize < pageSize && !usingLiteQuery) {
       currentPageSize = Math.min(pageSize, currentPageSize * 2);
     }
     if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
