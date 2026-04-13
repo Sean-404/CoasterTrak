@@ -296,7 +296,7 @@ export async function fetchWikidataSparqlPage(
   query: string,
   offset: number,
   limit: number,
-  retries = 7,
+  retries = 3,
 ): Promise<SparqlJsonResponse> {
   const q = `${query.trim()}\nORDER BY ?item\nLIMIT ${limit}\nOFFSET ${offset}\n`;
 
@@ -342,10 +342,10 @@ export async function fetchWikidataSparqlPage(
     const retryAfterMs = retryAfterToMs(res.headers.get("retry-after"));
     const baseDelay =
       res.status === 429
-        ? 12_000
+        ? 8_000
         : is504
-          ? Math.min(8_000 * 2 ** attempt, 90_000)
-          : Math.min(3_000 * 2 ** attempt, 45_000);
+          ? Math.min(6_000 * 2 ** attempt, 45_000)
+          : Math.min(2_500 * 2 ** attempt, 25_000);
     const delay = Math.max(baseDelay, retryAfterMs ?? 0);
     console.error(
       `  Wikidata ${res.status} on offset ${offset}, retry ${attempt + 1}/${retries} in ${Math.round(delay / 1000)}s…`,

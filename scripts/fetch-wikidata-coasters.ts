@@ -136,7 +136,7 @@ async function main() {
     console.error(`Fetching Wikidata (max ${max} items)...`);
     rows = await fetchAllRollerCoasters({
       maxRows: max,
-      pageSize: 1000,
+      pageSize: 250,
       delayMs: 2000,
       onPage: (_, offset) => {
         console.error(`  ... page offset ${offset}`);
