@@ -19,6 +19,7 @@ import {
 } from "../src/lib/wikipedia-infobox-coaster";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import type { WikidataCoasterRow } from "../src/lib/wikidata-coasters";
+import { isThrillCoaster } from "../src/lib/coaster-dedup";
 
 const DRY_RUN = hasFlag("--dry-run");
 
@@ -26,6 +27,8 @@ type DbCoaster = {
   id: number;
   name: string;
   wikidata_id: string | null;
+  coaster_type: string | null;
+  manufacturer: string | null;
   length_ft: number | null;
   height_ft: number | null;
   speed_mph: number | null;
@@ -40,6 +43,37 @@ function needsAnyStat(c: DbCoaster): boolean {
     c.speed_mph == null ||
     c.duration_s == null ||
     c.inversions == null
+  );
+}
+
+function missingStatCount(c: DbCoaster): number {
+  let n = 0;
+  if (c.length_ft == null) n++;
+  if (c.height_ft == null) n++;
+  if (c.speed_mph == null) n++;
+  if (c.duration_s == null) n++;
+  if (c.inversions == null) n++;
+  return n;
+}
+
+function likelyThrill(c: DbCoaster): boolean {
+  return isThrillCoaster(
+    {
+      id: c.id,
+      park_id: 0,
+      name: c.name,
+      coaster_type: c.coaster_type ?? "Unknown",
+      manufacturer: c.manufacturer,
+      status: "Operating",
+      length_ft: c.length_ft,
+      speed_mph: c.speed_mph,
+      height_ft: c.height_ft,
+      inversions: c.inversions,
+      duration_s: c.duration_s,
+      opening_year: null,
+      closing_year: null,
+    },
+    null,
   );
 }
 
@@ -61,6 +95,7 @@ function mergePatch(
 async function main() {
   const limit = arg("--limit") ? parseInt(arg("--limit")!, 10) : Infinity;
   const delayMs = arg("--delay-ms") ? parseInt(arg("--delay-ms")!, 10) : 350;
+  const prioritizeThrill = !hasFlag("--no-prioritize-thrill");
 
   const wdPath = resolve(
     process.env.WIKIDATA_COASTERS_PATH?.trim() ?? "data/wikidata_coasters.json",
@@ -80,7 +115,9 @@ async function main() {
     (from, to) =>
       supabase
         .from("coasters")
-        .select("id, name, wikidata_id, length_ft, height_ft, speed_mph, duration_s, inversions")
+        .select(
+          "id, name, wikidata_id, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions",
+        )
         .not("wikidata_id", "is", null)
         .order("id", { ascending: true })
         .range(from, to),
@@ -90,7 +127,18 @@ async function main() {
     process.exit(1);
   }
 
-  const candidates = (rows ?? []).filter(needsAnyStat);
+  const candidates = (rows ?? [])
+    .filter(needsAnyStat)
+    .sort((a, b) => {
+      const diffMissing = missingStatCount(b) - missingStatCount(a);
+      if (diffMissing !== 0) return diffMissing;
+      if (prioritizeThrill) {
+        const ta = likelyThrill(a) ? 1 : 0;
+        const tb = likelyThrill(b) ? 1 : 0;
+        if (tb !== ta) return tb - ta;
+      }
+      return a.id - b.id;
+    });
   console.error(`  ${candidates.length} coasters with wikidata_id and at least one missing stat field.`);
 
   let processed = 0;

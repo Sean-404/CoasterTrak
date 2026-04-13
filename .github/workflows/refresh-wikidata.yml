@@ -44,4 +44,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/wikipedia-infobox-backfill.ts --limit 250 --delay-ms 350
+        run: npx tsx scripts/wikipedia-infobox-backfill.ts --limit 1000 --delay-ms 250

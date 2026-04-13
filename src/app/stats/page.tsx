@@ -11,7 +11,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
-import { isLikelySmallFamilyCoaster } from "@/lib/coaster-dedup";
+import { isThrillCoaster } from "@/lib/coaster-dedup";
 
 type RideCoaster = {
   id?: number;
@@ -93,7 +93,7 @@ export default function StatsPage() {
     return uniqueRides.filter((r) => {
       const c = r.coasters;
       if (!c) return false;
-      return !isLikelySmallFamilyCoaster(
+      return isThrillCoaster(
         {
           id: c.id ?? r.coaster_id,
           park_id: c.park_id ?? 0,

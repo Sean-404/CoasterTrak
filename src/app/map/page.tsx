@@ -16,7 +16,7 @@ import {
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
-import { isLikelySmallFamilyCoaster } from "@/lib/coaster-dedup";
+import { isThrillCoaster } from "@/lib/coaster-dedup";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
 
@@ -190,7 +190,7 @@ export default function MapPage() {
     if (includeFamilyRides) return remappedCoasters;
     return remappedCoasters.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
-      return !isLikelySmallFamilyCoaster(c, parkName);
+      return isThrillCoaster(c, parkName);
     });
   }, [includeFamilyRides, remappedCoasters, dedupedParkById]);
 

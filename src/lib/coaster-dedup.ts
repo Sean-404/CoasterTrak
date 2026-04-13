@@ -1,5 +1,6 @@
 import { cleanCoasterName } from "@/lib/display";
 import type { Coaster } from "@/types/domain";
+import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 
 /**
  * Normalizes coaster names so alternate spellings of the same ride collapse in the map UI
@@ -116,4 +117,57 @@ export function isLikelySmallFamilyCoaster(c: Coaster, parkName?: string | null)
   if (t.includes("family") || t.includes("kiddie") || t.includes("junior") || t.includes("powered")) return true;
 
   return false;
+}
+
+/**
+ * Classify whether a coaster is likely a thrill ride.
+ * Inversions are a strong positive signal, but are never required.
+ */
+export function isThrillCoaster(c: Coaster, parkName?: string | null): boolean {
+  const n = cleanCoasterName(c.name).toLowerCase();
+  const t = effectiveCoasterType(c.coaster_type, c.manufacturer).toLowerCase();
+  const speed = c.speed_mph ?? null;
+  const height = c.height_ft ?? null;
+  const length = c.length_ft ?? null;
+  const inv = c.inversions ?? 0;
+
+  // Strong direct signals.
+  if (inv >= 1) return true;
+  if (speed != null && speed >= 50) return true;
+  if (height != null && height >= 120) return true;
+  if (
+    /\b(hyper|giga|strata|launch|launched|inverted|dive|wing|flying|floorless|suspended|x[-\s]?coaster|4d|multi[-\s]?dimension)\b/i.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+
+  // Small/family cues should suppress borderline rides.
+  const familyCue =
+    /\b(family|kiddie|kiddy|junior|children|powered|mine\s*train|wild\s*mouse)\b/i.test(t) ||
+    /\b(kiddie|kiddy|junior|children'?s|family)\b/i.test(n);
+  if (isLikelySmallFamilyCoaster(c, parkName) || familyCue) {
+    return false;
+  }
+
+  // Moderate but still high-intensity profile (e.g. airtime-focused wood/hybrid rides).
+  if (speed != null && speed >= 42 && ((height != null && height >= 60) || (length != null && length >= 2200))) {
+    return true;
+  }
+
+  // Score borderline cases with multiple moderate signals.
+  let score = 0;
+  if (speed != null) {
+    if (speed >= 45) score += 2;
+    else if (speed >= 38) score += 1;
+  }
+  if (height != null) {
+    if (height >= 95) score += 2;
+    else if (height >= 70) score += 1;
+  }
+  if (length != null && length >= 2800) score += 1;
+  if (/\b(wood|steel|hybrid)\b/i.test(t)) score += 1;
+
+  return score >= 3;
 }
