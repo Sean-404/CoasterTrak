@@ -16,6 +16,11 @@ import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { mergeRowsByItem, type WikidataCoasterRow } from "@/lib/wikidata-coasters";
 
+type ParkForSync = ParkForMatch & {
+  external_source: string | null;
+  external_id: string | null;
+};
+
 async function loadWikidataRows(): Promise<WikidataCoasterRow[]> {
   const url = process.env.WIKIDATA_COASTERS_URL?.trim();
   if (url) {
@@ -85,6 +90,24 @@ function majorityCountry(rows: WikidataCoasterRow[]): string | null {
   return best;
 }
 
+function majorityParkWikidataId(rows: WikidataCoasterRow[]): string | null {
+  const counts = new Map<string, number>();
+  for (const r of rows) {
+    const q = r.parkWikidataId?.trim().toUpperCase();
+    if (!q) continue;
+    counts.set(q, (counts.get(q) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestN = 0;
+  for (const [q, k] of counts) {
+    if (k > bestN) {
+      bestN = k;
+      best = q;
+    }
+  }
+  return best;
+}
+
 function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
   const name = wikidataInsertName(wd);
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
@@ -134,12 +157,12 @@ export async function syncCatalogFromWikidata() {
       groups.set(key, list);
     }
 
-    const { data: existingParks, error: parksLoadErr } = await fetchAllPages<ParkForMatch>(
+    const { data: existingParks, error: parksLoadErr } = await fetchAllPages<ParkForSync>(
       SUPABASE_PAGE_SIZE,
       (from, to) =>
         supabase
           .from("parks")
-          .select("id, name, country, latitude, longitude")
+          .select("id, name, country, latitude, longitude, external_source, external_id")
           .order("id", { ascending: true })
           .range(from, to),
     );
@@ -148,8 +171,12 @@ export async function syncCatalogFromWikidata() {
     const parkRows = existingParks;
 
     const parkIdByKey = new Map<string, number>();
+    const parkIdByExternalQid = new Map<string, number>();
     for (const p of parkRows) {
       parkIdByKey.set(parkGroupKey(p.name, p.country), p.id);
+      if (p.external_source === "wikidata" && p.external_id) {
+        parkIdByExternalQid.set(p.external_id.trim().toUpperCase(), p.id);
+      }
     }
 
     let parkUpdates = 0;
@@ -178,8 +205,13 @@ export async function syncCatalogFromWikidata() {
         centroid.lng,
       );
       const parkName = groupRows[0]!.parkLabel!.trim();
+      const parkQid = majorityParkWikidataId(groupRows);
 
       let parkId = parkIdByKey.get(gKey);
+      if (!parkId && parkQid) {
+        parkId = parkIdByExternalQid.get(parkQid);
+        if (parkId) parkIdByKey.set(gKey, parkId);
+      }
 
       if (!parkId) {
         const linked = findParkMatchByNameAndLocation(
@@ -204,7 +236,7 @@ export async function syncCatalogFromWikidata() {
             latitude: centroid.lat,
             longitude: centroid.lng,
             external_source: "wikidata",
-            external_id: null,
+            external_id: parkQid,
             last_synced_at: new Date().toISOString(),
           })
           .select("id")
@@ -218,7 +250,10 @@ export async function syncCatalogFromWikidata() {
           country,
           latitude: centroid.lat,
           longitude: centroid.lng,
+          external_source: "wikidata",
+          external_id: parkQid,
         });
+        if (parkQid) parkIdByExternalQid.set(parkQid, parkId);
         parkUpdates += 1;
       } else {
         const row = parkRows.find((p) => p.id === parkId);
@@ -229,6 +264,7 @@ export async function syncCatalogFromWikidata() {
             latitude: centroid.lat,
             longitude: centroid.lng,
             external_source: "wikidata",
+            ...(parkQid ? { external_id: parkQid } : {}),
             last_synced_at: new Date().toISOString(),
           })
           .eq("id", parkId);
@@ -237,7 +273,10 @@ export async function syncCatalogFromWikidata() {
           row.country = country;
           row.latitude = centroid.lat;
           row.longitude = centroid.lng;
+          row.external_source = "wikidata";
+          if (parkQid) row.external_id = parkQid;
         }
+        if (parkQid) parkIdByExternalQid.set(parkQid, parkId);
         parkUpdates += 1;
       }
 

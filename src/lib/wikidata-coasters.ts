@@ -73,6 +73,7 @@ PREFIX schema: <http://schema.org/>
 SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
   ?clsLabel
   ?opening ?retirement ?demolished ?rcdbId ?enwiki
+  ?park
 WHERE {
   ?item wdt:P31 ?cls .
   ?cls wdt:P279* wd:Q204832 .
@@ -156,6 +157,7 @@ export type WikidataCoasterRow = {
   longitude: number | null;
   countryLabel: string | null;
   parkLabel: string | null;
+  parkWikidataId: string | null;
   manufacturerLabel: string | null;
   lengthM: number | null;
   speedMs: number | null;
@@ -234,6 +236,12 @@ export function bindingsToRow(
   const immediateParkLabel = bindingLiteral(b.parkLabel) ?? null;
   const parentParkLabel = bindingLiteral(b.parkParentLabel) ?? null;
   const resolvedParkLabel = parentParkLabel ?? immediateParkLabel;
+  const parkWikidataId = (() => {
+    const parkUri = bindingUri(b.park);
+    if (!parkUri) return null;
+    const q = parseUriToQid(parkUri);
+    return q.startsWith("Q") ? q : null;
+  })();
 
   return {
     wikidataId,
@@ -242,6 +250,7 @@ export function bindingsToRow(
     longitude: geo?.lon ?? null,
     countryLabel: bindingLiteral(b.countryLabel) ?? null,
     parkLabel: resolvedParkLabel,
+    parkWikidataId,
     manufacturerLabel: bindingLiteral(b.manufacturerLabel) ?? null,
     lengthM,
     speedMs,

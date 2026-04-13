@@ -62,6 +62,8 @@ type DbPark = {
   country: string | null;
   latitude: number | null;
   longitude: number | null;
+  external_source: string | null;
+  external_id: string | null;
 };
 
 type CoasterUpdate = {
@@ -189,8 +191,15 @@ function buildIndex(rows: DbCoaster[]): Map<string, DbCoaster[]> {
 function findParkForWikidataInsert(
   wd: WikidataCoasterRow,
   parkByName: Map<string, DbPark>,
+  parkByExternalQid: Map<string, DbPark>,
   allDbParks: DbPark[],
 ): DbPark | undefined {
+  const parkQid = wd.parkWikidataId?.trim().toUpperCase();
+  if (parkQid) {
+    const byQid = parkByExternalQid.get(parkQid);
+    if (byQid) return byQid;
+  }
+
   const label = wd.parkLabel?.trim();
   if (!label) return undefined;
 
@@ -368,10 +377,10 @@ async function insertParkFromWikidataRow(wd: WikidataCoasterRow): Promise<DbPark
       latitude: wd.latitude,
       longitude: wd.longitude,
       external_source: "wikidata",
-      external_id: null,
+      external_id: wd.parkWikidataId,
       last_synced_at: new Date().toISOString(),
     })
-    .select("id, name, country, latitude, longitude")
+    .select("id, name, country, latitude, longitude, external_source, external_id")
     .single();
   if (error) {
     console.error(`  Could not create park "${label}": ${error.message}`);
@@ -713,7 +722,7 @@ async function main() {
     (from, to) =>
       supabase
         .from("parks")
-        .select("id, name, country, latitude, longitude")
+        .select("id, name, country, latitude, longitude, external_source, external_id")
         .order("id", { ascending: true })
         .range(from, to),
   );
@@ -726,8 +735,12 @@ async function main() {
 
   // Index parks by normalised name for fast exact-match lookup
   const parkByName = new Map<string, DbPark>();
+  const parkByExternalQid = new Map<string, DbPark>();
   for (const p of allDbParks) {
     parkByName.set(p.name.toLowerCase().trim(), p);
+    if (p.external_source === "wikidata" && p.external_id) {
+      parkByExternalQid.set(p.external_id.trim().toUpperCase(), p);
+    }
   }
 
   // Build a set of "park_id:normalised_name" keys for every existing coaster
@@ -763,7 +776,7 @@ async function main() {
     if (!wd.parkLabel) continue;
 
     // Primary: exact name index, else fuzzy park name match (no per-resort hardcoding)
-    let park = findParkForWikidataInsert(wd, parkByName, allDbParks);
+    let park = findParkForWikidataInsert(wd, parkByName, parkByExternalQid, allDbParks);
 
     // Fallback: nearest DB park by coordinates (tight radius first)
     if (!park && wd.latitude != null && wd.longitude != null) {
@@ -781,6 +794,9 @@ async function main() {
       if (created) {
         allDbParks.push(created);
         parkByName.set(created.name.toLowerCase().trim(), created);
+        if (created.external_source === "wikidata" && created.external_id) {
+          parkByExternalQid.set(created.external_id.trim().toUpperCase(), created);
+        }
         park = created;
       }
     }
