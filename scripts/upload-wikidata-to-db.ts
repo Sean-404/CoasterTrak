@@ -288,6 +288,12 @@ function normalizeLoose(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+/** Some Wikidata fallback rows use bare entity IDs as labels (e.g. "Q2446903"). */
+function isPlaceholderQidLabel(label: string | null | undefined): boolean {
+  const t = (label ?? "").trim();
+  return /^Q\d+$/i.test(t);
+}
+
 function pickBestMatch(
   candidates: DbCoaster[],
   wd: WikidataCoasterRow,
@@ -773,7 +779,11 @@ async function main() {
 
   const inserts: CoasterInsert[] = [];
   for (const wd of unmatched) {
-    if (!wd.parkLabel) continue;
+    const hasCoords = wd.latitude != null && wd.longitude != null;
+    // Skip unhelpful placeholder labels ("Q12345"), but still allow coordinate-only rows
+    // to attach to nearby parks when the label is a real ride title (e.g. Anaconda, Gold Reef City).
+    if (isPlaceholderQidLabel(wd.label)) continue;
+    if (!wd.parkLabel && !hasCoords) continue;
 
     // Primary: exact name index, else fuzzy park name match (no per-resort hardcoding)
     let park = findParkForWikidataInsert(wd, parkByName, parkByExternalQid, allDbParks);

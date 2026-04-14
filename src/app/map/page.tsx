@@ -16,7 +16,7 @@ import {
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
-import { isThrillCoaster } from "@/lib/coaster-dedup";
+import { isPlaceholderCoasterName, isThrillCoaster } from "@/lib/coaster-dedup";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
 
@@ -187,8 +187,9 @@ export default function MapPage() {
   ]);
 
   const visibleCoasters = useMemo(() => {
-    if (includeFamilyRides) return remappedCoasters;
-    return remappedCoasters.filter((c) => {
+    const namedCoasters = remappedCoasters.filter((c) => !isPlaceholderCoasterName(c.name));
+    if (includeFamilyRides) return namedCoasters;
+    return namedCoasters.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isThrillCoaster(c, parkName);
     });

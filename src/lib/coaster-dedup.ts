@@ -37,6 +37,11 @@ export function normalizeCoasterDedupKey(raw: string): string {
   return s.replace(/[^a-z0-9]/g, "");
 }
 
+/** Raw Wikidata fallback labels can be bare Q-ids (e.g. "Q137830653"). */
+export function isPlaceholderCoasterName(raw: string): boolean {
+  return /^q\d+$/i.test(cleanCoasterName(raw).trim());
+}
+
 /**
  * When two rows share a dedup key, prefer the one we should show (richer stats, cleaner name).
  * `preferCoasterForDedup` returns the coaster to keep.
@@ -149,6 +154,15 @@ export function isThrillCoaster(c: Coaster, parkName?: string | null): boolean {
     /\b(kiddie|kiddy|junior|children'?s|family)\b/i.test(n);
   if (isLikelySmallFamilyCoaster(c, parkName) || familyCue) {
     return false;
+  }
+
+  // Some Wikidata/Queue-Times rows have no measurable stats yet; if they are named coasters
+  // (not placeholder Q-IDs) and not family-signaled, default to visible in thrill-only mode.
+  const hasNoStats = speed == null && height == null && length == null && c.inversions == null;
+  const isPlaceholderName = isPlaceholderCoasterName(c.name);
+  const hasCoasterishType = /\b(roller coaster|steel|wood|hybrid|inverted|launch|launched|flying|suspended)\b/i.test(t);
+  if (hasNoStats && !isPlaceholderName && hasCoasterishType) {
+    return true;
   }
 
   // Moderate but still high-intensity profile (e.g. airtime-focused wood/hybrid rides).

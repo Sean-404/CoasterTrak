@@ -10,6 +10,12 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 97) return "India";
   // Saudi Arabia (includes Qiddiya / Six Flags Qiddiya City)
   if (lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56) return "Saudi Arabia";
+  // South Korea (priority before Japan because longitudes overlap in the Korea Strait).
+  if (lat >= 33 && lat <= 39.6 && lng >= 124 && lng <= 132) return "South Korea";
+  // Japan (main islands + Okinawa). Kept intentionally broad for park-scale pin correction.
+  if ((lat >= 30 && lat <= 46 && lng >= 129 && lng <= 146) || (lat >= 24 && lat <= 31 && lng >= 122 && lng <= 132)) {
+    return "Japan";
+  }
   return null;
 }
 
@@ -32,5 +38,9 @@ export function reconcileCountryWithCoords(
   if (!c || cl === "unknown") return hint;
 
   if (hint === "India" && (cl === "china" || cl === "hong kong")) return hint;
+  if (hint === "South Korea" && (cl === "japan" || cl === "china" || cl === "hong kong")) return hint;
+  if (hint === "Japan" && (cl === "south korea" || cl === "north korea" || cl === "china" || cl === "hong kong")) {
+    return hint;
+  }
   return c;
 }
