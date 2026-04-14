@@ -5,6 +5,8 @@ import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 /** One row per distinct coaster, with joined coaster + park fields (matches stats query + park_id). */
 export type AchievementRide = {
   coaster_id: number;
+  /** When the credit was logged; used for “unlocked at” ordering. */
+  ridden_at?: string | null;
   coasters?: {
     park_id: number;
     name: string;
@@ -20,6 +22,17 @@ export type AchievementRide = {
   } | null;
 };
 
+/** Rough grind tier for badges — not tied to unlock difficulty alone. */
+export type AchievementRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+
+const RARITY_SORT_KEY: Record<AchievementRarity, number> = {
+  common: 0,
+  uncommon: 1,
+  rare: 2,
+  epic: 3,
+  legendary: 4,
+};
+
 export type AchievementEval = {
   id: string;
   title: string;
@@ -29,10 +42,41 @@ export type AchievementEval = {
   target: number;
   current: number;
   unlocked: boolean;
+  /** ISO timestamp of the credit that first unlocked this achievement, if known. */
+  unlockedAt?: string | null;
+  rarity: AchievementRarity;
 };
 
 function norm(s: string | null | undefined): string {
   return (s ?? "").trim();
+}
+
+/** Remove parenthetical asides from achievement copy for cleaner UI. */
+export function stripAchievementDisplayText(text: string): string {
+  if (!text) return text;
+  return text.replace(/\s*\([^)]*\)/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
+/** One credit per coaster, earliest `ridden_at` kept, sorted ascending for unlock simulation. */
+export function ridesChronologicalUnique(rides: AchievementRide[]): AchievementRide[] {
+  const byCoaster = new Map<number, AchievementRide>();
+  for (const r of rides) {
+    const prev = byCoaster.get(r.coaster_id);
+    if (!prev) {
+      byCoaster.set(r.coaster_id, r);
+      continue;
+    }
+    const tPrev = new Date(prev.ridden_at ?? 0).getTime();
+    const tCur = new Date(r.ridden_at ?? 0).getTime();
+    if (Number.isFinite(tCur) && (!Number.isFinite(tPrev) || tCur < tPrev)) {
+      byCoaster.set(r.coaster_id, r);
+    }
+  }
+  return [...byCoaster.values()].sort((a, b) => {
+    const ta = new Date(a.ridden_at ?? 0).getTime();
+    const tb = new Date(b.ridden_at ?? 0).getTime();
+    return ta - tb;
+  });
 }
 
 function isBolligerMabillard(manufacturer: string | null | undefined): boolean {
@@ -143,10 +187,57 @@ function maxCoastersAtOnePark(rides: AchievementRide[]): number {
   return max;
 }
 
+/** Type-label hints when inversion counts are missing (inverted ≠ “has inversions” in industry terms). */
+function catalogSuggestsInvertingRide(c: NonNullable<AchievementRide["coasters"]>): boolean {
+  const eff = effectiveCoasterType(c.coaster_type, c.manufacturer);
+  if (eff === "Inverted") return true;
+  const raw = (c.coaster_type ?? "").toLowerCase();
+  if (raw.includes("invert")) return true;
+  if (raw.includes("flying")) return true;
+  if (raw.includes("floorless")) return true;
+  if (raw.includes("dive")) return true;
+  if (raw.includes("wing")) return true;
+  if (raw.includes("suspended") && raw.includes("coaster")) return true;
+  return false;
+}
+
+/** One credit counts if the catalog reports inversions &gt; 0, or suggests an upside-down style when the count is missing. */
+function rideQualifiesUpsideDown(c: NonNullable<AchievementRide["coasters"]>): boolean {
+  const inv = c.inversions;
+  if (inv != null) return inv > 0;
+  return catalogSuggestsInvertingRide(c);
+}
+
+function countUpsideDownCoasters(rides: AchievementRide[]): number {
+  let n = 0;
+  for (const r of rides) {
+    const c = r.coasters;
+    if (!c) continue;
+    if (rideQualifiesUpsideDown(c)) n++;
+  }
+  return n;
+}
+
+/** Sum inversion elements: use catalog number when present; if missing but type suggests inverting, count 1 as a lower bound. */
+function sumInversionsForAchievements(rides: AchievementRide[]): number {
+  let s = 0;
+  for (const r of rides) {
+    const c = r.coasters;
+    if (!c) continue;
+    if (c.inversions != null) {
+      s += c.inversions;
+      continue;
+    }
+    if (catalogSuggestsInvertingRide(c)) s += 1;
+  }
+  return s;
+}
+
 function sumField(
   rides: AchievementRide[],
   field: "length_ft" | "duration_s" | "inversions",
 ): number {
+  if (field === "inversions") return sumInversionsForAchievements(rides);
   let s = 0;
   for (const r of rides) {
     const v = r.coasters?.[field];
@@ -209,12 +300,84 @@ type Def = {
   current: (rides: AchievementRide[]) => number;
 };
 
+/** Per-achievement rarity for UI badges (defaults to common if omitted). */
+const RARITY: Partial<Record<string, AchievementRarity>> = {
+  first_credit: "common",
+  credits_3: "common",
+  credits_5: "common",
+  wood_1: "common",
+  steel_3: "common",
+  parks_2: "common",
+  countries_2: "common",
+  inversions_sum_10: "common",
+  speed_40: "common",
+  enthusiast_10: "uncommon",
+  collector_50: "rare",
+  wood_5: "uncommon",
+  steel_15: "uncommon",
+  hybrid_3: "uncommon",
+  bm_5: "uncommon",
+  intamin_3: "uncommon",
+  one_park_10: "uncommon",
+  inversions_sum_100: "epic",
+  single_coaster_7_inversions: "rare",
+  length_mile: "uncommon",
+  duration_hour: "uncommon",
+  height_200: "rare",
+  countries_3: "uncommon",
+  continents_2: "uncommon",
+  veteran_100: "epic",
+  legend_200: "legendary",
+  wood_10: "rare",
+  steel_25: "rare",
+  hybrid_8: "rare",
+  inverted_3: "uncommon",
+  upside_down_3: "uncommon",
+  launch_3: "uncommon",
+  vekoma_3: "uncommon",
+  mack_3: "uncommon",
+  rmc_3: "uncommon",
+  gerstlauer_3: "uncommon",
+  premier_3: "uncommon",
+  arrow_ss_3: "uncommon",
+  parks_5: "uncommon",
+  parks_15: "rare",
+  speed_60: "uncommon",
+  speed_100: "rare",
+  countries_5: "rare",
+  countries_10: "epic",
+  continents_3: "epic",
+  length_two_miles: "legendary",
+  duration_two_hours: "legendary",
+  inversions_sum_500: "legendary",
+  single_coaster_10_inversions: "epic",
+  height_300: "epic",
+};
+
+function rarityForAchievementId(id: string): AchievementRarity {
+  return RARITY[id] ?? "common";
+}
+
 const DEFINITIONS: Def[] = [
   {
     id: "first_credit",
     title: "First credit",
     description: "Log your first coaster.",
     target: 1,
+    current: (rides) => rides.length,
+  },
+  {
+    id: "credits_3",
+    title: "Getting rolling",
+    description: "Ride 3 different coasters.",
+    target: 3,
+    current: (rides) => rides.length,
+  },
+  {
+    id: "credits_5",
+    title: "Five and counting",
+    description: "Ride 5 different coasters.",
+    target: 5,
     current: (rides) => rides.length,
   },
   {
@@ -232,11 +395,25 @@ const DEFINITIONS: Def[] = [
     current: (rides) => rides.length,
   },
   {
+    id: "wood_1",
+    title: "Wooden spin",
+    description: "Ride a wooden coaster (by type).",
+    target: 1,
+    current: countWood,
+  },
+  {
     id: "wood_5",
     title: "Wood lover",
     description: "Ride 5 wooden coasters (by type).",
     target: 5,
     current: countWood,
+  },
+  {
+    id: "steel_3",
+    title: "Steel sampler",
+    description: "Ride 3 steel coasters (by type).",
+    target: 3,
+    current: countSteel,
   },
   {
     id: "steel_15",
@@ -274,12 +451,22 @@ const DEFINITIONS: Def[] = [
     current: maxCoastersAtOnePark,
   },
   {
+    id: "inversions_sum_10",
+    title: "Inversion starter",
+    description: "Accumulate 10 total inversions across your ridden coasters (counts each coaster once).",
+    target: 10,
+    current: (rides) => sumField(rides, "inversions"),
+    dataNote:
+      "Uses catalog inversion counts when present; if missing, inverting ride types count as 1 toward the total.",
+  },
+  {
     id: "inversions_sum_100",
     title: "Inversion addict",
     description: "Accumulate 100 total inversions across your ridden coasters (counts each coaster once).",
     target: 100,
     current: (rides) => sumField(rides, "inversions"),
-    dataNote: "Counts coasters that have inversion data.",
+    dataNote:
+      "Uses catalog inversion counts when present; if missing, inverting ride types count as 1 toward the total.",
   },
   {
     id: "single_coaster_7_inversions",
@@ -312,6 +499,13 @@ const DEFINITIONS: Def[] = [
     target: 200,
     current: (rides) => maxField(rides, "height_ft"),
     dataNote: "Uses the tallest height among your ridden coasters with height data.",
+  },
+  {
+    id: "countries_2",
+    title: "Two flags",
+    description: "Ride coasters in 2 different countries.",
+    target: 2,
+    current: distinctCountries,
   },
   {
     id: "countries_3",
@@ -365,10 +559,17 @@ const DEFINITIONS: Def[] = [
   },
   {
     id: "inverted_3",
-    title: "Upside down",
-    description: "Ride 3 inverted coasters (by type).",
+    title: "Inverted trio",
+    description: "Ride 3 inverted coasters.",
     target: 3,
     current: (rides) => countEffectiveType(rides, "Inverted"),
+  },
+  {
+    id: "upside_down_3",
+    title: "Upside down",
+    description: "Ride 3 coasters with listed inversions, or inferred from ride type when the catalog omits a count.",
+    target: 3,
+    current: countUpsideDownCoasters,
   },
   {
     id: "launch_3",
@@ -415,9 +616,16 @@ const DEFINITIONS: Def[] = [
   {
     id: "arrow_ss_3",
     title: "Classic steel",
-    description: "Ride 3 coasters by Arrow Dynamics / Development or S&S Sansei.",
+    description: "Ride 3 coasters by Arrow Dynamics or S&S Sansei",
     target: 3,
     current: (rides) => countManufacturer(rides, isArrowOrSS),
+  },
+  {
+    id: "parks_2",
+    title: "Two parks",
+    description: "Ride coasters at 2 different parks.",
+    target: 2,
+    current: distinctParks,
   },
   {
     id: "parks_5",
@@ -432,6 +640,14 @@ const DEFINITIONS: Def[] = [
     description: "Ride coasters at 15 different parks.",
     target: 15,
     current: distinctParks,
+  },
+  {
+    id: "speed_40",
+    title: "Building speed",
+    description: "Ride a coaster that reaches at least 40 mph.",
+    target: 40,
+    current: (rides) => maxField(rides, "speed_mph"),
+    dataNote: "Uses the highest listed speed among your ridden coasters with speed data.",
   },
   {
     id: "speed_60",
@@ -493,7 +709,8 @@ const DEFINITIONS: Def[] = [
     description: "Accumulate 500 total inversions across your ridden coasters (counts each coaster once).",
     target: 500,
     current: (rides) => sumField(rides, "inversions"),
-    dataNote: "Counts coasters that have inversion data.",
+    dataNote:
+      "Uses catalog inversion counts when present; if missing, inverting ride types count as 1 toward the total.",
   },
   {
     id: "single_coaster_10_inversions",
@@ -532,27 +749,171 @@ export function evaluateAchievements(uniqueRides: AchievementRide[]): Achievemen
     const unlocked = current >= d.target;
     return {
       id: d.id,
-      title: d.title,
-      description: d.description,
-      dataNote: d.dataNote,
+      title: stripAchievementDisplayText(d.title),
+      description: stripAchievementDisplayText(d.description),
+      dataNote: d.dataNote ? stripAchievementDisplayText(d.dataNote) : undefined,
       target: d.target,
       current,
       unlocked,
+      unlockedAt: null,
+      rarity: rarityForAchievementId(d.id),
     };
   });
 }
 
-/** Sort: unlocked first, then by progress ratio (current/target) descending for locked. */
-export function sortAchievementsForDisplay(evals: AchievementEval[]): AchievementEval[] {
-  return [...evals].sort((a, b) => {
+const RARITY_LABEL: Record<AchievementRarity, string> = {
+  common: "Common",
+  uncommon: "Uncommon",
+  rare: "Rare",
+  epic: "Epic",
+  legendary: "Legendary",
+};
+
+export function achievementRarityLabel(r: AchievementRarity): string {
+  return RARITY_LABEL[r];
+}
+
+/** Tailwind classes for a small rarity pill (border + text + bg). */
+export function achievementRarityPillClass(r: AchievementRarity): string {
+  switch (r) {
+    case "common":
+      return "border-slate-200 bg-slate-100 text-slate-600";
+    case "uncommon":
+      return "border-emerald-200 bg-emerald-50 text-emerald-900";
+    case "rare":
+      return "border-sky-300 bg-sky-50 text-sky-900";
+    case "epic":
+      return "border-violet-300 bg-violet-100 text-violet-950";
+    case "legendary":
+      return "border-amber-400 bg-amber-100 text-amber-950 ring-1 ring-amber-400/40";
+    default:
+      return "border-slate-200 bg-slate-100 text-slate-600";
+  }
+}
+
+function unlockTimestampsByAchievementId(chronological: AchievementRide[]): Map<string, string> {
+  const first = new Map<string, string>();
+  for (let i = 1; i <= chronological.length; i++) {
+    const subset = chronological.slice(0, i);
+    const batch = evaluateAchievements(subset);
+    const mark = chronological[i - 1]!.ridden_at;
+    if (!mark) continue;
+    for (const e of batch) {
+      if (e.unlocked && !first.has(e.id)) first.set(e.id, mark);
+    }
+  }
+  return first;
+}
+
+/** Full metrics from all credits, plus `unlockedAt` from chronological simulation when `ridden_at` is present. */
+export function evaluateAchievementsWithUnlockTimes(rides: AchievementRide[]): AchievementEval[] {
+  const chronological = ridesChronologicalUnique(rides);
+  const evals = evaluateAchievements(chronological);
+  const ts = unlockTimestampsByAchievementId(chronological);
+  return evals.map((e) => ({
+    ...e,
+    unlockedAt: e.unlocked ? ts.get(e.id) ?? null : null,
+  }));
+}
+
+export type AchievementVisibilityFilter = "all" | "unlocked" | "locked";
+
+export type AchievementListSort =
+  | "unlocked-first"
+  | "locked-first"
+  | "unlock-newest"
+  | "unlock-oldest"
+  | "alpha"
+  | "rarity-desc"
+  | "rarity-asc";
+
+function achievementUnlockTimeMs(e: AchievementEval): number {
+  if (!e.unlockedAt) return e.unlocked ? Number.MAX_SAFE_INTEGER : 0;
+  const t = new Date(e.unlockedAt).getTime();
+  return Number.isFinite(t) ? t : e.unlocked ? Number.MAX_SAFE_INTEGER : 0;
+}
+
+function progressRatio(e: AchievementEval): number {
+  if (e.target > 0) return Math.min(1, e.current / e.target);
+  return e.unlocked ? 1 : 0;
+}
+
+export function filterAndSortAchievements(
+  evals: AchievementEval[],
+  filter: AchievementVisibilityFilter,
+  sort: AchievementListSort,
+): AchievementEval[] {
+  let list = evals;
+  if (filter === "locked") list = list.filter((e) => !e.unlocked);
+  else if (filter === "unlocked") list = list.filter((e) => e.unlocked);
+
+  return [...list].sort((a, b) => {
+    if (sort === "alpha") return a.title.localeCompare(b.title);
+
+    if (sort === "rarity-desc" || sort === "rarity-asc") {
+      const ka = RARITY_SORT_KEY[a.rarity];
+      const kb = RARITY_SORT_KEY[b.rarity];
+      const primary = sort === "rarity-desc" ? kb - ka : ka - kb;
+      if (primary !== 0) return primary;
+      return a.title.localeCompare(b.title);
+    }
+
+    if (sort === "locked-first") {
+      if (a.unlocked !== b.unlocked) return a.unlocked ? 1 : -1;
+      if (!a.unlocked && !b.unlocked) {
+        const d = progressRatio(b) - progressRatio(a);
+        if (d !== 0) return d;
+      }
+      if (a.unlocked && b.unlocked) {
+        const d = achievementUnlockTimeMs(b) - achievementUnlockTimeMs(a);
+        if (d !== 0) return d;
+      }
+      return a.title.localeCompare(b.title);
+    }
+
+    if (sort === "unlock-newest") {
+      if (a.unlocked && b.unlocked) {
+        const d = achievementUnlockTimeMs(b) - achievementUnlockTimeMs(a);
+        if (d !== 0) return d;
+      }
+      if (a.unlocked !== b.unlocked) return a.unlocked ? -1 : 1;
+      if (!a.unlocked && !b.unlocked) {
+        const d2 = progressRatio(b) - progressRatio(a);
+        if (d2 !== 0) return d2;
+      }
+      return a.title.localeCompare(b.title);
+    }
+
+    if (sort === "unlock-oldest") {
+      if (a.unlocked && b.unlocked) {
+        const d = achievementUnlockTimeMs(a) - achievementUnlockTimeMs(b);
+        if (d !== 0) return d;
+      }
+      if (a.unlocked !== b.unlocked) return a.unlocked ? -1 : 1;
+      if (!a.unlocked && !b.unlocked) {
+        const d2 = progressRatio(b) - progressRatio(a);
+        if (d2 !== 0) return d2;
+      }
+      return a.title.localeCompare(b.title);
+    }
+
+    // unlocked-first (default)
     if (a.unlocked !== b.unlocked) return a.unlocked ? -1 : 1;
+    if (a.unlocked && b.unlocked) {
+      const d = achievementUnlockTimeMs(b) - achievementUnlockTimeMs(a);
+      if (d !== 0) return d;
+    }
     if (!a.unlocked && !b.unlocked) {
-      const ra = a.target > 0 ? a.current / a.target : 0;
-      const rb = b.target > 0 ? b.current / b.target : 0;
-      if (rb !== ra) return rb - ra;
+      const d2 = progressRatio(b) - progressRatio(a);
+      if (d2 !== 0) return d2;
     }
     return a.title.localeCompare(b.title);
   });
+}
+
+/** @deprecated Prefer `filterAndSortAchievements(evals, "all", "unlocked-first")`. */
+export function sortAchievementsForDisplay(evals: AchievementEval[]): AchievementEval[] {
+  return filterAndSortAchievements(evals, "all", "unlocked-first");
 }
 
 export const ACHIEVEMENT_COUNT = DEFINITIONS.length;

@@ -5,10 +5,13 @@ import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
 import {
   ACHIEVEMENT_COUNT,
+  achievementRarityLabel,
   type AchievementEval,
+  type AchievementListSort,
   type AchievementRide,
-  evaluateAchievements,
-  sortAchievementsForDisplay,
+  type AchievementVisibilityFilter,
+  evaluateAchievementsWithUnlockTimes,
+  filterAndSortAchievements,
 } from "@/lib/achievements";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
@@ -40,10 +43,84 @@ function progressPercent(a: AchievementEval): number {
   return Math.min(100, (a.current / a.target) * 100);
 }
 
+function formatUnlockedAt(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+const VIEW_OPTIONS: { value: AchievementVisibilityFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "unlocked", label: "Unlocked" },
+  { value: "locked", label: "Locked" },
+];
+
+const ORDER_OPTIONS: {
+  value: AchievementListSort;
+  label: string;
+  title: string;
+}[] = [
+  {
+    value: "unlocked-first",
+    label: "Default",
+    title: "Unlocked first, then closest to completion for the rest",
+  },
+  {
+    value: "locked-first",
+    label: "In progress",
+    title: "Locked achievements first—closest to done at the top",
+  },
+  { value: "alpha", label: "A–Z", title: "Alphabetical by title" },
+  {
+    value: "rarity-desc",
+    label: "Rarest first",
+    title: "Legendary and epic achievements first, then by title",
+  },
+  {
+    value: "rarity-asc",
+    label: "Most common first",
+    title: "Common and uncommon achievements first, then by title",
+  },
+  {
+    value: "unlock-newest",
+    label: "Newest unlock",
+    title: "Most recently unlocked first (then locked by progress)",
+  },
+  {
+    value: "unlock-oldest",
+    label: "Oldest unlock",
+    title: "Earliest unlocks first (then locked by progress)",
+  },
+];
+
+function isUnlockDateSort(sort: AchievementListSort): boolean {
+  return sort === "unlock-newest" || sort === "unlock-oldest";
+}
+
+function isInProgressSort(sort: AchievementListSort): boolean {
+  return sort === "locked-first";
+}
+
+/**
+ * Coerce sort for the current filter without mutating stored `listSort`
+ * (so switching tabs restores the user’s previous choice when it applies again).
+ */
+function effectiveSortForFilter(
+  filter: AchievementVisibilityFilter,
+  sort: AchievementListSort,
+): AchievementListSort {
+  if (filter === "locked" && isUnlockDateSort(sort)) return "locked-first";
+  if (filter === "unlocked" && isInProgressSort(sort)) return "unlocked-first";
+  return sort;
+}
+
 export default function AchievementsPage() {
   const [rides, setRides] = useState<RideRow[]>([]);
   const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [fetchError, setFetchError] = useState(false);
+  const [visibilityFilter, setVisibilityFilter] = useState<AchievementVisibilityFilter>("all");
+  const [listSort, setListSort] = useState<AchievementListSort>("unlocked-first");
   const { units } = useUnits();
 
   useEffect(() => {
@@ -61,7 +138,7 @@ export default function AchievementsPage() {
         const ridesRes = await supabase
           .from("rides")
           .select(
-            "coaster_id, coasters(park_id, name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+            "coaster_id, ridden_at, coasters(park_id, name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
           )
           .eq("user_id", data.user.id);
 
@@ -75,21 +152,32 @@ export default function AchievementsPage() {
       });
   }, []);
 
-  const uniqueRides = useMemo(() => {
-    const seen = new Set<number>();
-    return rides.filter((r) => {
-      if (seen.has(r.coaster_id)) return false;
-      seen.add(r.coaster_id);
-      return true;
-    });
-  }, [rides]);
+  const achievementEvals = useMemo(() => evaluateAchievementsWithUnlockTimes(rides), [rides]);
 
-  const sorted = useMemo(() => {
-    const evals = evaluateAchievements(uniqueRides);
-    return sortAchievementsForDisplay(evals);
-  }, [uniqueRides]);
+  const sortApplied = useMemo(
+    () => effectiveSortForFilter(visibilityFilter, listSort),
+    [visibilityFilter, listSort],
+  );
 
-  const unlockedCount = useMemo(() => sorted.filter((a) => a.unlocked).length, [sorted]);
+  const orderOptionsVisible = useMemo(() => {
+    if (visibilityFilter === "locked") {
+      return ORDER_OPTIONS.filter((o) => !isUnlockDateSort(o.value));
+    }
+    if (visibilityFilter === "unlocked") {
+      return ORDER_OPTIONS.filter((o) => !isInProgressSort(o.value));
+    }
+    return ORDER_OPTIONS;
+  }, [visibilityFilter]);
+
+  const sorted = useMemo(
+    () => filterAndSortAchievements(achievementEvals, visibilityFilter, sortApplied),
+    [achievementEvals, visibilityFilter, sortApplied],
+  );
+
+  const unlockedCount = useMemo(
+    () => achievementEvals.filter((a) => a.unlocked).length,
+    [achievementEvals],
+  );
 
   return (
     <div className="min-h-screen">
@@ -98,8 +186,9 @@ export default function AchievementsPage() {
         <AuthGate>
           <h1 className="mb-2 text-2xl font-bold text-slate-900">Achievements</h1>
           <p className="mb-6 max-w-2xl text-sm text-slate-600">
-            Credits are self-reported for fun — there is no verification. Progress uses catalog data where available (length,
-            height, duration may be missing until enriched).
+            Achievements are self-reported for fun — there is no verification. Every coaster you log counts toward achievements,
+            including family and kiddie rides (your Stats page can optionally hide those for a thrill-focused count).
+            Progress uses catalog data where available (length, height, duration may be missing).
           </p>
 
           {fetchError && (
@@ -113,6 +202,78 @@ export default function AchievementsPage() {
             <p className="mt-1 text-3xl font-bold text-slate-900">
               {loading ? <span className="text-slate-300">&mdash;</span> : `${unlockedCount} / ${ACHIEVEMENT_COUNT}`}
             </p>
+          </div>
+
+          <div
+            className="mb-6 rounded-xl border border-slate-200 bg-slate-50/90 p-4 shadow-sm"
+            role="region"
+            aria-label="List view options"
+          >
+            <div className="flex flex-col gap-4">
+              <div>
+                <p id="achievements-view-label" className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Show
+                </p>
+                <div
+                  className="inline-flex flex-wrap rounded-lg border border-slate-200 bg-white p-0.5 shadow-sm"
+                  role="group"
+                  aria-labelledby="achievements-view-label"
+                >
+                  {VIEW_OPTIONS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setVisibilityFilter(value)}
+                      aria-pressed={visibilityFilter === value}
+                      className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                        visibilityFilter === value
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="achievements-order"
+                  id="achievements-order-label"
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500"
+                >
+                  Order
+                </label>
+                <select
+                  id="achievements-order"
+                  className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400/40"
+                  aria-labelledby="achievements-order-label"
+                  value={sortApplied}
+                  title={
+                    orderOptionsVisible.find((o) => o.value === sortApplied)?.title ??
+                    orderOptionsVisible[0]?.title
+                  }
+                  onChange={(e) => setListSort(e.target.value as AchievementListSort)}
+                >
+                  {orderOptionsVisible.map(({ value, label, title }) => (
+                    <option key={value} value={value} title={title}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                {visibilityFilter === "locked" ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Sort by unlock date is available when you show <span className="font-medium text-slate-600">All</span>{" "}
+                    or <span className="font-medium text-slate-600">Unlocked</span>.
+                  </p>
+                ) : visibilityFilter === "unlocked" ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    &ldquo;In progress&rdquo; order is available when you show <span className="font-medium text-slate-600">All</span>{" "}
+                    or <span className="font-medium text-slate-600">Locked</span>.
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <ul className="space-y-3">
@@ -164,13 +325,21 @@ export default function AchievementsPage() {
                       </div>
                       <p className="mt-1.5 text-sm text-slate-600">{a.description}</p>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                        a.unlocked ? "bg-amber-200 text-slate-900" : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {a.unlocked ? "Unlocked" : "Locked"}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+                      <span className="text-xs text-slate-500">{achievementRarityLabel(a.rarity)}</span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          a.unlocked ? "bg-amber-200 text-slate-900" : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {a.unlocked ? "Unlocked" : "Locked"}
+                      </span>
+                      {a.unlocked ? (
+                        <span className="text-[11px] text-slate-500">
+                          {formatUnlockedAt(a.unlockedAt) ?? "Date unknown"}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
 
                   {!a.unlocked && (
