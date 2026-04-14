@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
@@ -13,6 +13,7 @@ import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 
 type WishlistItem = {
   coaster_id: number;
+  added_at?: string | null;
   coasters?: {
     name: string;
     wikidata_id?: string | null;
@@ -24,16 +25,25 @@ type WishlistItem = {
   } | null;
 };
 
+type WishlistSort =
+  | "added_desc"
+  | "added_asc"
+  | "ride_az"
+  | "ride_za"
+  | "park_az"
+  | "park_za";
+
 export default function WishlistPage() {
   const [items, setItems] = useState<WishlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [userId, setUserId] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<number, "ridden" | "removing" | null>>({});
   const [toast, setToast] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<WishlistSort>("added_desc");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) return;
 
     void getSupabaseUserSafe().then(async (user) => {
       if (!user) { setLoading(false); return; }
@@ -41,9 +51,9 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, coasters(name, wikidata_id, image_url, coaster_type, manufacturer, status, parks(name))")
+        .select("coaster_id, added_at, coasters(name, wikidata_id, image_url, coaster_type, manufacturer, status, parks(name))")
         .eq("user_id", user.id)
-        .order("coaster_id");
+        .order("added_at", { ascending: false });
 
       if (error) setToast("Failed to load wishlist. Please refresh.");
       const mapped = ((rows ?? []) as unknown as WishlistItem[]).map((item) => ({
@@ -54,6 +64,37 @@ export default function WishlistPage() {
       setLoading(false);
     });
   }, []);
+
+  const sortedItems = useMemo(() => {
+    const sorted = [...items];
+    sorted.sort((a, b) => {
+      if (sortBy === "ride_az" || sortBy === "ride_za") {
+        const aName = cleanCoasterName(a.coasters?.name ?? `Coaster ${a.coaster_id}`);
+        const bName = cleanCoasterName(b.coasters?.name ?? `Coaster ${b.coaster_id}`);
+        const byName = aName.localeCompare(bName, undefined, { sensitivity: "base" });
+        if (byName !== 0) return sortBy === "ride_az" ? byName : -byName;
+        return sortBy === "ride_az" ? a.coaster_id - b.coaster_id : b.coaster_id - a.coaster_id;
+      }
+
+      if (sortBy === "park_az" || sortBy === "park_za") {
+        const aPark = a.coasters?.parks?.name ?? "";
+        const bPark = b.coasters?.parks?.name ?? "";
+        const byPark = aPark.localeCompare(bPark, undefined, { sensitivity: "base" });
+        if (byPark !== 0) return sortBy === "park_az" ? byPark : -byPark;
+        const aName = cleanCoasterName(a.coasters?.name ?? `Coaster ${a.coaster_id}`);
+        const bName = cleanCoasterName(b.coasters?.name ?? `Coaster ${b.coaster_id}`);
+        const byName = aName.localeCompare(bName, undefined, { sensitivity: "base" });
+        if (byName !== 0) return sortBy === "park_az" ? byName : -byName;
+        return sortBy === "park_az" ? a.coaster_id - b.coaster_id : b.coaster_id - a.coaster_id;
+      }
+
+      const aTime = a.added_at ? Date.parse(a.added_at) : 0;
+      const bTime = b.added_at ? Date.parse(b.added_at) : 0;
+      if (aTime !== bTime) return sortBy === "added_asc" ? aTime - bTime : bTime - aTime;
+      return sortBy === "added_asc" ? a.coaster_id - b.coaster_id : b.coaster_id - a.coaster_id;
+    });
+    return sorted;
+  }, [items, sortBy]);
 
   async function markRidden(coasterId: number) {
     const supabase = getSupabaseBrowserClient();
@@ -109,6 +150,27 @@ export default function WishlistPage() {
             </Link>
           </div>
 
+          {!loading && items.length > 0 && (
+            <div className="mb-4 flex items-center justify-end gap-2">
+              <label htmlFor="wishlist-sort" className="text-sm font-medium text-slate-600">
+                Sort by
+              </label>
+              <select
+                id="wishlist-sort"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as WishlistSort)}
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              >
+                <option value="added_desc">Added (newest)</option>
+                <option value="added_asc">Added (oldest)</option>
+                <option value="ride_az">Ride (A-Z)</option>
+                <option value="ride_za">Ride (Z-A)</option>
+                <option value="park_az">Park (A-Z)</option>
+                <option value="park_za">Park (Z-A)</option>
+              </select>
+            </div>
+          )}
+
           {toast && (
             <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
               <span>{toast}</span>
@@ -127,7 +189,7 @@ export default function WishlistPage() {
             </div>
           ) : (
             <ul className="space-y-3">
-              {items.map((item) => {
+              {sortedItems.map((item) => {
                 const coaster = item.coasters;
                 const busy = pending[item.coaster_id];
                 const coasterName = cleanCoasterName(coaster?.name ?? `Coaster ${item.coaster_id}`);
