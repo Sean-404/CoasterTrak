@@ -170,6 +170,7 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     wikidata_id: wd.wikidataId,
     coaster_type: inferred,
     manufacturer: wd.manufacturerLabel ?? null,
+    image_url: wd.imageUrl ?? null,
     status,
     length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
     speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,

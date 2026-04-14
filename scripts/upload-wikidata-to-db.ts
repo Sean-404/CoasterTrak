@@ -83,6 +83,7 @@ type CoasterUpdate = {
   status?: string;
   manufacturer?: string;
   coaster_type?: string;
+  image_url?: string;
 };
 
 /**
@@ -654,6 +655,7 @@ async function main() {
       opening_year: yearFromDate(wd.openingDate) ?? undefined,
       closing_year:
         (yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate)) ?? undefined,
+      image_url: wd.imageUrl ?? undefined,
     };
 
     // Only override status when Wikidata has a confident signal
@@ -772,6 +774,7 @@ async function main() {
     opening_year: number | null;
     closing_year: number | null;
     manufacturer: string | null;
+    image_url: string | null;
     external_source: "wikidata";
     external_id: string;
     last_synced_at: string;
@@ -831,6 +834,7 @@ async function main() {
       opening_year: yearFromDate(wd.openingDate),
       closing_year: yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate),
       manufacturer: wd.manufacturerLabel ?? null,
+      image_url: wd.imageUrl ?? null,
       external_source: "wikidata",
       external_id: wd.wikidataId,
       last_synced_at: new Date().toISOString(),

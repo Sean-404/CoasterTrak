@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
@@ -18,6 +19,7 @@ type RideCoaster = {
   park_id?: number;
   name: string;
   wikidata_id?: string | null;
+  image_url?: string | null;
   coaster_type: string;
   manufacturer: string | null;
   length_ft: number | null;
@@ -57,7 +59,7 @@ export default function StatsPage() {
       const ridesRes = await supabase
         .from("rides")
         .select(
-          "coaster_id, coasters(name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+          "coaster_id, coasters(name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
         )
         .eq("user_id", user.id);
 
@@ -385,37 +387,45 @@ export default function StatsPage() {
                         ride.coasters?.parks?.name,
                         ride.coasters?.parks?.country,
                       );
+                      const coasterName = cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`);
                       return (
-                      <li key={ride.coaster_id} className="group flex items-start justify-between gap-3 py-2.5">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-slate-900">
-                            {cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`)}
-                          </p>
-                          <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words">
-                            {parkLine && <span>{parkLine} &middot; </span>}
-                            {effectiveCoasterType(ride.coasters?.coaster_type, ride.coasters?.manufacturer)}
-                            {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeRide(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
-                          disabled={removing === ride.coaster_id}
-                          title="Remove ride"
-                          className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
-                        >
-                          {removing === ride.coaster_id ? (
-                            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                            </svg>
-                          ) : (
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      </li>
-                    );
+                        <li key={ride.coaster_id} className="group flex items-start justify-between gap-3 py-2.5">
+                          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                            <CoasterThumbnail
+                              name={coasterName}
+                              imageUrl={ride.coasters?.image_url}
+                              sizeClassName="h-11 w-11"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-slate-900">
+                                {coasterName}
+                              </p>
+                              <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words">
+                                {parkLine && <span>{parkLine} &middot; </span>}
+                                {effectiveCoasterType(ride.coasters?.coaster_type, ride.coasters?.manufacturer)}
+                                {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeRide(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
+                            disabled={removing === ride.coaster_id}
+                            title="Remove ride"
+                            className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
+                          >
+                            {removing === ride.coaster_id ? (
+                              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        </li>
+                      );
                     })}
                   </ul>
                 </>

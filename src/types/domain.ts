@@ -16,6 +16,7 @@ export type Coaster = {
   status: string;
   /** Wikidata / Wikipedia enrichment fields (nullable until synced) */
   wikidata_id?: string | null;
+  image_url?: string | null;
   length_ft?: number | null;
   speed_mph?: number | null;
   height_ft?: number | null;

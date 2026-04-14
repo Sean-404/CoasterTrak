@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName } from "@/lib/display";
@@ -15,6 +16,7 @@ type WishlistItem = {
   coasters?: {
     name: string;
     wikidata_id?: string | null;
+    image_url?: string | null;
     coaster_type: string;
     manufacturer: string | null;
     status: string;
@@ -39,7 +41,7 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, coasters(name, wikidata_id, coaster_type, manufacturer, status, parks(name))")
+        .select("coaster_id, coasters(name, wikidata_id, image_url, coaster_type, manufacturer, status, parks(name))")
         .eq("user_id", user.id)
         .order("coaster_id");
 
@@ -128,6 +130,7 @@ export default function WishlistPage() {
               {items.map((item) => {
                 const coaster = item.coasters;
                 const busy = pending[item.coaster_id];
+                const coasterName = cleanCoasterName(coaster?.name ?? `Coaster ${item.coaster_id}`);
                 const typeLabel = coaster
                   ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
                   : "Unknown";
@@ -135,11 +138,13 @@ export default function WishlistPage() {
                 return (
                   <li
                     key={item.coaster_id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+                    className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
                   >
-                    <div className="min-w-0">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <CoasterThumbnail name={coasterName} imageUrl={coaster?.image_url} />
+                      <div className="min-w-0">
                       <p className="truncate font-semibold text-slate-900">
-                        {cleanCoasterName(coaster?.name ?? `Coaster ${item.coaster_id}`)}
+                        {coasterName}
                       </p>
                       {coaster?.parks?.name && (
                         <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
@@ -162,6 +167,7 @@ export default function WishlistPage() {
                             </span>
                           )
                         )}
+                      </div>
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-2">

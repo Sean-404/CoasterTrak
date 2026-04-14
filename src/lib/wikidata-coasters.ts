@@ -26,7 +26,7 @@ PREFIX schema: <http://schema.org/>
 SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
   ?clsLabel
   ?lengthM ?speedMs ?heightM ?durationS
-  ?opening ?retirement ?demolished ?rcdbId ?enwiki
+  ?opening ?retirement ?demolished ?rcdbId ?enwiki ?image
   ?park ?parkParent
 WHERE {
   ?item wdt:P31 ?cls .
@@ -51,6 +51,7 @@ WHERE {
   OPTIONAL { ?item wdt:P730 ?retirement . }
   OPTIONAL { ?item wdt:P576 ?demolished . }
   OPTIONAL { ?item wdt:P2751 ?rcdbId . }
+  OPTIONAL { ?item wdt:P18 ?image . }
   OPTIONAL {
     ?article schema:about ?item ;
              schema:isPartOf <https://en.wikipedia.org/> ;
@@ -72,7 +73,7 @@ PREFIX schema: <http://schema.org/>
 
 SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
   ?clsLabel
-  ?opening ?retirement ?demolished ?rcdbId ?enwiki
+  ?opening ?retirement ?demolished ?rcdbId ?enwiki ?image
   ?park
 WHERE {
   ?item wdt:P31 ?cls .
@@ -85,6 +86,7 @@ WHERE {
   OPTIONAL { ?item wdt:P730 ?retirement . }
   OPTIONAL { ?item wdt:P576 ?demolished . }
   OPTIONAL { ?item wdt:P2751 ?rcdbId . }
+  OPTIONAL { ?item wdt:P18 ?image . }
   OPTIONAL {
     ?article schema:about ?item ;
              schema:isPartOf <https://en.wikipedia.org/> ;
@@ -121,6 +123,23 @@ export function parseWktPoint(wkt: string | undefined): {
 export function parseUriToQid(uri: string): string {
   const last = uri.split("/").pop() ?? uri;
   return last.startsWith("Q") ? last : uri;
+}
+
+function wikimediaImageUrlFromBinding(b: SparqlJsonBinding | undefined): string | null {
+  if (!b) return null;
+  const raw = b.value.trim();
+  if (!raw) return null;
+
+  if (/^https?:\/\//i.test(raw)) {
+    if (/commons\.wikimedia\.org\/wiki\/Special:FilePath\//i.test(raw)) {
+      return raw.replace(/^http:\/\//i, "https://");
+    }
+    return raw.replace(/^http:\/\//i, "https://");
+  }
+
+  const fileName = raw.replace(/^File:/i, "").trim();
+  if (!fileName) return null;
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}`;
 }
 
 function bindingLiteral(b: SparqlJsonBinding | undefined): string | null {
@@ -168,6 +187,7 @@ export type WikidataCoasterRow = {
   demolishedDate: string | null;
   rcdbId: string | null;
   enwikiTitle: string | null;
+  imageUrl: string | null;
   status: "operating" | "defunct" | "unknown";
   /** Human-readable derived stats */
   speedMph: number | null;
@@ -241,6 +261,7 @@ export function bindingsToRow(
     retirementDate,
     demolishedDate,
   );
+  const imageUrl = wikimediaImageUrlFromBinding(b.image);
 
   const speedMph = speedMs != null ? speedMs * 2.23693629 : null;
   const lengthFt = lengthM != null ? lengthM * 3.28084 : null;
@@ -275,6 +296,7 @@ export function bindingsToRow(
     demolishedDate,
     rcdbId: bindingLiteral(b.rcdbId),
     enwikiTitle: bindingLiteral(b.enwiki),
+    imageUrl,
     status,
     speedMph,
     lengthFt,
