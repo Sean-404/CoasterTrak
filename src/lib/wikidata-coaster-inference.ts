@@ -92,10 +92,21 @@ export function effectiveCoasterType(
   return inferCoasterType(undefined, manufacturer) ?? "Unknown";
 }
 
+function looksLikeIncidentArticleTitle(title: string): boolean {
+  const t = title.toLowerCase();
+  return /\b(disaster|accident|incident|derailment|collision|crash|fire|explosion|fatal)\b/.test(
+    t,
+  );
+}
+
 /** Prefer English Wikipedia title for names that match on-park signage. */
 export function wikidataInsertName(wd: WikidataCoasterRow): string {
-  if (wd.enwikiTitle) return cleanCoasterName(wd.enwikiTitle);
-  return wd.label;
+  const label = cleanCoasterName(wd.label);
+  if (!wd.enwikiTitle) return label;
+  const enwiki = cleanCoasterName(wd.enwikiTitle);
+  if (!enwiki) return label;
+  if (looksLikeIncidentArticleTitle(enwiki)) return label;
+  return enwiki;
 }
 
 export function yearFromDate(d: string | null): number | null {

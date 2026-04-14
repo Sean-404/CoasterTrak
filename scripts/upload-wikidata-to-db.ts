@@ -525,14 +525,13 @@ function resolveExactParkNameCollisions(
 function buildWikidataHolderMap(coasters: DbCoaster[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const c of coasters) {
-    const pid = c.park_id;
     const q = c.wikidata_id?.trim();
     if (q) {
-      const k = `${pid}:${q.toUpperCase()}`;
+      const k = q.toUpperCase();
       if (!m.has(k)) m.set(k, c.id);
     }
     if (c.external_source === "wikidata" && c.external_id?.trim()) {
-      const k = `${pid}:${c.external_id.trim().toUpperCase()}`;
+      const k = c.external_id.trim().toUpperCase();
       if (!m.has(k)) m.set(k, c.id);
     }
   }
@@ -540,8 +539,8 @@ function buildWikidataHolderMap(coasters: DbCoaster[]): Map<string, number> {
 }
 
 /**
- * Unique index (park_id, external_source, external_id) for Wikidata Q-ids — duplicate DB rows
- * for the same ride must not both claim the same Q-id.
+ * A Wikidata Q-id should identify one coaster globally. Keep at most one DB row
+ * bound to each Q-id, even if duplicate rows exist under different parks/sources.
  */
 function resolveWikidataExternalCollisions(
   updates: PreparedCoasterUpdate[],
@@ -565,7 +564,7 @@ function resolveWikidataExternalCollisions(
       continue;
     }
 
-    const key = `${row.park_id}:${qNew}`;
+    const key = qNew;
     const existing = holder.get(key);
     if (existing !== undefined && existing !== u.id) {
       const {
@@ -583,13 +582,13 @@ function resolveWikidataExternalCollisions(
 
     const prevQ = row.wikidata_id?.trim();
     if (prevQ && prevQ.toUpperCase() !== qNew) {
-      const prevKey = `${row.park_id}:${prevQ.toUpperCase()}`;
+      const prevKey = prevQ.toUpperCase();
       if (holder.get(prevKey) === u.id) holder.delete(prevKey);
     }
     if (row.external_source === "wikidata" && row.external_id?.trim()) {
       const pe = row.external_id.trim().toUpperCase();
       if (pe !== qNew) {
-        const pk = `${row.park_id}:${pe}`;
+        const pk = pe;
         if (holder.get(pk) === u.id) holder.delete(pk);
       }
     }
