@@ -4,7 +4,6 @@ create table if not exists parks (
   country text not null,
   latitude double precision not null,
   longitude double precision not null,
-  queue_times_park_id bigint,
   external_source text,
   external_id text,
   last_synced_at timestamptz
@@ -208,6 +207,18 @@ alter table friendships
   drop constraint if exists friendships_not_self;
 alter table friendships
   add constraint friendships_not_self check (requester_id <> addressee_id);
+
+alter table parks
+  drop constraint if exists parks_external_source_allowed;
+alter table parks
+  add constraint parks_external_source_allowed
+  check (external_source is null or external_source = 'wikidata');
+
+alter table coasters
+  drop constraint if exists coasters_external_source_allowed;
+alter table coasters
+  add constraint coasters_external_source_allowed
+  check (external_source is null or external_source = 'wikidata');
 
 create index if not exists idx_coasters_park_id on coasters(park_id);
 

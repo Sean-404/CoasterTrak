@@ -110,19 +110,26 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
                 <svg
                   viewBox="0 0 24 24"
                   aria-hidden
-                  className="h-4 w-4"
+                  className="h-5 w-5"
                   style={{ color: fallbackSwatch.fg }}
-                  fill="currentColor"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 >
-                  <path d="M4.5 15.5a1 1 0 01.8-.98l1.7-.34a.5.5 0 01.58.38l.15.64h2.52l.18-.89a.5.5 0 01.49-.4h2.15a.5.5 0 01.49.4l.18.89h2.52l.15-.64a.5.5 0 01.58-.38l1.7.34a1 1 0 01.8.98V18a1 1 0 01-1 1h-.9a2 2 0 11-4 0H9a2 2 0 11-4 0h-.5a1 1 0 01-1-1v-2.5zM7 18a.9.9 0 100-1.8A.9.9 0 007 18zm10 0a.9.9 0 100-1.8.9.9 0 000 1.8zM9.7 12.1a.5.5 0 01.45-.28h3.7a.5.5 0 01.43.24l.67 1.06h-6l.75-1.02z" />
-                  <path d="M6.25 10.75a3.25 3.25 0 116.5 0h-1.2a2.05 2.05 0 10-4.1 0h-1.2z" />
+                  <path d="M3 17c1.8-3.2 3.8-3.2 5.6 0s3.8 3.2 5.6 0 3.8-3.2 5.6 0" />
+                  <rect x="8" y="10.5" width="5.5" height="3" rx="0.8" />
+                  <circle cx="9.4" cy="14.8" r="0.9" fill="currentColor" stroke="none" />
+                  <circle cx="12.1" cy="14.8" r="0.9" fill="currentColor" stroke="none" />
+                  <path d="M8.8 9.7c.7-1.3 1.7-1.9 3-1.9s2.3.6 3 1.9" />
                 </svg>
                 {showMissingLabel ? (
                   <span
-                    className="rounded bg-white/85 px-1 py-[1px] text-[9px] font-medium leading-none"
+                    className="whitespace-nowrap rounded bg-white/85 px-1 py-[1px] text-[8px] font-medium uppercase leading-none tracking-wide"
                     style={{ color: fallbackSwatch.fg }}
                   >
-                    No photo
+                    No img
                   </span>
                 ) : (
                   <span className="text-[11px] font-semibold leading-none" style={{ color: fallbackSwatch.fg }}>

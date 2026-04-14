@@ -4,7 +4,6 @@ export type Park = {
   country: string;
   latitude: number;
   longitude: number;
-  queue_times_park_id?: number | null;
 };
 
 export type Coaster = {
