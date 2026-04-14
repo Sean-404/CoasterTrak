@@ -76,11 +76,20 @@ function ParkPopupContent({
   /** Same physical ride: merged spellings + queue variants (e.g. Standby vs Single rider). */
   const rideGroups = (() => {
     const byKey = new Map<string, Coaster[]>();
+    const keyByName = new Map<string, string>();
     for (const coaster of parkCoasters) {
-      const key = normalizeCoasterDedupKey(coaster.name);
-      const arr = byKey.get(key) ?? [];
+      const nameKey = normalizeCoasterDedupKey(coaster.name);
+      const wdKeyRaw = coaster.wikidata_id?.trim().toUpperCase();
+      const wdKey = wdKeyRaw ? `wd:${wdKeyRaw}` : null;
+      const existingByWd = wdKey ? byKey.get(wdKey) : undefined;
+      const existingNameGroupKey = keyByName.get(nameKey);
+      const groupKey = existingByWd
+        ? (wdKey as string)
+        : existingNameGroupKey ?? wdKey ?? `name:${nameKey}`;
+      const arr = byKey.get(groupKey) ?? [];
       arr.push(coaster);
-      byKey.set(key, arr);
+      byKey.set(groupKey, arr);
+      keyByName.set(nameKey, groupKey);
     }
     return Array.from(byKey.values()).map((members) => {
       let primary = members[0];

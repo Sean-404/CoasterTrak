@@ -417,11 +417,14 @@ export async function fetchAllRollerCoasters(options?: {
   maxRows?: number;
   onPage?: (page: WikidataCoasterRow[], offset: number) => void | Promise<void>;
   delayMs?: number;
+  allowLiteFallback?: boolean;
+  onLiteFallback?: () => void;
 }): Promise<WikidataCoasterRow[]> {
   /** Smaller pages avoid WDQS 504s on heavy OPTIONALs; override via options. */
   const pageSize = options?.pageSize ?? 2000;
   const maxRows = options?.maxRows ?? Infinity;
   const delayMs = options?.delayMs ?? 2000;
+  const allowLiteFallback = options?.allowLiteFallback ?? true;
 
   const out: WikidataCoasterRow[] = [];
   let currentPageSize = pageSize;
@@ -446,6 +449,12 @@ export async function fetchAllRollerCoasters(options?: {
       const canShrink = isTransientSparqlError && currentPageSize > MIN_WDQS_PAGE_SIZE;
       if (!isTransientSparqlError) throw err;
       if (!canShrink && !usingLiteQuery) {
+        if (!allowLiteFallback) {
+          throw new Error(
+            "WDQS stayed unstable at minimum page size and --no-lite-fallback is set. Retry later for full-query completeness.",
+          );
+        }
+        options?.onLiteFallback?.();
         usingLiteQuery = true;
         activeQuery = ROLLER_COASTER_SPARQL_LITE;
         currentPageSize = MIN_WDQS_PAGE_SIZE;

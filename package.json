@@ -11,6 +11,7 @@
     "wikidata:fetch": "tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 200",
     "wikidata:reenrich": "tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000",
     "wikidata:merge": "tsx scripts/merge-wikidata-coasters.ts",
+    "wikidata:inspect-park": "tsx scripts/inspect-wikidata-park.ts",
     "wikidata:upload": "tsx --env-file=.env.local scripts/upload-wikidata-to-db.ts",
     "wikidata:upload-storage": "tsx --env-file=.env.local scripts/upload-wikidata-to-storage.ts",
     "wikipedia:backfill": "tsx --env-file=.env.local scripts/wikipedia-infobox-backfill.ts",

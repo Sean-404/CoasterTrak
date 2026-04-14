@@ -3,7 +3,7 @@
  * English Wikipedia infoboxes, write JSON.
  *
  * Usage:
- *   npx tsx scripts/fetch-wikidata-coasters.ts [--out data/wikidata_coasters.json] [--max 5000] [--enrich] [--enrich-extra] [--enrich-limit 50]
+ *   npx tsx scripts/fetch-wikidata-coasters.ts [--out data/wikidata_coasters.json] [--max 5000] [--enrich] [--enrich-extra] [--enrich-limit 50] [--no-lite-fallback]
  */
 
 import { writeFile } from "node:fs/promises";
@@ -121,11 +121,16 @@ async function enrichFromWikipedia(
 
 async function main() {
   const outPath = resolve(arg("--out") ?? "data/wikidata_coasters.json");
+  const metaPath = /\.json$/i.test(outPath)
+    ? outPath.replace(/\.json$/i, ".meta.json")
+    : `${outPath}.meta.json`;
   const max = parseInt(arg("--max") ?? "200000", 10);
   const enrich = hasFlag("--enrich");
   const enrichExtra = hasFlag("--enrich-extra");
   const enrichLimit = parseInt(arg("--enrich-limit") ?? "100", 10);
   const fromJson = hasFlag("--from-json");
+  const allowLiteFallback = !hasFlag("--no-lite-fallback");
+  let usedLiteFallback = false;
 
   let rows: WikidataCoasterRow[];
 
@@ -140,6 +145,10 @@ async function main() {
       maxRows: max,
       pageSize: 200,
       delayMs: 2000,
+      allowLiteFallback,
+      onLiteFallback: () => {
+        usedLiteFallback = true;
+      },
       onPage: (_, offset) => {
         console.error(`  ... page offset ${offset}`);
       },
@@ -156,7 +165,27 @@ async function main() {
   }
 
   await writeFile(outPath, JSON.stringify(finalRows, null, 2), "utf8");
+  await writeFile(
+    metaPath,
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        source: fromJson ? "from-json" : "wikidata",
+        outPath,
+        rowCount: finalRows.length,
+        allowLiteFallback,
+        usedLiteFallback: fromJson ? null : usedLiteFallback,
+        enrich,
+        enrichExtra,
+        enrichLimit,
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
   console.error(`Wrote ${finalRows.length} rows to ${outPath}`);
+  console.error(`Wrote run metadata to ${metaPath}`);
 }
 
 runMain(main);

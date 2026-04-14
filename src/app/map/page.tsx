@@ -16,7 +16,11 @@ import {
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
-import { isPlaceholderCoasterName, isThrillCoaster } from "@/lib/coaster-dedup";
+import {
+  isLikelyCoasterEntry,
+  isPlaceholderCoasterName,
+  isThrillCoaster,
+} from "@/lib/coaster-dedup";
 
 const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.ParkMap), { ssr: false });
 
@@ -47,6 +51,11 @@ function getContinent(lat: number, lng: number): Continent {
   // Remaining eastern hemisphere: central Asia, India, Russia east of Europe, etc.
   if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
   return "All";
+}
+
+function isLikelyPlaceholderParkName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc";
 }
 
 export default function MapPage() {
@@ -187,9 +196,13 @@ export default function MapPage() {
   ]);
 
   const visibleCoasters = useMemo(() => {
-    const namedCoasters = remappedCoasters.filter((c) => !isPlaceholderCoasterName(c.name));
-    if (includeFamilyRides) return namedCoasters;
-    return namedCoasters.filter((c) => {
+    const mappedCoasters = remappedCoasters.filter((c) => !isPlaceholderCoasterName(c.name));
+    const coasterEntries = mappedCoasters.filter((c) => {
+      const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
+      return isLikelyCoasterEntry(c, parkName);
+    });
+    if (includeFamilyRides) return coasterEntries;
+    return coasterEntries.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isThrillCoaster(c, parkName);
     });
@@ -213,6 +226,7 @@ export default function MapPage() {
       }
       if (park.latitude === 0 && park.longitude === 0) return false;
       if (!visibleParkIds.has(park.id)) return false;
+      if (isLikelyPlaceholderParkName(park.name)) return false;
       const byContinent = continent === "All" || getContinent(park.latitude, park.longitude) === continent;
       const bySearch =
         matchesSearchQuery(park.name, search) ||

@@ -19,12 +19,15 @@ function stripQueueVariantPhrases(s: string): string {
   t = t.replace(/\s+\bkol\s+licznik\b\s*$/i, "").trim();
   t = t.replace(/\s+\blicznik\b\s*$/i, "").trim();
   t = t.replace(/\s+\brc\b\s*$/i, "").trim();
+  t = t.replace(/\s+starring\s+.+$/i, "").trim();
+  t = t.replace(/\s+at\s+.+$/i, "").trim();
   return t;
 }
 
 export function normalizeCoasterDedupKey(raw: string): string {
   let s = cleanCoasterName(raw).toLowerCase();
   s = stripQueueVariantPhrases(s);
+  s = s.replace(/[™®©]/g, "");
   s = s.replace(/^the\s+/i, "").trim();
   // Stylized marketing spellings → canonical word form before stripping punctuation
   s = s.replace(/\bth13teen\b/gi, "thirteen");
@@ -40,6 +43,21 @@ export function normalizeCoasterDedupKey(raw: string): string {
 /** Raw Wikidata fallback labels can be bare Q-ids (e.g. "Q137830653"). */
 export function isPlaceholderCoasterName(raw: string): boolean {
   return /^q\d+$/i.test(cleanCoasterName(raw).trim());
+}
+
+function hasCoasterishType(t: string): boolean {
+  return /\b(roller coaster|wood|steel|hybrid|inverted|launch|launched|flying|suspended|wing|dive|giga|hyper|strata|wild\s*mouse|mine\s*train|bobsled|spinning)\b/i.test(
+    t,
+  );
+}
+
+/** Broad "is this a coaster row at all?" gate used before thrill/family filtering. */
+export function isLikelyCoasterEntry(c: Coaster, parkName?: string | null): boolean {
+  if (isPlaceholderCoasterName(c.name)) return false;
+  if (c.inversions != null || c.speed_mph != null || c.height_ft != null || c.length_ft != null) return true;
+  if (isLikelySmallFamilyCoaster(c, parkName)) return true;
+  const t = effectiveCoasterType(c.coaster_type, c.manufacturer).toLowerCase();
+  return hasCoasterishType(t);
 }
 
 /**
@@ -154,15 +172,6 @@ export function isThrillCoaster(c: Coaster, parkName?: string | null): boolean {
     /\b(kiddie|kiddy|junior|children'?s|family)\b/i.test(n);
   if (isLikelySmallFamilyCoaster(c, parkName) || familyCue) {
     return false;
-  }
-
-  // Some Wikidata/Queue-Times rows have no measurable stats yet; if they are named coasters
-  // (not placeholder Q-IDs) and not family-signaled, default to visible in thrill-only mode.
-  const hasNoStats = speed == null && height == null && length == null && c.inversions == null;
-  const isPlaceholderName = isPlaceholderCoasterName(c.name);
-  const hasCoasterishType = /\b(roller coaster|steel|wood|hybrid|inverted|launch|launched|flying|suspended)\b/i.test(t);
-  if (hasNoStats && !isPlaceholderName && hasCoasterishType) {
-    return true;
   }
 
   // Moderate but still high-intensity profile (e.g. airtime-focused wood/hybrid rides).
