@@ -185,14 +185,28 @@ function inferStatus(
   demolished: string | null,
 ): "operating" | "defunct" | "unknown" {
   const now = new Date();
-  const end =
-    demolished || retirement
-      ? new Date(demolished || retirement || "")
-      : null;
-  if (end && !Number.isNaN(end.getTime()) && end < now) return "defunct";
-  if (opening) {
-    const o = new Date(opening);
-    if (!Number.isNaN(o.getTime()) && o > now) return "unknown";
+  const endRaw = demolished || retirement || null;
+  const end = endRaw ? new Date(endRaw) : null;
+  const openingDate = opening ? new Date(opening) : null;
+  const hasValidEnd = !!end && !Number.isNaN(end.getTime());
+  const hasValidOpening = !!openingDate && !Number.isNaN(openingDate.getTime());
+
+  /**
+   * Wikidata can carry both historical retirement/demolition and a later opening date
+   * for relocated/rebuilt rides. In that case, trust the later opening lifecycle.
+   */
+  if (
+    hasValidEnd &&
+    hasValidOpening &&
+    openingDate.getTime() > end.getTime()
+  ) {
+    if (openingDate > now) return "unknown";
+    return "operating";
+  }
+
+  if (hasValidEnd && end < now) return "defunct";
+  if (hasValidOpening) {
+    if (openingDate > now) return "unknown";
     return "operating";
   }
   if (demolished || retirement) return "defunct";
