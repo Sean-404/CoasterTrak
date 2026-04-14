@@ -18,6 +18,7 @@ import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { CoasterActions } from "./coaster-actions";
+import { CoasterThumbnail } from "./coaster-thumbnail";
 
 const icon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -144,28 +145,37 @@ function ParkPopupContent({
           const title = cleanCoasterName(coaster.name);
           return (
             <div key={coaster.id} className="border-t border-slate-100 py-2 first:border-0">
-              <p className="text-sm font-semibold leading-tight text-slate-900">{title}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                {rideType !== "Unknown" && (
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                    {rideType}
-                  </span>
-                )}
-                {coaster.manufacturer && (
-                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                    {coaster.manufacturer}
-                  </span>
-                )}
-                {isDefunct && (
-                  <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
-                    Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
-                  </span>
-                )}
+              <div className="flex items-start gap-2">
+                <CoasterThumbnail
+                  name={title}
+                  imageUrl={coaster.image_url}
+                  sizeClassName="h-10 w-10"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-tight text-slate-900">{title}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {rideType !== "Unknown" && (
+                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                        {rideType}
+                      </span>
+                    )}
+                    {coaster.manufacturer && (
+                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                        {coaster.manufacturer}
+                      </span>
+                    )}
+                    {isDefunct && (
+                      <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+                        Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
+                      </span>
+                    )}
+                  </div>
+                  {stats.length > 0 && (
+                    <p className="mt-1 text-[10px] text-slate-400">{stats.join(" · ")}</p>
+                  )}
+                  <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
+                </div>
               </div>
-              {stats.length > 0 && (
-                <p className="mt-1 text-[10px] text-slate-400">{stats.join(" · ")}</p>
-              )}
-              <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
             </div>
           );
         })}

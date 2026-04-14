@@ -35,6 +35,9 @@ const DRY_RUN = process.argv.includes("--dry-run");
 
 const supabase = createServiceRoleClient();
 
+const INCIDENT_TITLE_RE =
+  /\b(disaster|accident|incident|derailment|collision|crash|fire|explosion|fatal)\b/i;
+
 // ---------------------------------------------------------------------------
 // DB types
 // ---------------------------------------------------------------------------
@@ -614,6 +617,36 @@ async function main() {
     await readFile(wdPath, "utf8"),
   ) as WikidataCoasterRow[];
   console.error(`  ${wdRows.length} Wikidata entries.`);
+
+  // Preflight: protect against poisoned input payloads.
+  const seenQids = new Set<string>();
+  const duplicateQids = new Set<string>();
+  const suspiciousIncidentTitles: string[] = [];
+  for (const row of wdRows) {
+    const qid = row.wikidataId.trim().toUpperCase();
+    if (seenQids.has(qid)) duplicateQids.add(qid);
+    seenQids.add(qid);
+    const title = (row.enwikiTitle ?? "").trim();
+    if (title && INCIDENT_TITLE_RE.test(title) && !INCIDENT_TITLE_RE.test(row.label)) {
+      suspiciousIncidentTitles.push(`${qid} :: ${row.label} :: ${title}`);
+    }
+  }
+  if (duplicateQids.size > 0) {
+    throw new Error(
+      `Input contains duplicate Wikidata IDs (${duplicateQids.size}). Example: ${[
+        ...duplicateQids,
+      ]
+        .slice(0, 10)
+        .join(", ")}`,
+    );
+  }
+  if (suspiciousIncidentTitles.length > 0) {
+    throw new Error(
+      `Input contains suspicious incident/disaster enwiki titles (${suspiciousIncidentTitles.length}). Example: ${suspiciousIncidentTitles
+        .slice(0, 5)
+        .join(" | ")}`,
+    );
+  }
 
   // Load all coasters from the DB, including park name/country for matching
   console.error("Loading coasters from Supabase...");
