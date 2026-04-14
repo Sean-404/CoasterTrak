@@ -1,5 +1,4 @@
 import type { Coaster } from "@/types/domain";
-import { normalizeNameKey } from "@/lib/wikidata-coasters";
 
 /**
  * Correct catalog rows where enrichment lagged behind Wikipedia / Queue-Times renames,
@@ -7,7 +6,7 @@ import { normalizeNameKey } from "@/lib/wikidata-coasters";
  */
 const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   string,
-  Partial<Pick<Coaster, "name" | "inversions">>
+  Partial<Pick<Coaster, "name" | "inversions" | "coaster_type" | "status" | "manufacturer">>
 > = {
   // Blackpool — rebranded from Zipper Dipper; Queue-Times & enwiki use "Blue Flyer"
   Q885702: { name: "Blue Flyer" },
@@ -15,12 +14,14 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q265733: { inversions: 0 },
 };
 
-/** Normalized ride names that should always display as the current title (global renames). */
-const LEGACY_DISPLAY_NAMES = new Map<string, string>([["zipper dipper", "Blue Flyer"]]);
-
 export function applyCoasterKnownFixes<
   T extends Pick<Coaster, "name"> &
-    Partial<Pick<Coaster, "wikidata_id" | "inversions">>,
+    Partial<
+      Pick<
+        Coaster,
+        "wikidata_id" | "inversions" | "coaster_type" | "status" | "manufacturer"
+      >
+    >,
 >(
   c: T,
 ): T {
@@ -29,8 +30,5 @@ export function applyCoasterKnownFixes<
     const byWd = COASTER_FIXES_BY_WIKIDATA_ID[q];
     if (byWd) return { ...c, ...byWd };
   }
-  const nk = normalizeNameKey(c.name);
-  const renamed = LEGACY_DISPLAY_NAMES.get(nk);
-  if (renamed) return { ...c, name: renamed };
   return c;
 }

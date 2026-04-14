@@ -104,6 +104,23 @@ export type ParkForMatch = {
 };
 
 /**
+ * Heuristic water-park detector used to avoid attaching roller-coaster rows to
+ * nearby aquatic venues when Wikidata lacks explicit park linkage.
+ */
+export function isLikelyWaterParkName(name: string | null | undefined): boolean {
+  const n = (name ?? "").trim().toLowerCase();
+  if (!n) return false;
+  return (
+    /\bwater\s*park\b/.test(n) ||
+    /\baquatica\b/.test(n) ||
+    /\bvolcano\s+bay\b/.test(n) ||
+    /\bwet['\s-]*n['\s-]*wild\b/.test(n) ||
+    /\bsplash\b/.test(n) ||
+    /\baqua\b/.test(n)
+  );
+}
+
+/**
  * Find an existing park row that matches this name + coordinates (same complex).
  * `maxKm` caps search radius; stricter for dense areas.
  */

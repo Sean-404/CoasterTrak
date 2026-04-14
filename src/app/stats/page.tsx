@@ -528,6 +528,7 @@ export default function StatsPage() {
                               name={coasterName}
                               imageUrl={ride.coasters?.image_url}
                               sizeClassName="h-11 w-11"
+                              allowPreview={false}
                             />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-slate-900">

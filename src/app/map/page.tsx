@@ -10,6 +10,7 @@ import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import {
   absorbReverseGeocodeParks,
+  isLikelyWaterParkName,
   parkNamesMatch,
   snapOrphanCoastersToDisplayParks,
 } from "@/lib/park-match";
@@ -56,6 +57,22 @@ function getContinent(lat: number, lng: number): Continent {
 function isLikelyPlaceholderParkName(name: string): boolean {
   const n = name.trim().toLowerCase();
   return n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc";
+}
+
+function hasUniversalStudiosVsIslandsConflict(a: string, b: string): boolean {
+  const na = a.toLowerCase();
+  const nb = b.toLowerCase();
+  const aIslands = /\bislands?\b|\badventure\b/.test(na);
+  const bIslands = /\bislands?\b|\badventure\b/.test(nb);
+  const aStudios = /\bstudios?\b/.test(na);
+  const bStudios = /\bstudios?\b/.test(nb);
+  const aResort = /\bresort\b/.test(na);
+  const bResort = /\bresort\b/.test(nb);
+  const aSpecificGate = aStudios || aIslands || /\bvolcano\b|\bepic\b/.test(na);
+  const bSpecificGate = bStudios || bIslands || /\bvolcano\b|\bepic\b/.test(nb);
+  const studiosVsIslands = (aIslands && bStudios) || (aStudios && bIslands);
+  const resortVsGate = (aResort && bSpecificGate) || (bResort && aSpecificGate);
+  return studiosVsIslands || resortVsGate;
 }
 
 export default function MapPage() {
@@ -155,7 +172,11 @@ export default function MapPage() {
         const fuzzyName = parkNamesMatch(existing.name, park.name);
         const dist = distanceKm(existing, park);
         const sameNameNearby = sameName && dist < 200;
-        const fuzzyNameNearby = fuzzyName && !sameName && dist < 40;
+        const fuzzyNameNearby =
+          fuzzyName &&
+          !sameName &&
+          dist < 40 &&
+          !hasUniversalStudiosVsIslandsConflict(existing.name, park.name);
 
         if (sameNameNearby || fuzzyNameNearby) {
           mergeInto(existing, park);
@@ -196,7 +217,11 @@ export default function MapPage() {
   ]);
 
   const visibleCoasters = useMemo(() => {
-    const mappedCoasters = remappedCoasters.filter((c) => !isPlaceholderCoasterName(c.name));
+    const mappedCoasters = remappedCoasters.filter((c) => {
+      if (isPlaceholderCoasterName(c.name)) return false;
+      const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
+      return !isLikelyWaterParkName(parkName);
+    });
     const coasterEntries = mappedCoasters.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isLikelyCoasterEntry(c, parkName);

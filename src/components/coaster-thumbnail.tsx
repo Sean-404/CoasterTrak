@@ -106,4 +106,9 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
         )}
     </>
   );
-});
+}, (prev, next) =>
+  prev.name === next.name &&
+  prev.imageUrl === next.imageUrl &&
+  prev.sizeClassName === next.sizeClassName &&
+  prev.allowPreview === next.allowPreview
+);

@@ -28,10 +28,20 @@ export function CoasterActions({
 
       const [ridesRes, wishRes] = await Promise.all([
         supabase.from("rides").select("id").eq("user_id", uid).eq("coaster_id", coasterId).maybeSingle(),
-        supabase.from("wishlist").select("id").eq("user_id", uid).eq("coaster_id", coasterId).maybeSingle(),
+        supabase
+          .from("wishlist")
+          .select("coaster_id")
+          .eq("user_id", uid)
+          .eq("coaster_id", coasterId)
+          .maybeSingle(),
       ]);
 
       if (cancelled) return;
+      if (ridesRes.error || wishRes.error) {
+        setStatus("error");
+        setErrorMsg("Could not load ride state.");
+        return;
+      }
       if (ridesRes.data) setAlreadyRidden(true);
       if (wishRes.data) setAlreadyWishlisted(true);
       setStatus("idle");
@@ -54,7 +64,12 @@ export function CoasterActions({
     await withUser(async (userId) => {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) return;
-      const { error } = await supabase.from("wishlist").upsert({ user_id: userId, coaster_id: coasterId });
+      const { error } = await supabase
+        .from("wishlist")
+        .upsert(
+          { user_id: userId, coaster_id: coasterId },
+          { onConflict: "user_id,coaster_id", ignoreDuplicates: true },
+        );
       if (error) { setStatus("error"); setErrorMsg(error.message); }
       else { setStatus("wishlisted"); setAlreadyWishlisted(true); }
     });

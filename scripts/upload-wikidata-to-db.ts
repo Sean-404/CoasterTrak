@@ -19,7 +19,7 @@ import { normalizeCoasterDedupKey } from "../src/lib/coaster-dedup";
 import { reconcileCountryWithCoords } from "../src/lib/geo-country";
 import { haversineKm } from "../src/lib/geo";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
-import { parkNamesMatch } from "../src/lib/park-match";
+import { isLikelyWaterParkName, parkNamesMatch } from "../src/lib/park-match";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import {
   inferCoasterType,
@@ -194,20 +194,26 @@ function findParkForWikidataInsert(
   parkByName: Map<string, DbPark>,
   parkByExternalQid: Map<string, DbPark>,
   allDbParks: DbPark[],
+  opts?: { allowWaterParks?: boolean },
 ): DbPark | undefined {
+  const allowWaterParks = opts?.allowWaterParks ?? false;
   const parkQid = wd.parkWikidataId?.trim().toUpperCase();
   if (parkQid) {
     const byQid = parkByExternalQid.get(parkQid);
-    if (byQid) return byQid;
+    if (byQid && (allowWaterParks || !isLikelyWaterParkName(byQid.name))) return byQid;
   }
 
   const label = wd.parkLabel?.trim();
   if (!label) return undefined;
 
   const direct = parkByName.get(label.toLowerCase());
-  if (direct) return direct;
+  if (direct && (allowWaterParks || !isLikelyWaterParkName(direct.name))) return direct;
 
-  const matches = allDbParks.filter((p) => parkNamesMatch(label, p.name));
+  const matches = allDbParks.filter((p) => {
+    if (!parkNamesMatch(label, p.name)) return false;
+    if (!allowWaterParks && isLikelyWaterParkName(p.name)) return false;
+    return true;
+  });
   if (matches.length === 0) return undefined;
   if (matches.length === 1) return matches[0];
 
@@ -260,12 +266,14 @@ function nearestPark(
   lon: number,
   parks: DbPark[],
   maxKm: number,
-  opts?: { requireCountryLabel?: string | null },
+  opts?: { requireCountryLabel?: string | null; allowWaterParks?: boolean },
 ): DbPark | undefined {
+  const allowWaterParks = opts?.allowWaterParks ?? false;
   let best: DbPark | undefined;
   let bestDist = maxKm;
   for (const p of parks) {
     if (p.latitude == null || p.longitude == null) continue;
+    if (!allowWaterParks && isLikelyWaterParkName(p.name)) continue;
     if (opts?.requireCountryLabel != null && opts.requireCountryLabel !== "") {
       if (!countryAlignedWithWikidata(opts.requireCountryLabel, p)) continue;
     }
@@ -801,6 +809,7 @@ async function main() {
 
   const inserts: CoasterInsert[] = [];
   for (const wd of unmatched) {
+    const allowWaterParkMatch = isLikelyWaterParkName(wd.parkLabel ?? "");
     const hasCoords = wd.latitude != null && wd.longitude != null;
     // Skip unhelpful placeholder labels ("Q12345"), but still allow coordinate-only rows
     // to attach to nearby parks when the label is a real ride title (e.g. Anaconda, Gold Reef City).
@@ -808,16 +817,21 @@ async function main() {
     if (!wd.parkLabel && !hasCoords) continue;
 
     // Primary: exact name index, else fuzzy park name match (no per-resort hardcoding)
-    let park = findParkForWikidataInsert(wd, parkByName, parkByExternalQid, allDbParks);
+    let park = findParkForWikidataInsert(wd, parkByName, parkByExternalQid, allDbParks, {
+      allowWaterParks: allowWaterParkMatch,
+    });
 
     // Fallback: nearest DB park by coordinates (tight radius first)
     if (!park && wd.latitude != null && wd.longitude != null) {
-      park = nearestPark(wd.latitude, wd.longitude, allDbParks, 2);
+      park = nearestPark(wd.latitude, wd.longitude, allDbParks, 2, {
+        allowWaterParks: allowWaterParkMatch,
+      });
     }
     // Large resorts / name mismatches: same country only (e.g. Qiddiya vs "Six Flags Qiddiya City")
     if (!park && wd.latitude != null && wd.longitude != null) {
       park = nearestPark(wd.latitude, wd.longitude, allDbParks, 35, {
         requireCountryLabel: wd.countryLabel ?? null,
+        allowWaterParks: allowWaterParkMatch,
       });
     }
 
