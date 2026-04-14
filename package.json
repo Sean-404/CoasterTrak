@@ -21,6 +21,7 @@
     "@supabase/supabase-js": "^2.103.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "bad-words": "^4.0.0",
     "cheerio": "^1.2.0",
     "leaflet": "^1.9.4",
     "next": "^16.2.2",
