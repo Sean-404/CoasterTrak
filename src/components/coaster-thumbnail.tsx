@@ -11,6 +11,7 @@ type CoasterThumbnailProps = {
   sizeClassName?: string;
   allowPreview?: boolean;
   showMissingLabel?: boolean;
+  onPreview?: (payload: { name: string; imageUrl: string }) => void;
 };
 
 const FALLBACK_SWATCHES = [
@@ -37,13 +38,13 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
   sizeClassName = "h-14 w-14",
   allowPreview = true,
   showMissingLabel = false,
+  onPreview,
 }: CoasterThumbnailProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const safeUrl = imageUrl ?? null;
   const showImage = Boolean(safeUrl) && failedUrl !== safeUrl;
   const trimmed = name.trim();
-  const initial = trimmed ? trimmed[0]!.toUpperCase() : "R";
   const canPortal = typeof window !== "undefined";
   const fallbackSwatch = swatchForName(trimmed || "coaster");
 
@@ -60,6 +61,10 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
     // Keep Leaflet popup/map handlers from treating this as a map click/drag.
     event.preventDefault();
     event.stopPropagation();
+    if (onPreview && safeUrl) {
+      onPreview({ name: trimmed || "Coaster image", imageUrl: safeUrl });
+      return;
+    }
     setPreviewOpen(true);
   };
 
@@ -69,7 +74,9 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
         <button
           type="button"
           onClick={openPreview}
+          onClickCapture={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
           onTouchStart={(event) => event.stopPropagation()}
           aria-label={`Open image for ${trimmed || "coaster"}`}
           className={`${sizeClassName} shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-slate-200 bg-slate-100 transition hover:brightness-95 active:scale-[0.98] active:brightness-90`}
@@ -106,36 +113,19 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
-              <div className="flex flex-col items-center justify-center gap-0.5 px-1.5 text-center">
-                <svg
-                  viewBox="0 0 24 24"
+              <div className="flex flex-col items-center justify-center gap-1 px-1 text-center">
+                <img
+                  src="/rollercoaster_icon.png"
+                  alt=""
                   aria-hidden
-                  className="h-5 w-5"
+                  className="h-4 w-4 object-contain"
+                />
+                <span
+                  className="whitespace-nowrap rounded bg-white/85 px-1 py-[1px] text-[8px] font-semibold uppercase leading-none tracking-wide"
                   style={{ color: fallbackSwatch.fg }}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
                 >
-                  <path d="M3 17c1.8-3.2 3.8-3.2 5.6 0s3.8 3.2 5.6 0 3.8-3.2 5.6 0" />
-                  <rect x="8" y="10.5" width="5.5" height="3" rx="0.8" />
-                  <circle cx="9.4" cy="14.8" r="0.9" fill="currentColor" stroke="none" />
-                  <circle cx="12.1" cy="14.8" r="0.9" fill="currentColor" stroke="none" />
-                  <path d="M8.8 9.7c.7-1.3 1.7-1.9 3-1.9s2.3.6 3 1.9" />
-                </svg>
-                {showMissingLabel ? (
-                  <span
-                    className="whitespace-nowrap rounded bg-white/85 px-1 py-[1px] text-[8px] font-medium uppercase leading-none tracking-wide"
-                    style={{ color: fallbackSwatch.fg }}
-                  >
-                    No img
-                  </span>
-                ) : (
-                  <span className="text-[11px] font-semibold leading-none" style={{ color: fallbackSwatch.fg }}>
-                    {initial}
-                  </span>
-                )}
+                  {showMissingLabel ? "No photo" : "No img"}
+                </span>
               </div>
             </div>
           )}
@@ -175,5 +165,7 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
   prev.name === next.name &&
   prev.imageUrl === next.imageUrl &&
   prev.sizeClassName === next.sizeClassName &&
-  prev.allowPreview === next.allowPreview
+  prev.allowPreview === next.allowPreview &&
+  prev.showMissingLabel === next.showMissingLabel &&
+  prev.onPreview === next.onPreview
 );

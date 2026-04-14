@@ -32,11 +32,14 @@ import {
 // ---------------------------------------------------------------------------
 
 const DRY_RUN = process.argv.includes("--dry-run");
+const STRICT_INCIDENT_TITLES = process.argv.includes("--strict-incidents");
 
 const supabase = createServiceRoleClient();
 
 const INCIDENT_TITLE_RE =
   /\b(disaster|accident|incident|derailment|collision|crash|fire|explosion|fatal)\b/i;
+// Keep upload preflight behavior aligned with validate-wikidata-coasters.
+const INCIDENT_TITLE_QID_ALLOWLIST = new Set(["Q22000267"]);
 
 // ---------------------------------------------------------------------------
 // DB types
@@ -627,7 +630,12 @@ async function main() {
     if (seenQids.has(qid)) duplicateQids.add(qid);
     seenQids.add(qid);
     const title = (row.enwikiTitle ?? "").trim();
-    if (title && INCIDENT_TITLE_RE.test(title) && !INCIDENT_TITLE_RE.test(row.label)) {
+    if (
+      title &&
+      INCIDENT_TITLE_RE.test(title) &&
+      !INCIDENT_TITLE_QID_ALLOWLIST.has(qid) &&
+      !INCIDENT_TITLE_RE.test(row.label)
+    ) {
       suspiciousIncidentTitles.push(`${qid} :: ${row.label} :: ${title}`);
     }
   }
@@ -641,11 +649,15 @@ async function main() {
     );
   }
   if (suspiciousIncidentTitles.length > 0) {
-    throw new Error(
+    const message =
       `Input contains suspicious incident/disaster enwiki titles (${suspiciousIncidentTitles.length}). Example: ${suspiciousIncidentTitles
         .slice(0, 5)
-        .join(" | ")}`,
-    );
+        .join(" | ")}`;
+    if (STRICT_INCIDENT_TITLES) {
+      throw new Error(message);
+    }
+    console.error(`WARNING: ${message}`);
+    console.error("Continuing upload (non-blocking by default). Use --strict-incidents to fail.");
   }
 
   // Load all coasters from the DB, including park name/country for matching

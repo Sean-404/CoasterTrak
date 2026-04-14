@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
@@ -63,14 +64,21 @@ type Props = {
   continent?: string;
 };
 
+type PreviewState = {
+  imageUrl: string;
+  name: string;
+};
+
 function ParkPopupContent({
   park,
   parkCoasters,
   units = "imperial",
+  onPreview,
 }: {
   park: Park;
   parkCoasters: Coaster[];
   units?: Units;
+  onPreview: (payload: PreviewState) => void;
 }) {
   const [filter, setFilter] = useState("");
 
@@ -150,6 +158,7 @@ function ParkPopupContent({
                   name={title}
                   imageUrl={coaster.image_url}
                   sizeClassName="h-10 w-10"
+                  onPreview={onPreview}
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold leading-tight text-slate-900">{title}</p>
@@ -185,36 +194,82 @@ function ParkPopupContent({
 }
 
 export function ParkMap({ parks, coasters, units = "imperial", continent = "All" }: Props) {
+  const [preview, setPreview] = useState<PreviewState | null>(null);
+  const canPortal = typeof window !== "undefined";
+
+  useEffect(() => {
+    if (!preview) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPreview(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [preview]);
+
   return (
-    <MapContainer
-      center={[25, 10]}
-      zoom={2}
-      scrollWheelZoom
-      worldCopyJump={false}
-      maxBounds={[
-        [-85, -210],
-        [85, 210],
-      ]}
-      maxBoundsViscosity={0.7}
-      className="h-[65vh] w-full rounded border border-slate-200"
-    >
-      <MapController continent={continent} />
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-      />
-      <MarkerClusterGroup chunkedLoading>
-        {parks.map((park) => {
-          const parkCoasters = coasters.filter((c) => c.park_id === park.id);
-          return (
-            <Marker key={park.id} position={[park.latitude, park.longitude]} icon={icon}>
-              <Popup>
-                <ParkPopupContent park={park} parkCoasters={parkCoasters} units={units} />
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MarkerClusterGroup>
-    </MapContainer>
+    <>
+      <MapContainer
+        center={[25, 10]}
+        zoom={2}
+        scrollWheelZoom
+        worldCopyJump={false}
+        maxBounds={[
+          [-85, -210],
+          [85, 210],
+        ]}
+        maxBoundsViscosity={0.7}
+        className="h-[65vh] w-full rounded border border-slate-200"
+      >
+        <MapController continent={continent} />
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        />
+        <MarkerClusterGroup chunkedLoading>
+          {parks.map((park) => {
+            const parkCoasters = coasters.filter((c) => c.park_id === park.id);
+            return (
+              <Marker key={park.id} position={[park.latitude, park.longitude]} icon={icon}>
+                <Popup>
+                  <ParkPopupContent
+                    park={park}
+                    parkCoasters={parkCoasters}
+                    units={units}
+                    onPreview={(payload) => setPreview(payload)}
+                  />
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
+      </MapContainer>
+
+      {canPortal &&
+        preview &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setPreview(null)}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 min-h-10 min-w-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-white active:scale-95"
+              onClick={() => setPreview(null)}
+            >
+              Close
+            </button>
+            <img
+              src={preview.imageUrl}
+              alt={preview.name}
+              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+              referrerPolicy="no-referrer"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
