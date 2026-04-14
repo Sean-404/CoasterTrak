@@ -316,7 +316,7 @@ export default function FriendsPage() {
                   <button
                     type="submit"
                     disabled={searching}
-                    className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-50"
+                    className="min-w-28 cursor-pointer rounded-lg bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {searching ? "Searching..." : "Search"}
                   </button>

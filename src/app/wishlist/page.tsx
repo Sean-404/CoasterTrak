@@ -6,6 +6,7 @@ import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { cleanCoasterName } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
@@ -15,6 +16,7 @@ type WishlistItem = {
   coaster_id: number;
   added_at?: string | null;
   coasters?: {
+    park_id?: number;
     name: string;
     wikidata_id?: string | null;
     image_url?: string | null;
@@ -32,6 +34,45 @@ type WishlistSort =
   | "ride_za"
   | "park_az"
   | "park_za";
+
+function imageFallbackKey(parkId: number, coasterName: string): string {
+  return `${parkId}:${normalizeCoasterDedupKey(coasterName)}`;
+}
+
+async function fillMissingWishlistImages(
+  rows: WishlistItem[],
+  supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+): Promise<WishlistItem[]> {
+  const missing = rows.filter(
+    (r) => r.coasters?.image_url == null && r.coasters?.park_id != null && r.coasters?.name,
+  );
+  if (missing.length === 0) return rows;
+
+  const parkIds = [...new Set(missing.map((r) => r.coasters!.park_id!))];
+  const names = [...new Set(missing.map((r) => r.coasters!.name))];
+  const { data, error } = await supabase
+    .from("coasters")
+    .select("park_id, name, image_url")
+    .in("park_id", parkIds)
+    .in("name", names)
+    .not("image_url", "is", null);
+  if (error || !data?.length) return rows;
+
+  const imageByKey = new Map<string, string>();
+  for (const entry of data as Array<{ park_id: number; name: string; image_url: string | null }>) {
+    if (!entry.image_url) continue;
+    const key = imageFallbackKey(entry.park_id, entry.name);
+    if (!imageByKey.has(key)) imageByKey.set(key, entry.image_url);
+  }
+
+  return rows.map((r) => {
+    const coaster = r.coasters;
+    if (!coaster || coaster.image_url || coaster.park_id == null) return r;
+    const fallback = imageByKey.get(imageFallbackKey(coaster.park_id, coaster.name));
+    if (!fallback) return r;
+    return { ...r, coasters: { ...coaster, image_url: fallback } };
+  });
+}
 
 export default function WishlistPage() {
   const [items, setItems] = useState<WishlistItem[]>([]);
@@ -51,7 +92,7 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, added_at, coasters(name, wikidata_id, image_url, coaster_type, manufacturer, status, parks(name))")
+        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, parks(name))")
         .eq("user_id", user.id)
         .order("added_at", { ascending: false });
 
@@ -60,7 +101,8 @@ export default function WishlistPage() {
         ...item,
         coasters: item.coasters ? applyCoasterKnownFixes(item.coasters) : null,
       }));
-      setItems(mapped);
+      const hydrated = await fillMissingWishlistImages(mapped, supabase);
+      setItems(hydrated);
       setLoading(false);
     });
   }, []);
@@ -201,6 +243,7 @@ export default function WishlistPage() {
                   <li
                     key={item.coaster_id}
                     className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+                    style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}
                   >
                     <div className="flex min-w-0 items-start gap-3">
                       <CoasterThumbnail name={coasterName} imageUrl={coaster?.image_url} />

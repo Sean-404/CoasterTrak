@@ -6,6 +6,7 @@ import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
@@ -39,9 +40,48 @@ type RideRow = {
   coasters?: RideCoaster | null;
 };
 
+function imageFallbackKey(parkId: number, coasterName: string): string {
+  return `${parkId}:${normalizeCoasterDedupKey(coasterName)}`;
+}
+
+async function fillMissingRideImages(
+  rows: RideRow[],
+  supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+): Promise<RideRow[]> {
+  const missing = rows.filter(
+    (r) => r.coasters?.image_url == null && r.coasters?.park_id != null && r.coasters?.name,
+  );
+  if (missing.length === 0) return rows;
+
+  const parkIds = [...new Set(missing.map((r) => r.coasters!.park_id!))];
+  const names = [...new Set(missing.map((r) => r.coasters!.name))];
+  const { data, error } = await supabase
+    .from("coasters")
+    .select("park_id, name, image_url")
+    .in("park_id", parkIds)
+    .in("name", names)
+    .not("image_url", "is", null);
+  if (error || !data?.length) return rows;
+
+  const imageByKey = new Map<string, string>();
+  for (const entry of data as Array<{ park_id: number; name: string; image_url: string | null }>) {
+    if (!entry.image_url) continue;
+    const key = imageFallbackKey(entry.park_id, entry.name);
+    if (!imageByKey.has(key)) imageByKey.set(key, entry.image_url);
+  }
+
+  return rows.map((r) => {
+    const coaster = r.coasters;
+    if (!coaster || coaster.image_url || coaster.park_id == null) return r;
+    const fallback = imageByKey.get(imageFallbackKey(coaster.park_id, coaster.name));
+    if (!fallback) return r;
+    return { ...r, coasters: { ...coaster, image_url: fallback } };
+  });
+}
+
 export default function StatsPage() {
   const [rides, setRides] = useState<RideRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [userId, setUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState(false);
@@ -50,7 +90,7 @@ export default function StatsPage() {
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) return;
 
     void getSupabaseUserSafe().then(async (user) => {
       if (!user) { setLoading(false); return; }
@@ -59,7 +99,7 @@ export default function StatsPage() {
       const ridesRes = await supabase
         .from("rides")
         .select(
-          "coaster_id, coasters(name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+          "coaster_id, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
         )
         .eq("user_id", user.id);
 
@@ -68,12 +108,12 @@ export default function StatsPage() {
       }
 
       const rows = (ridesRes.data ?? []) as unknown as RideRow[];
-      setRides(
-        rows.map((r) => ({
-          ...r,
-          coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
-        })),
-      );
+      const mapped = rows.map((r) => ({
+        ...r,
+        coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
+      }));
+      const hydrated = await fillMissingRideImages(mapped, supabase);
+      setRides(hydrated);
       setLoading(false);
     });
   }, []);
@@ -389,7 +429,11 @@ export default function StatsPage() {
                       );
                       const coasterName = cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`);
                       return (
-                        <li key={ride.coaster_id} className="group flex items-start justify-between gap-3 py-2.5">
+                        <li
+                          key={ride.coaster_id}
+                          className="group flex items-start justify-between gap-3 py-2.5"
+                          style={{ contentVisibility: "auto", containIntrinsicSize: "74px" }}
+                        >
                           <div className="flex min-w-0 flex-1 items-start gap-2.5">
                             <CoasterThumbnail
                               name={coasterName}

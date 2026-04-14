@@ -42,16 +42,13 @@ function progressPercent(a: AchievementEval): number {
 
 export default function AchievementsPage() {
   const [rides, setRides] = useState<RideRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [fetchError, setFetchError] = useState(false);
   const { units } = useUnits();
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     supabase.auth
       .getUser()
@@ -143,12 +140,22 @@ export default function AchievementsPage() {
                             </svg>
                           </span>
                         ) : (
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-300">
-                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-slate-500">
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden>
                               <path
-                                fillRule="evenodd"
-                                d="M5 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H7a2 2 0 01-2-2V9z"
-                                clipRule="evenodd"
+                                d="M6.5 9V7.5a3.5 3.5 0 117 0V9"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
+                                strokeLinecap="round"
+                              />
+                              <rect
+                                x="5.25"
+                                y="9"
+                                width="9.5"
+                                height="7.5"
+                                rx="1.8"
+                                stroke="currentColor"
+                                strokeWidth="1.7"
                               />
                             </svg>
                           </span>
@@ -156,7 +163,6 @@ export default function AchievementsPage() {
                         <h2 className="font-semibold text-slate-900">{a.title}</h2>
                       </div>
                       <p className="mt-1.5 text-sm text-slate-600">{a.description}</p>
-                      {a.dataNote && <p className="mt-1 text-xs text-slate-400">{a.dataNote}</p>}
                     </div>
                     <span
                       className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${

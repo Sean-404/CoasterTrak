@@ -298,7 +298,7 @@ function isPlaceholderQidLabel(label: string | null | undefined): boolean {
 function pickBestMatch(
   candidates: DbCoaster[],
   wd: WikidataCoasterRow,
-): DbCoaster {
+): DbCoaster | null {
   if (candidates.length === 1) return candidates[0];
 
   const disambig =
@@ -307,9 +307,17 @@ function pickBestMatch(
   const wdCountry = (wd.countryLabel ?? "").toLowerCase();
   const wdLat = wd.latitude;
   const wdLon = wd.longitude;
+  const hasDisambiguationSignals =
+    Boolean(disambig?.trim()) ||
+    Boolean(wdPark.trim()) ||
+    Boolean(wdCountry.trim()) ||
+    (wdLat != null && wdLon != null);
+
+  if (!hasDisambiguationSignals) return null;
 
   let best = candidates[0];
   let bestScore = -Infinity;
+  let secondBestScore = -Infinity;
 
   for (const c of candidates) {
     const parkName = c.parks?.name ?? "";
@@ -347,10 +355,17 @@ function pickBestMatch(
     }
 
     if (score > bestScore) {
+      secondBestScore = bestScore;
       bestScore = score;
       best = c;
+    } else if (score > secondBestScore) {
+      secondBestScore = score;
     }
   }
+
+  // If we cannot positively distinguish a winner, don't bind this Wikidata row.
+  if (bestScore <= 0) return null;
+  if (bestScore - secondBestScore < 40 && !disambig && !wdPark.trim()) return null;
 
   return best;
 }
@@ -635,6 +650,10 @@ async function main() {
     }
 
     const match = pickBestMatch(candidates, wd);
+    if (!match) {
+      unmatched.push(wd);
+      continue;
+    }
 
     const displayName = wikidataInsertName(wd);
     const update: CoasterUpdate = {
