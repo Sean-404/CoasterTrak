@@ -58,7 +58,7 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 
 Set **`WIKIDATA_COASTERS_URL`** to that URL in Vercel (and locally if you test remote sync). The monthly GitHub Action runs this upload automatically after fetching Wikidata.
 
-Optional env overrides: **`WIKIDATA_STORAGE_BUCKET`** (default `catalog`), **`WIKIDATA_STORAGE_OBJECT`** (default `wikidata_coasters.json`).
+Optional env overrides: **`WIKIDATA_STORAGE_BUCKET`** (default `catalog`), **`WIKIDATA_STORAGE_OBJECT`** (default `wikidata_coasters.json`), **`WIKIDATA_COASTERS_ALLOWED_HOSTS`** (comma-separated host allowlist for `WIKIDATA_COASTERS_URL`; by default your Supabase project host is allowed).
 
 **Alternatives:** GitHub Releases asset URL, or S3/R2, if you prefer not to use Storage.
 
@@ -70,6 +70,10 @@ Required env vars for server-side sync:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SYNC_CRON_SECRET`
 - For production without committing the JSON: `WIKIDATA_COASTERS_URL`
+
+Security notes:
+- Sync endpoints (`/api/sync/catalog`, `/api/cron/sync-catalog`) require `Authorization: Bearer <SYNC_CRON_SECRET>` and are rate-limited.
+- Errors from sync endpoints are intentionally generic; see server logs for details.
 
 Run manually (local dev server, after `wikidata:fetch`):
 

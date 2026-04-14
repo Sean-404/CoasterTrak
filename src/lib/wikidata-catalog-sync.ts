@@ -21,10 +21,59 @@ type ParkForSync = ParkForMatch & {
   external_id: string | null;
 };
 
+function configuredCatalogAllowedHosts(): Set<string> {
+  const hosts = new Set<string>();
+
+  const explicit = process.env.WIKIDATA_COASTERS_ALLOWED_HOSTS
+    ?.split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+  for (const host of explicit ?? []) hosts.add(host);
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (supabaseUrl) {
+    try {
+      hosts.add(new URL(supabaseUrl).hostname.toLowerCase());
+    } catch {
+      // Ignore malformed env; sync fetch path has its own validation/error messages.
+    }
+  }
+
+  return hosts;
+}
+
+function parseAndValidateCatalogUrl(raw: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("WIKIDATA_COASTERS_URL is not a valid URL");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const isLocalHost = host === "localhost" || host === "127.0.0.1";
+  const isHttps = parsed.protocol === "https:";
+  const isLocalHttp = parsed.protocol === "http:" && isLocalHost;
+  if (!isHttps && !isLocalHttp) {
+    throw new Error("WIKIDATA_COASTERS_URL must use https (or http for localhost)");
+  }
+
+  const allowedHosts = configuredCatalogAllowedHosts();
+  if (allowedHosts.size > 0 && !allowedHosts.has(host)) {
+    throw new Error(
+      `WIKIDATA_COASTERS_URL host "${host}" is not allowlisted. ` +
+        "Add it to WIKIDATA_COASTERS_ALLOWED_HOSTS.",
+    );
+  }
+
+  return parsed;
+}
+
 async function loadWikidataRows(): Promise<WikidataCoasterRow[]> {
   const url = process.env.WIKIDATA_COASTERS_URL?.trim();
   if (url) {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    const validated = parseAndValidateCatalogUrl(url);
+    const res = await fetch(validated, { next: { revalidate: 3600 } });
     if (!res.ok) {
       throw new Error(`WIKIDATA_COASTERS_URL fetch failed (${res.status})`);
     }
