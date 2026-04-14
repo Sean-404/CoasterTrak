@@ -2,7 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { memo, useEffect, useState, type MouseEvent } from "react";
+import {
+  memo,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 
 type CoasterThumbnailProps = {
@@ -14,23 +21,7 @@ type CoasterThumbnailProps = {
   onPreview?: (payload: { name: string; imageUrl: string }) => void;
 };
 
-const FALLBACK_SWATCHES = [
-  { bg: "#dbeafe", fg: "#1d4ed8", border: "#93c5fd" },
-  { bg: "#dcfce7", fg: "#166534", border: "#86efac" },
-  { bg: "#fee2e2", fg: "#b91c1c", border: "#fca5a5" },
-  { bg: "#fef3c7", fg: "#92400e", border: "#fcd34d" },
-  { bg: "#f3e8ff", fg: "#6d28d9", border: "#c4b5fd" },
-  { bg: "#e0f2fe", fg: "#0f766e", border: "#67e8f9" },
-] as const;
-
-function swatchForName(name: string) {
-  const normalized = name.trim().toLowerCase();
-  let hash = 0;
-  for (let i = 0; i < normalized.length; i += 1) {
-    hash = (hash * 31 + normalized.charCodeAt(i)) >>> 0;
-  }
-  return FALLBACK_SWATCHES[hash % FALLBACK_SWATCHES.length] ?? FALLBACK_SWATCHES[0];
-}
+const FALLBACK_SWATCH = { bg: "#dbeafe", fg: "#1d4ed8", border: "#93c5fd" } as const;
 
 export const CoasterThumbnail = memo(function CoasterThumbnail({
   name,
@@ -42,11 +33,12 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
 }: CoasterThumbnailProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const openedFromPointerRef = useRef(false);
   const safeUrl = imageUrl ?? null;
   const showImage = Boolean(safeUrl) && failedUrl !== safeUrl;
   const trimmed = name.trim();
   const canPortal = typeof window !== "undefined";
-  const fallbackSwatch = swatchForName(trimmed || "coaster");
+  const fallbackSwatch = FALLBACK_SWATCH;
 
   useEffect(() => {
     if (!previewOpen) return;
@@ -57,15 +49,34 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
     return () => window.removeEventListener("keydown", handler);
   }, [previewOpen]);
 
-  const openPreview = (event: MouseEvent<HTMLButtonElement>) => {
-    // Keep Leaflet popup/map handlers from treating this as a map click/drag.
-    event.preventDefault();
-    event.stopPropagation();
-    if (onPreview && safeUrl) {
+  const triggerPreview = () => {
+    if (!safeUrl) return;
+    if (onPreview) {
       onPreview({ name: trimmed || "Coaster image", imageUrl: safeUrl });
       return;
     }
     setPreviewOpen(true);
+  };
+
+  const handlePointerDownCapture = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (typeof event.nativeEvent.stopImmediatePropagation === "function") {
+      event.nativeEvent.stopImmediatePropagation();
+    }
+    openedFromPointerRef.current = true;
+    triggerPreview();
+  };
+
+  const handleClick = (event: ReactMouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (openedFromPointerRef.current) {
+      openedFromPointerRef.current = false;
+      return;
+    }
+    // Keyboard activation (Enter/Space) lands here with no pointerdown first.
+    triggerPreview();
   };
 
   return (
@@ -73,11 +84,8 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
       {showImage && allowPreview ? (
         <button
           type="button"
-          onClick={openPreview}
-          onClickCapture={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-          onPointerDown={(event) => event.stopPropagation()}
-          onTouchStart={(event) => event.stopPropagation()}
+          onPointerDownCapture={handlePointerDownCapture}
+          onClick={handleClick}
           aria-label={`Open image for ${trimmed || "coaster"}`}
           className={`${sizeClassName} shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-slate-200 bg-slate-100 transition hover:brightness-95 active:scale-[0.98] active:brightness-90`}
         >
@@ -134,13 +142,15 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
 
       {canPortal &&
         previewOpen &&
-        imageUrl &&
+        safeUrl &&
         createPortal(
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+            className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/80 p-4"
             role="dialog"
             aria-modal="true"
-            onClick={() => setPreviewOpen(false)}
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setPreviewOpen(false);
+            }}
           >
             <button
               type="button"
@@ -150,15 +160,16 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
               Close
             </button>
             <img
-              src={imageUrl}
+              src={safeUrl}
               alt={trimmed || "Coaster image"}
               className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
               referrerPolicy="no-referrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             />
           </div>,
           document.body,
         )}
+
     </>
   );
 }, (prev, next) =>

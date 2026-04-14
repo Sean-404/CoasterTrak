@@ -19,6 +19,22 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   return null;
 }
 
+function normalizeStoredCountry(raw: string): string {
+  const withSpaces = raw
+    // Split jammed "GeorgiaUnited States" / "SouthKorea" tokens.
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!withSpaces) return "";
+
+  const compact = withSpaces.toLowerCase().replace(/[^a-z]/g, "");
+  if (compact.includes("unitedstates")) return "United States";
+  if (compact.includes("unitedkingdom")) return "United Kingdom";
+  if (compact.includes("southkorea")) return "South Korea";
+  if (compact.includes("northkorea")) return "North Korea";
+  return withSpaces;
+}
+
 /**
  * When stored country is Unknown or clearly conflicts with coordinates, prefer the hint.
  * Currently only corrects a few high-impact mismatches (e.g. India vs wrong "China").
@@ -28,7 +44,7 @@ export function reconcileCountryWithCoords(
   lat: number | null | undefined,
   lng: number | null | undefined,
 ): string {
-  const c = (country ?? "").trim();
+  const c = normalizeStoredCountry(country ?? "");
   const la = lat ?? 0;
   const ln = lng ?? 0;
   const hint = countryHintFromLatLng(la, ln);

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   findNearestParkForCoords,
@@ -101,6 +102,30 @@ function parkGroupKey(parkName: string, country: string | null | undefined): str
   return `${parkName.trim().toLowerCase()}|${(country ?? "").trim().toLowerCase()}`;
 }
 
+function unknownParkExternalIdForRow(wd: WikidataCoasterRow): string | null {
+  if (
+    wd.latitude == null ||
+    wd.longitude == null ||
+    !Number.isFinite(wd.latitude) ||
+    !Number.isFinite(wd.longitude)
+  ) {
+    return null;
+  }
+  const country = reconcileCountryWithCoords(wd.countryLabel ?? null, wd.latitude, wd.longitude);
+  const countrySlug = country.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `unknown-park:${countrySlug || "unknown"}:${wd.latitude.toFixed(4)}:${wd.longitude.toFixed(4)}`;
+}
+
+function unknownParkNameForRow(wd: WikidataCoasterRow): string {
+  const country =
+    wd.latitude != null && wd.longitude != null
+      ? reconcileCountryWithCoords(wd.countryLabel ?? null, wd.latitude, wd.longitude)
+      : (wd.countryLabel?.trim() || "Unknown");
+  return country && country !== "Unknown"
+    ? `Unknown / historical park (${country})`
+    : "Unknown / historical park";
+}
+
 function groupCentroid(rows: WikidataCoasterRow[]): { lat: number; lng: number } | null {
   let sumLat = 0;
   let sumLng = 0;
@@ -170,7 +195,7 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     wikidata_id: wd.wikidataId,
     coaster_type: inferred,
     manufacturer: wd.manufacturerLabel ?? null,
-    image_url: wd.imageUrl ?? null,
+    image_url: sanitizeCoasterImageUrl(wd.imageUrl ?? null),
     status,
     ...(wd.lengthFt != null ? { length_ft: Math.round(wd.lengthFt) } : {}),
     ...(wd.speedMph != null ? { speed_mph: Math.round(wd.speedMph) } : {}),
@@ -222,10 +247,13 @@ export async function syncCatalogFromWikidata() {
 
     const parkIdByKey = new Map<string, number>();
     const parkIdByExternalQid = new Map<string, number>();
+    const parkIdByUnknownExternal = new Map<string, number>();
     for (const p of parkRows) {
       parkIdByKey.set(parkGroupKey(p.name, p.country), p.id);
       if (p.external_source === "wikidata" && p.external_id) {
         parkIdByExternalQid.set(p.external_id.trim().toUpperCase(), p.id);
+      } else if (p.external_source === "wikidata_unknown_park" && p.external_id) {
+        parkIdByUnknownExternal.set(p.external_id.trim().toLowerCase(), p.id);
       }
     }
 
@@ -353,8 +381,50 @@ export async function syncCatalogFromWikidata() {
         4,
         wd.countryLabel,
       );
-      if (!linked) continue;
-      coasterBatch.push(coasterUpsertPayload(wd, linked.id));
+      if (linked) {
+        coasterBatch.push(coasterUpsertPayload(wd, linked.id));
+        if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
+        continue;
+      }
+
+      const unknownExt = unknownParkExternalIdForRow(wd);
+      if (!unknownExt) continue;
+      let unknownParkId = parkIdByUnknownExternal.get(unknownExt.toLowerCase());
+      if (!unknownParkId) {
+        const unknownName = unknownParkNameForRow(wd);
+        const unknownCountry = reconcileCountryWithCoords(
+          wd.countryLabel ?? null,
+          wd.latitude!,
+          wd.longitude!,
+        );
+        const insertRes = await supabase
+          .from("parks")
+          .insert({
+            name: unknownName,
+            country: unknownCountry,
+            latitude: wd.latitude!,
+            longitude: wd.longitude!,
+            external_source: "wikidata_unknown_park",
+            external_id: unknownExt,
+            last_synced_at: new Date().toISOString(),
+          })
+          .select("id")
+          .single();
+        if (insertRes.error) throw insertRes.error;
+        unknownParkId = insertRes.data.id as number;
+        parkIdByUnknownExternal.set(unknownExt.toLowerCase(), unknownParkId);
+        parkRows.push({
+          id: unknownParkId,
+          name: unknownName,
+          country: unknownCountry,
+          latitude: wd.latitude!,
+          longitude: wd.longitude!,
+          external_source: "wikidata_unknown_park",
+          external_id: unknownExt,
+        });
+        parkUpdates += 1;
+      }
+      coasterBatch.push(coasterUpsertPayload(wd, unknownParkId));
       if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
     }
 

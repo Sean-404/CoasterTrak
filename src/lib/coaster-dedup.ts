@@ -24,6 +24,23 @@ function stripQueueVariantPhrases(s: string): string {
   return t;
 }
 
+/**
+ * Map/list dedup: index the same coaster under normalized name and (when present) Wikidata id
+ * so "Mayan" and "Fast Pass Mayan Kol Licznik" (Q…) collapse even if only one row has `wikidata_id`.
+ */
+export function coasterDedupLookupKeys(c: Coaster): string[] {
+  const nameKey = `${c.park_id}:name:${normalizeCoasterDedupKey(c.name)}`;
+  const wd = c.wikidata_id?.trim().toUpperCase();
+  if (wd) return [nameKey, `${c.park_id}:wd:${wd}`];
+  return [nameKey];
+}
+
+export function coastersShareDedupBucket(a: Coaster, b: Coaster): boolean {
+  if (a.park_id !== b.park_id) return false;
+  const keysA = new Set(coasterDedupLookupKeys(a));
+  return coasterDedupLookupKeys(b).some((k) => keysA.has(k));
+}
+
 export function normalizeCoasterDedupKey(raw: string): string {
   let s = cleanCoasterName(raw).toLowerCase();
   s = stripQueueVariantPhrases(s);

@@ -6,7 +6,7 @@ import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
-import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
+import { isThrillCoaster, normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { cleanCoasterName } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
@@ -23,6 +23,11 @@ type WishlistItem = {
     coaster_type: string;
     manufacturer: string | null;
     status: string;
+    length_ft?: number | null;
+    speed_mph?: number | null;
+    height_ft?: number | null;
+    inversions?: number | null;
+    duration_s?: number | null;
     parks?: { name: string } | null;
   } | null;
 };
@@ -81,6 +86,7 @@ export default function WishlistPage() {
   const [pending, setPending] = useState<Record<number, "ridden" | "removing" | null>>({});
   const [toast, setToast] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<WishlistSort>("added_desc");
+  const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -92,7 +98,7 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, parks(name))")
+        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name))")
         .eq("user_id", user.id)
         .order("added_at", { ascending: false });
 
@@ -107,8 +113,34 @@ export default function WishlistPage() {
     });
   }, []);
 
+  const filteredItems = useMemo(() => {
+    if (includeFamilyRides) return items;
+    return items.filter((item) => {
+      const coaster = item.coasters;
+      if (!coaster) return true;
+      return isThrillCoaster(
+        {
+          id: item.coaster_id,
+          park_id: coaster.park_id ?? -1,
+          name: coaster.name,
+          coaster_type: coaster.coaster_type,
+          manufacturer: coaster.manufacturer ?? null,
+          status: coaster.status,
+          wikidata_id: coaster.wikidata_id ?? null,
+          image_url: coaster.image_url ?? null,
+          length_ft: coaster.length_ft ?? null,
+          speed_mph: coaster.speed_mph ?? null,
+          height_ft: coaster.height_ft ?? null,
+          inversions: coaster.inversions ?? null,
+          duration_s: coaster.duration_s ?? null,
+        },
+        coaster.parks?.name ?? null,
+      );
+    });
+  }, [items, includeFamilyRides]);
+
   const sortedItems = useMemo(() => {
-    const sorted = [...items];
+    const sorted = [...filteredItems];
     sorted.sort((a, b) => {
       if (sortBy === "ride_az" || sortBy === "ride_za") {
         const aName = cleanCoasterName(a.coasters?.name ?? `Coaster ${a.coaster_id}`);
@@ -136,7 +168,7 @@ export default function WishlistPage() {
       return sortBy === "added_asc" ? a.coaster_id - b.coaster_id : b.coaster_id - a.coaster_id;
     });
     return sorted;
-  }, [items, sortBy]);
+  }, [filteredItems, sortBy]);
 
   async function markRidden(coasterId: number) {
     const supabase = getSupabaseBrowserClient();
@@ -184,7 +216,10 @@ export default function WishlistPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Your wishlist</h1>
               {!loading && items.length > 0 && (
-                <p className="mt-0.5 text-sm text-slate-500">{items.length} ride{items.length !== 1 ? "s" : ""} to conquer</p>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  {sortedItems.length} ride{sortedItems.length !== 1 ? "s" : ""} to conquer
+                  {!includeFamilyRides ? " (thrill-focused)" : ""}
+                </p>
               )}
             </div>
             <Link href="/map" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
@@ -193,23 +228,34 @@ export default function WishlistPage() {
           </div>
 
           {!loading && items.length > 0 && (
-            <div className="mb-4 flex items-center justify-end gap-2">
-              <label htmlFor="wishlist-sort" className="text-sm font-medium text-slate-600">
-                Sort by
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={includeFamilyRides}
+                  onChange={(e) => setIncludeFamilyRides(e.target.checked)}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                />
+                Include kiddie / family-style rides
               </label>
-              <select
-                id="wishlist-sort"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as WishlistSort)}
-                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              >
-                <option value="added_desc">Added (newest)</option>
-                <option value="added_asc">Added (oldest)</option>
-                <option value="ride_az">Ride (A-Z)</option>
-                <option value="ride_za">Ride (Z-A)</option>
-                <option value="park_az">Park (A-Z)</option>
-                <option value="park_za">Park (Z-A)</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <label htmlFor="wishlist-sort" className="text-sm font-medium text-slate-600">
+                  Sort by
+                </label>
+                <select
+                  id="wishlist-sort"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as WishlistSort)}
+                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  <option value="added_desc">Added (newest)</option>
+                  <option value="added_asc">Added (oldest)</option>
+                  <option value="ride_az">Ride (A-Z)</option>
+                  <option value="ride_za">Ride (Z-A)</option>
+                  <option value="park_az">Park (A-Z)</option>
+                  <option value="park_za">Park (Z-A)</option>
+                </select>
+              </div>
             </div>
           )}
 
@@ -228,6 +274,13 @@ export default function WishlistPage() {
               <Link href="/map" className="mt-4 inline-block rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
                 Open map
               </Link>
+            </div>
+          ) : sortedItems.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
+              <p className="font-medium text-slate-700">No thrill rides in your current wishlist view</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Try enabling kiddie/family rides above to see all wishlisted rides.
+              </p>
             </div>
           ) : (
             <ul className="space-y-3">

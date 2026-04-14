@@ -62,4 +62,3 @@ create trigger trg_guard_unique_wikidata_binding
 before insert or update on coasters
 for each row
 execute function public.guard_unique_wikidata_binding();
-

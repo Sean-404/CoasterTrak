@@ -341,6 +341,20 @@ export default function StatsPage() {
               Something went wrong loading your data. Please refresh the page.
             </p>
           )}
+          {!loading && uniqueRides.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+              <p className="text-sm font-medium text-slate-700">Ride filters</p>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={includeFamilyRides}
+                  onChange={(e) => setIncludeFamilyRides(e.target.checked)}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                />
+                Include kiddie / family-style rides
+              </label>
+            </div>
+          )}
 
           {/* Stat cards */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -459,15 +473,6 @@ export default function StatsPage() {
             {/* Rides ridden */}
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
-              <label className="mb-3 inline-flex items-center gap-2 text-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={includeFamilyRides}
-                  onChange={(e) => setIncludeFamilyRides(e.target.checked)}
-                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
-                />
-                Include kiddie / family-style rides
-              </label>
               {loading ? (
                 <p className="text-sm text-slate-400">Loading&hellip;</p>
               ) : filteredUniqueRides.length === 0 ? (

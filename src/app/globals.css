@@ -9,3 +9,33 @@ body {
 .font-bungee {
   font-family: var(--font-bungee), sans-serif;
 }
+
+/* Hide occasional Leaflet raster tile seam lines in Chrome/Windows. */
+.leaflet-container .leaflet-tile {
+  outline: 1px solid transparent;
+  border: 0;
+  background-clip: padding-box;
+}
+
+/* Custom DivIcon for “selected ride” pin on the map (see park-map.tsx). */
+.leaflet-selected-ride-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-selected-ride-pin__dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: #f59e0b;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.28);
+}
+
+.leaflet-selected-ride-pin__glyph {
+  font-size: 13px;
+  line-height: 1;
+}

@@ -15,6 +15,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { arg, runMain } from "./lib/cli";
 import { createServiceRoleClient } from "./lib/supabase-service";
+import { sanitizeCoasterImageUrl } from "../src/lib/coaster-known-fixes";
 import { normalizeCoasterDedupKey } from "../src/lib/coaster-dedup";
 import { reconcileCountryWithCoords } from "../src/lib/geo-country";
 import { haversineKm } from "../src/lib/geo";
@@ -89,7 +90,7 @@ type CoasterUpdate = {
   status?: string;
   manufacturer?: string;
   coaster_type?: string;
-  image_url?: string;
+  image_url?: string | null;
 };
 
 /**
@@ -426,6 +427,49 @@ async function insertParkFromWikidataRow(wd: WikidataCoasterRow): Promise<DbPark
   return data as DbPark;
 }
 
+function unknownParkExternalIdForRow(wd: WikidataCoasterRow): string | null {
+  if (
+    wd.latitude == null ||
+    wd.longitude == null ||
+    !Number.isFinite(wd.latitude) ||
+    !Number.isFinite(wd.longitude)
+  ) {
+    return null;
+  }
+  const country = reconcileCountryWithCoords(wd.countryLabel ?? null, wd.latitude, wd.longitude);
+  const countrySlug = country.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `unknown-park:${countrySlug || "unknown"}:${wd.latitude.toFixed(4)}:${wd.longitude.toFixed(4)}`;
+}
+
+async function insertUnknownParkFromWikidataRow(wd: WikidataCoasterRow): Promise<DbPark | null> {
+  const ext = unknownParkExternalIdForRow(wd);
+  if (!ext || wd.latitude == null || wd.longitude == null) return null;
+  const country = reconcileCountryWithCoords(wd.countryLabel ?? null, wd.latitude, wd.longitude);
+  const name =
+    country && country !== "Unknown"
+      ? `Unknown / historical park (${country})`
+      : "Unknown / historical park";
+  const { data, error } = await supabase
+    .from("parks")
+    .insert({
+      name,
+      country,
+      latitude: wd.latitude,
+      longitude: wd.longitude,
+      external_source: "wikidata_unknown_park",
+      external_id: ext,
+      last_synced_at: new Date().toISOString(),
+    })
+    .select("id, name, country, latitude, longitude, external_source, external_id")
+    .single();
+  if (error) {
+    console.error(`  Could not create fallback unknown park "${name}": ${error.message}`);
+    return null;
+  }
+  console.error(`  Created fallback park row: "${name}" (id=${data.id})`);
+  return data as DbPark;
+}
+
 /**
  * Wikidata cleanup can make two different DB rows want the same display name at one park.
  * The DB enforces unique (park_id, name). Drop `name` from conflicting updates so enrichment
@@ -726,7 +770,10 @@ async function main() {
       opening_year: yearFromDate(wd.openingDate) ?? undefined,
       closing_year:
         (yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate)) ?? undefined,
-      image_url: wd.imageUrl ?? undefined,
+      image_url:
+        wd.imageUrl == null || wd.imageUrl === ""
+          ? undefined
+          : (sanitizeCoasterImageUrl(wd.imageUrl) ?? null),
     };
 
     // Only override status when Wikidata has a confident signal
@@ -891,6 +938,23 @@ async function main() {
       }
     }
 
+    if (!park) {
+      const unknownExt = unknownParkExternalIdForRow(wd);
+      if (unknownExt) {
+        park = allDbParks.find(
+          (p) => p.external_source === "wikidata_unknown_park" && p.external_id === unknownExt,
+        );
+      }
+    }
+
+    if (!park && !DRY_RUN) {
+      const createdUnknown = await insertUnknownParkFromWikidataRow(wd);
+      if (createdUnknown) {
+        allDbParks.push(createdUnknown);
+        park = createdUnknown;
+      }
+    }
+
     if (!park) continue;
 
     const insertName = wikidataInsertName(wd);
@@ -911,7 +975,7 @@ async function main() {
       opening_year: yearFromDate(wd.openingDate),
       closing_year: yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate),
       manufacturer: wd.manufacturerLabel ?? null,
-      image_url: wd.imageUrl ?? null,
+      image_url: sanitizeCoasterImageUrl(wd.imageUrl ?? null),
       external_source: "wikidata",
       external_id: wd.wikidataId,
       last_synced_at: new Date().toISOString(),
