@@ -81,7 +81,7 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
 }
 
 /** Heuristic for optional “hide small rides” — conservative to avoid hiding major coasters. */
-export function isLikelySmallFamilyCoaster(c: Coaster, parkName?: string | null): boolean {
+function isLikelySmallFamilyCoaster(c: Coaster, parkName?: string | null): boolean {
   const n = cleanCoasterName(c.name).toLowerCase();
   const park = (parkName ?? "").toLowerCase();
   const blackpoolLike =

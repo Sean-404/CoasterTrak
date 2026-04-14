@@ -1,4 +1,4 @@
-export type LifecycleStatus = "Operating" | "Defunct" | "Unknown";
+type LifecycleStatus = "Operating" | "Defunct" | "Unknown";
 
 /**
  * Normalize mixed legacy status values into lifecycle-only status.

@@ -6,7 +6,7 @@ import type { Coaster, Park } from "@/types/domain";
 import { haversineKm } from "@/lib/geo";
 
 /** Lowercase, strip noise words, collapse punctuation for comparison. */
-export function normalizeParkNameForMatch(name: string): string {
+function normalizeParkNameForMatch(name: string): string {
   return name
     .toLowerCase()
     .replace(/[''`]/g, "")
@@ -26,7 +26,7 @@ const COUNTRY_ALIASES: Record<string, string> = {
   uae: "united arab emirates",
 };
 
-export function normalizeCountryForMatch(country: string | null | undefined): string {
+function normalizeCountryForMatch(country: string | null | undefined): string {
   const c = (country ?? "").toLowerCase().trim();
   if (!c) return "";
   return COUNTRY_ALIASES[c] ?? c;
@@ -138,7 +138,7 @@ export function findParkMatchByNameAndLocation(
 }
 
 /** "Town, Region, Country" labels from Wikidata centroid fallbacks — not real park names. */
-export function isLikelyReverseGeocodeParkName(name: string): boolean {
+function isLikelyReverseGeocodeParkName(name: string): boolean {
   const parts = name
     .trim()
     .split(",")
@@ -168,7 +168,7 @@ export function isLikelyReverseGeocodeParkName(name: string): boolean {
 }
 
 /** First word of the place segment before the first comma, e.g. "Alton" from "Alton, Staffs, England". */
-export function firstPlaceTokenFromGeocodeLabel(name: string): string {
+function firstPlaceTokenFromGeocodeLabel(name: string): string {
   const beforeComma = name.split(",")[0]?.trim().toLowerCase() ?? "";
   const alpha = beforeComma.replace(/[^a-z0-9\s]/gi, " ").trim();
   return alpha.split(/\s+/).filter(Boolean)[0] ?? "";

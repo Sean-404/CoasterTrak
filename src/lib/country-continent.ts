@@ -3,7 +3,7 @@
  * Unknown / unmapped countries return null (excluded from continent counts).
  */
 
-export type ContinentId = "AF" | "AN" | "AS" | "EU" | "NA" | "OC" | "SA";
+type ContinentId = "AF" | "AN" | "AS" | "EU" | "NA" | "OC" | "SA";
 
 const BY_CONTINENT: Record<ContinentId, readonly string[]> = {
   AF: [

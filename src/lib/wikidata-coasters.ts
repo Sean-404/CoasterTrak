@@ -16,7 +16,7 @@ export const WIKIDATA_USER_AGENT =
  * Second hop on P361 uses direct P31 only (no wdt:P279* — that path timed out WDQS on full runs).
  * Q2416723 = theme park, Q3363942 = amusement park; exclude Q875912 = resort.
  */
-export const ROLLER_COASTER_SPARQL = `
+const ROLLER_COASTER_SPARQL = `
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX p: <http://www.wikidata.org/prop/>
@@ -65,7 +65,7 @@ WHERE {
  * Lighter fallback query for WDQS outage windows.
  * Drops expensive quantity statement paths and park-parent traversal so CI can still progress.
  */
-export const ROLLER_COASTER_SPARQL_LITE = `
+const ROLLER_COASTER_SPARQL_LITE = `
 PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
 PREFIX wikibase: <http://wikiba.se/ontology#>
@@ -96,14 +96,14 @@ WHERE {
 }
 `;
 
-export type SparqlJsonBinding = {
+type SparqlJsonBinding = {
   type: "uri" | "literal" | "bnode";
   value: string;
   datatype?: string;
   "xml:lang"?: string;
 };
 
-export type SparqlJsonResponse = {
+type SparqlJsonResponse = {
   results: { bindings: Record<string, SparqlJsonBinding>[] };
 };
 
@@ -233,7 +233,7 @@ function inferStatus(
   return "unknown";
 }
 
-export function bindingsToRow(
+function bindingsToRow(
   b: Record<string, SparqlJsonBinding>,
 ): WikidataCoasterRow | null {
   const itemUri = bindingUri(b.item);
@@ -370,7 +370,7 @@ function retryAfterToMs(retryAfter: string | null): number | null {
   return Math.max(0, asDateMs - Date.now());
 }
 
-export async function fetchWikidataSparqlPage(
+async function fetchWikidataSparqlPage(
   query: string,
   offset: number,
   limit: number,
@@ -560,15 +560,6 @@ export function parseSpeedMphFromText(s: string): number | null {
   if (mph) return stripCommas(mph[1]);
   const kmh = /([\d,]+(?:\.\d+)?)\s*km\/h/i.exec(t);
   if (kmh) return stripCommas(kmh[1]) * 0.621371;
-  return null;
-}
-
-export function parseGForceFromText(s: string): number | null {
-  const t = s.replace(/\u00a0/g, " ").trim();
-  const range = /([\d.]+)\s*(?:-|–|to)\s*([\d.]+)/i.exec(t);
-  if (range) return (parseFloat(range[1]) + parseFloat(range[2])) / 2;
-  const g = /([\d.]+)\s*g\b/i.exec(t);
-  if (g) return parseFloat(g[1]);
   return null;
 }
 

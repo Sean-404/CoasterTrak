@@ -17,10 +17,8 @@ export type InfoboxCoasterStats = {
   duration_s?: number;
 };
 
-export { WIKIDATA_USER_AGENT as WIKIPEDIA_API_USER_AGENT };
-
 /** Extract `{{Infobox roller coaster … }}` including nested templates. */
-export function extractInfoboxRollerCoasterBlock(wikitext: string): string | null {
+function extractInfoboxRollerCoasterBlock(wikitext: string): string | null {
   const re = /\{\{\s*[Ii]nfobox\s+roller\s+coaster\b/;
   const m = re.exec(wikitext);
   if (!m) return null;
@@ -129,7 +127,7 @@ function parseParamsFromBlock(block: string): Map<string, string> {
 /**
  * Read stats from full page wikitext. Returns partial object; only include fields present in infobox.
  */
-export function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxCoasterStats {
+function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxCoasterStats {
   const block = extractInfoboxRollerCoasterBlock(wikitext);
   if (!block) return {};
   const p = parseParamsFromBlock(block);
@@ -203,7 +201,7 @@ function revisionWikitext(json: WikiQueryResponse): string | null {
 /**
  * Fetch main-slot wikitext for an English Wikipedia article title (with redirects followed).
  */
-export async function fetchEnwikiWikitext(title: string): Promise<string | null> {
+async function fetchEnwikiWikitext(title: string): Promise<string | null> {
   const url = new URL("https://en.wikipedia.org/w/api.php");
   url.searchParams.set("action", "query");
   url.searchParams.set("format", "json");

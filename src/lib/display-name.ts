@@ -112,7 +112,7 @@ function hasProfanity(input: string): boolean {
   return false;
 }
 
-export type DisplayNameValidationResult =
+type DisplayNameValidationResult =
   | { ok: true; normalized: string }
   | { ok: false; reason: string };
 
