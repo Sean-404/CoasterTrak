@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
@@ -42,6 +42,9 @@ type RideRow = {
 
 const INITIAL_VISIBLE_RIDES = 80;
 const LOAD_MORE_RIDES_STEP = 80;
+const RIDE_ROW_HEIGHT_PX = 74;
+const RIDE_ROW_OVERSCAN = 8;
+const RIDE_LIST_FALLBACK_VIEWPORT_PX = 352;
 
 function imageFallbackKey(parkId: number, coasterName: string): string {
   return `${parkId}:${normalizeCoasterDedupKey(coasterName)}`;
@@ -90,6 +93,10 @@ export default function StatsPage() {
   const [fetchError, setFetchError] = useState(false);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
   const [visibleRideCount, setVisibleRideCount] = useState(INITIAL_VISIBLE_RIDES);
+  const [rideListScrollTop, setRideListScrollTop] = useState(0);
+  const [rideListViewportHeight, setRideListViewportHeight] = useState(0);
+  const rideListRef = useRef<HTMLUListElement | null>(null);
+  const rideListRafRef = useRef<number | null>(null);
   const { units, setUnits } = useUnits();
 
   useEffect(() => {
@@ -248,6 +255,62 @@ export default function StatsPage() {
     () => filteredRides.slice(0, visibleRideCount),
     [filteredRides, visibleRideCount],
   );
+
+  useEffect(() => {
+    const list = rideListRef.current;
+    if (!list) return;
+
+    const updateViewportHeight = () => {
+      setRideListViewportHeight(list.clientHeight);
+    };
+    updateViewportHeight();
+
+    const resizeObserver = new ResizeObserver(updateViewportHeight);
+    resizeObserver.observe(list);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rideListRafRef.current != null) {
+        cancelAnimationFrame(rideListRafRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (rideListRef.current) {
+      rideListRef.current.scrollTop = 0;
+    }
+    setRideListScrollTop(0);
+  }, [rideFilter, includeFamilyRides]);
+
+  const virtualizedRideRows = useMemo(() => {
+    const total = displayedRides.length;
+    if (total === 0) {
+      return {
+        rows: [] as RideRow[],
+        topSpacerHeight: 0,
+        bottomSpacerHeight: 0,
+      };
+    }
+
+    const viewport = rideListViewportHeight || RIDE_LIST_FALLBACK_VIEWPORT_PX;
+    const rawStart = Math.floor(rideListScrollTop / RIDE_ROW_HEIGHT_PX) - RIDE_ROW_OVERSCAN;
+    const start = Math.max(0, Math.min(rawStart, total - 1));
+    const visibleCount =
+      Math.ceil(viewport / RIDE_ROW_HEIGHT_PX) + RIDE_ROW_OVERSCAN * 2;
+    const end = Math.min(total, start + visibleCount);
+
+    return {
+      rows: displayedRides.slice(start, end),
+      topSpacerHeight: start * RIDE_ROW_HEIGHT_PX,
+      bottomSpacerHeight: Math.max(0, (total - end) * RIDE_ROW_HEIGHT_PX),
+    };
+  }, [displayedRides, rideListScrollTop, rideListViewportHeight]);
 
   async function removeRide(coasterId: number, name: string) {
     if (!confirm(`Remove "${name}" from your ridden list?`)) return;
@@ -427,11 +490,28 @@ export default function StatsPage() {
                       className="mb-3 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
                     />
                   )}
-                  <ul className="max-h-[min(50vh,22rem)] divide-y divide-slate-100 overflow-y-auto overscroll-contain pb-2 pr-1 pt-0 [scrollbar-gutter:stable]">
+                  <ul
+                    ref={rideListRef}
+                    onScroll={(event) => {
+                      const nextTop = event.currentTarget.scrollTop;
+                      if (rideListRafRef.current != null) return;
+                      rideListRafRef.current = window.requestAnimationFrame(() => {
+                        setRideListScrollTop(nextTop);
+                        rideListRafRef.current = null;
+                      });
+                    }}
+                    className="max-h-[min(50vh,22rem)] overflow-y-auto overscroll-contain pb-2 pr-1 pt-0 [scrollbar-gutter:stable]"
+                  >
                     {filteredRides.length === 0 && (
-                      <p className="py-2 text-xs text-slate-400">No matches</p>
+                      <li className="py-2 text-xs text-slate-400">No matches</li>
                     )}
-                    {displayedRides.map((ride) => {
+                    {virtualizedRideRows.topSpacerHeight > 0 && (
+                      <li
+                        aria-hidden
+                        style={{ height: `${virtualizedRideRows.topSpacerHeight}px` }}
+                      />
+                    )}
+                    {virtualizedRideRows.rows.map((ride) => {
                       const parkLine = formatParkLabel(
                         ride.coasters?.parks?.name,
                         ride.coasters?.parks?.country,
@@ -440,7 +520,7 @@ export default function StatsPage() {
                       return (
                         <li
                           key={ride.coaster_id}
-                          className="group flex items-start justify-between gap-3 py-2.5"
+                          className="group flex items-start justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0"
                           style={{ contentVisibility: "auto", containIntrinsicSize: "74px" }}
                         >
                           <div className="flex min-w-0 flex-1 items-start gap-2.5">
@@ -480,6 +560,12 @@ export default function StatsPage() {
                         </li>
                       );
                     })}
+                    {virtualizedRideRows.bottomSpacerHeight > 0 && (
+                      <li
+                        aria-hidden
+                        style={{ height: `${virtualizedRideRows.bottomSpacerHeight}px` }}
+                      />
+                    )}
                   </ul>
                   {filteredRides.length > displayedRides.length && (
                     <div className="mt-3 flex justify-center">
