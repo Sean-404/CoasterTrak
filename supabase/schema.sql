@@ -219,6 +219,9 @@ create index if not exists idx_rides_user_id on rides(user_id);
 create index if not exists idx_rides_coaster_id on rides(coaster_id);
 create index if not exists idx_wishlist_coaster_id on wishlist(coaster_id);
 create index if not exists idx_profiles_display_name on profiles(display_name);
+create unique index if not exists profiles_display_name_lower_uidx
+  on profiles (lower(display_name))
+  where display_name is not null;
 create unique index if not exists friendships_pair_uidx
   on friendships (least(requester_id, addressee_id), greatest(requester_id, addressee_id));
 create index if not exists idx_friendships_requester on friendships(requester_id);

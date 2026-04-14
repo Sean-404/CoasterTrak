@@ -78,7 +78,9 @@ export default function AccountPage() {
     setProfileSaving(false);
 
     if (error) {
-      setProfileError("Could not save display name. Try a different name.");
+      const message = (error.message ?? "").toLowerCase();
+      const isDuplicate = message.includes("profiles_display_name_lower_uidx") || message.includes("duplicate key");
+      setProfileError(isDuplicate ? "That display name is already taken." : "Could not save display name. Try a different name.");
       return;
     }
 
@@ -130,6 +132,10 @@ export default function AccountPage() {
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Signed in as</p>
               <p className="mt-1 text-lg font-semibold text-slate-900">{email}</p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Display name</p>
+              <p className="mt-1 text-sm text-slate-700">
+                {displayName.trim() ? displayName : "Not set yet"}
+              </p>
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -160,7 +166,7 @@ export default function AccountPage() {
                 <button
                   type="submit"
                   disabled={profileSaving}
-                  className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+                  className="cursor-pointer rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {profileSaving ? "Saving..." : "Save display name"}
                 </button>
@@ -193,7 +199,7 @@ export default function AccountPage() {
                 <button
                   type="submit"
                   disabled={pwLoading}
-                  className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+                  className="cursor-pointer rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {pwLoading ? "Updating\u2026" : "Update password"}
                 </button>
@@ -205,7 +211,7 @@ export default function AccountPage() {
               <p className="mt-1 text-sm text-slate-500">You&apos;ll be returned to the home page.</p>
               <button
                 onClick={signOut}
-                className="mt-4 rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                className="mt-4 cursor-pointer rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
               >
                 Sign out
               </button>
