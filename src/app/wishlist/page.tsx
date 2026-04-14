@@ -246,7 +246,11 @@ export default function WishlistPage() {
                     style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}
                   >
                     <div className="flex min-w-0 items-start gap-3">
-                      <CoasterThumbnail name={coasterName} imageUrl={coaster?.image_url} />
+                      <CoasterThumbnail
+                        name={coasterName}
+                        imageUrl={coaster?.image_url}
+                        showMissingLabel
+                      />
                       <div className="min-w-0">
                       <p className="truncate font-semibold text-slate-900">
                         {coasterName}
