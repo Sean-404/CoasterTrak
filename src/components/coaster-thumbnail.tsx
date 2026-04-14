@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { memo, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type CoasterThumbnailProps = {
   name: string;
@@ -23,6 +24,7 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
   const showImage = Boolean(safeUrl) && failedUrl !== safeUrl;
   const trimmed = name.trim();
   const initial = trimmed ? trimmed[0]!.toUpperCase() : "R";
+  const canPortal = typeof window !== "undefined";
 
   useEffect(() => {
     if (!previewOpen) return;
@@ -75,29 +77,33 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
         </div>
       )}
 
-      {previewOpen && imageUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setPreviewOpen(false)}
-        >
-          <button
-            type="button"
-            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-slate-900 hover:bg-white"
+      {canPortal &&
+        previewOpen &&
+        imageUrl &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+            role="dialog"
+            aria-modal="true"
             onClick={() => setPreviewOpen(false)}
           >
-            Close
-          </button>
-          <img
-            src={imageUrl}
-            alt={trimmed || "Coaster image"}
-            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-            referrerPolicy="no-referrer"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+            <button
+              type="button"
+              className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-slate-900 hover:bg-white"
+              onClick={() => setPreviewOpen(false)}
+            >
+              Close
+            </button>
+            <img
+              src={imageUrl}
+              alt={trimmed || "Coaster image"}
+              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+              referrerPolicy="no-referrer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>,
+          document.body,
+        )}
     </>
   );
 });

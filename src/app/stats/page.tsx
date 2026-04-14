@@ -40,6 +40,9 @@ type RideRow = {
   coasters?: RideCoaster | null;
 };
 
+const INITIAL_VISIBLE_RIDES = 80;
+const LOAD_MORE_RIDES_STEP = 80;
+
 function imageFallbackKey(parkId: number, coasterName: string): string {
   return `${parkId}:${normalizeCoasterDedupKey(coasterName)}`;
 }
@@ -86,6 +89,7 @@ export default function StatsPage() {
   const [removing, setRemoving] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState(false);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
+  const [visibleRideCount, setVisibleRideCount] = useState(INITIAL_VISIBLE_RIDES);
   const { units, setUnits } = useUnits();
 
   useEffect(() => {
@@ -239,6 +243,11 @@ export default function StatsPage() {
       );
     });
   }, [filteredUniqueRides, rideFilter]);
+
+  const displayedRides = useMemo(
+    () => filteredRides.slice(0, visibleRideCount),
+    [filteredRides, visibleRideCount],
+  );
 
   async function removeRide(coasterId: number, name: string) {
     if (!confirm(`Remove "${name}" from your ridden list?`)) return;
@@ -422,7 +431,7 @@ export default function StatsPage() {
                     {filteredRides.length === 0 && (
                       <p className="py-2 text-xs text-slate-400">No matches</p>
                     )}
-                    {filteredRides.map((ride) => {
+                    {displayedRides.map((ride) => {
                       const parkLine = formatParkLabel(
                         ride.coasters?.parks?.name,
                         ride.coasters?.parks?.country,
@@ -472,6 +481,21 @@ export default function StatsPage() {
                       );
                     })}
                   </ul>
+                  {filteredRides.length > displayedRides.length && (
+                    <div className="mt-3 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleRideCount((count) =>
+                            Math.min(count + LOAD_MORE_RIDES_STEP, filteredRides.length),
+                          )
+                        }
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Load more rides
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </section>
