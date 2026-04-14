@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -20,12 +20,10 @@ export default function AccountPage() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setLoading(false); return; }
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.replace("/login"); return; }
-      setEmail(data.user.email ?? "");
+    void getSupabaseUserSafe().then((user) => {
+      if (!user) { router.replace("/login"); return; }
+      setEmail(user.email ?? "");
       setLoading(false);
-    }).catch(() => {
-      router.replace("/login");
     });
   }, [router]);
 

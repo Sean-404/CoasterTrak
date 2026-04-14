@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 
 type WishlistItem = {
@@ -33,14 +33,14 @@ export default function WishlistPage() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setLoading(false); return; }
 
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { setLoading(false); return; }
-      setUserId(data.user.id);
+    void getSupabaseUserSafe().then(async (user) => {
+      if (!user) { setLoading(false); return; }
+      setUserId(user.id);
 
       const { data: rows, error } = await supabase
         .from("wishlist")
         .select("coaster_id, coasters(name, wikidata_id, coaster_type, manufacturer, status, parks(name))")
-        .eq("user_id", data.user.id)
+        .eq("user_id", user.id)
         .order("coaster_id");
 
       if (error) setToast("Failed to load wishlist. Please refresh.");
@@ -49,9 +49,6 @@ export default function WishlistPage() {
         coasters: item.coasters ? applyCoasterKnownFixes(item.coasters) : null,
       }));
       setItems(mapped);
-      setLoading(false);
-    }).catch(() => {
-      setToast("Failed to load wishlist. Please refresh.");
       setLoading(false);
     });
   }, []);

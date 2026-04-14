@@ -7,7 +7,7 @@ import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
@@ -50,16 +50,16 @@ export default function StatsPage() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setLoading(false); return; }
 
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { setLoading(false); return; }
-      setUserId(data.user.id);
+    void getSupabaseUserSafe().then(async (user) => {
+      if (!user) { setLoading(false); return; }
+      setUserId(user.id);
 
       const ridesRes = await supabase
         .from("rides")
         .select(
           "coaster_id, coasters(name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
         )
-        .eq("user_id", data.user.id);
+        .eq("user_id", user.id);
 
       if (ridesRes.error) {
         setFetchError(true);
@@ -72,9 +72,6 @@ export default function StatsPage() {
           coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
         })),
       );
-      setLoading(false);
-    }).catch(() => {
-      setFetchError(true);
       setLoading(false);
     });
   }, []);

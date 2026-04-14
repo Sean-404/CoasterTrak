@@ -9,10 +9,11 @@ const csp = [
   "img-src 'self' data: https:",
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
-  `script-src 'self'${isDev ? " 'unsafe-eval'" : ""}`,
-  "connect-src 'self' https:",
+  // Next.js injects small inline bootstrap/data scripts unless CSP nonces are wired up.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  isDev ? "connect-src 'self' http: https: ws: wss:" : "connect-src 'self' https: wss:",
   "form-action 'self'",
-  "upgrade-insecure-requests",
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const nextConfig: NextConfig = {

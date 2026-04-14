@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 type Status = "loading" | "idle" | "loading-wishlist" | "loading-ridden" | "wishlisted" | "ridden" | "error";
 
@@ -22,9 +22,9 @@ export function CoasterActions({
     async function check() {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) { setStatus("idle"); return; }
-      const { data: userData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-      if (!userData.user || cancelled) { setStatus("idle"); return; }
-      const uid = userData.user.id;
+      const user = await getSupabaseUserSafe();
+      if (!user || cancelled) { setStatus("idle"); return; }
+      const uid = user.id;
 
       const [ridesRes, wishRes] = await Promise.all([
         supabase.from("rides").select("id").eq("user_id", uid).eq("coaster_id", coasterId).maybeSingle(),
@@ -43,9 +43,9 @@ export function CoasterActions({
   async function withUser(action: (userId: string) => Promise<void>) {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setStatus("error"); setErrorMsg("Supabase not configured."); return; }
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) { setStatus("error"); setErrorMsg("Sign in to track rides."); return; }
-    await action(data.user.id);
+    const user = await getSupabaseUserSafe();
+    if (!user) { setStatus("error"); setErrorMsg("Sign in to track rides."); return; }
+    await action(user.id);
   }
 
   async function addWishlist() {

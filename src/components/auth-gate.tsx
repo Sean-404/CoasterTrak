@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -15,10 +15,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    supabase.auth.getUser().then(({ data }) => {
-      setIsAuthed(Boolean(data.user));
-      setLoading(false);
-    }).catch(() => {
+    void getSupabaseUserSafe().then((user) => {
+      setIsAuthed(Boolean(user));
       setLoading(false);
     });
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 export function SiteHeader() {
   const [isAuthed, setIsAuthed] = useState(false);
@@ -12,9 +12,9 @@ export function SiteHeader() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
 
-    supabase.auth.getUser().then(({ data }) => {
-      setIsAuthed(Boolean(data.user));
-    }).catch(() => {});
+    void getSupabaseUserSafe().then((user) => {
+      setIsAuthed(Boolean(user));
+    });
 
     const {
       data: { subscription },
