@@ -73,6 +73,19 @@ export function effectiveCoasterType(
   manufacturer: string | null | undefined,
 ): string {
   const t = (coasterType ?? "").trim();
+  const normalized = t.toLowerCase();
+  const looksLowConfidenceFamilyType =
+    normalized.includes("family") ||
+    normalized.includes("kiddie") ||
+    normalized.includes("kiddy") ||
+    normalized.includes("junior") ||
+    normalized.includes("powered");
+
+  if (looksLowConfidenceFamilyType) {
+    const inferred = inferCoasterType(undefined, manufacturer);
+    if (inferred) return inferred;
+  }
+
   // Queue-Times imports often use "Other" as a catch-all even when manufacturer
   // clearly implies a concrete type (e.g. RMC -> Hybrid).
   if (t && t !== "Unknown" && t !== "Other") return t;

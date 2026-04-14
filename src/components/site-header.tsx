@@ -43,6 +43,9 @@ export function SiteHeader() {
       <Link href="/stats" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Stats
       </Link>
+      <Link href="/friends" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
+        Friends
+      </Link>
       <Link href="/achievements" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Achievements
       </Link>

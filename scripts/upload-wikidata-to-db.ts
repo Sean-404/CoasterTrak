@@ -73,9 +73,9 @@ type CoasterUpdate = {
   external_source: "wikidata";
   external_id: string;
   last_synced_at: string;
-  length_ft: number | null;
-  speed_mph: number | null;
-  height_ft: number | null;
+  length_ft?: number;
+  speed_mph?: number;
+  height_ft?: number;
   inversions?: number;       // omit rather than null — never wipe existing value
   duration_s?: number;
   opening_year?: number;
@@ -644,11 +644,11 @@ async function main() {
       external_source: "wikidata",
       external_id: wd.wikidataId,
       last_synced_at: new Date().toISOString(),
-      // Only write numeric fields when Wikidata actually has a value —
-      // never overwrite an existing DB value with null.
-      length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
-      speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
-      height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
+      // Only write numeric fields when Wikidata actually has a value.
+      // Omitting fields preserves existing DB values.
+      length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : undefined,
+      speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : undefined,
+      height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : undefined,
       inversions: wd.inversions ?? undefined,
       duration_s:
         wd.durationS != null ? Math.round(wd.durationS) : undefined,
