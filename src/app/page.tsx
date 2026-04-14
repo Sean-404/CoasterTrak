@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AuthErrorHandler } from "@/components/auth-error-handler";
+import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteHeader } from "@/components/site-header";
 
 export default function Home() {
@@ -33,20 +34,7 @@ export default function Home() {
           <p className="mt-5 max-w-lg text-lg text-slate-300">
             Explore parks worldwide on an interactive map, build your bucket list, and track your coaster stats.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/map"
-              className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-amber-400 active:scale-95"
-            >
-              Open map &rarr;
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
-            >
-              Create account
-            </Link>
-          </div>
+          <HomeHeroCtas />
         </div>
       </section>
 
