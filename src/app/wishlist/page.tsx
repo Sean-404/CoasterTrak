@@ -62,21 +62,22 @@ const WishlistRow = memo(function WishlistRow({
 
   return (
     <li
-      className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+      className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-5"
       style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}
     >
       <div className="flex min-w-0 items-start gap-3">
         <CoasterThumbnail
           name={coasterName}
           imageUrl={coaster?.image_url}
+          sizeClassName="h-12 w-12 sm:h-14 sm:w-14"
           showMissingLabel
         />
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-slate-900">
+        <div className="min-w-0 flex-1">
+          <p className="break-words font-semibold leading-snug text-slate-900">
             {coasterName}
           </p>
           {coaster?.parks?.name && (
-            <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
+            <p className="mt-0.5 break-words text-sm text-slate-500">{coaster.parks.name}</p>
           )}
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {typeLabel !== "Unknown" && (
@@ -99,18 +100,18 @@ const WishlistRow = memo(function WishlistRow({
           </div>
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div className="flex w-full flex-wrap gap-2 sm:mt-0 sm:w-auto sm:flex-nowrap sm:shrink-0">
         <button
           onClick={() => onMarkRidden(item.coaster_id)}
           disabled={!!busy}
-          className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+          className="flex-1 whitespace-nowrap rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50 sm:flex-none"
         >
           {busy === "ridden" ? "Saving\u2026" : "Mark ridden"}
         </button>
         <button
           onClick={() => onRemoveFromWishlist(item.coaster_id)}
           disabled={!!busy}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-500 transition hover:border-red-300 hover:text-red-500 disabled:opacity-50"
+          className="flex-1 whitespace-nowrap rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-500 transition hover:border-red-300 hover:text-red-500 disabled:opacity-50 sm:flex-none"
         >
           {busy === "removing" ? "Removing\u2026" : "Remove"}
         </button>
@@ -336,9 +337,9 @@ export default function WishlistPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-3xl p-6">
+      <main className="mx-auto max-w-3xl p-4 sm:p-6">
         <AuthGate>
-          <div className="mb-6 flex items-center justify-between">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Your wishlist</h1>
               {!loading && items.length > 0 && (
@@ -348,7 +349,7 @@ export default function WishlistPage() {
                 </p>
               )}
             </div>
-            <Link href="/map" className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
+            <Link href="/map" className="inline-flex w-fit rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
               Find more &rarr;
             </Link>
           </div>
@@ -364,7 +365,7 @@ export default function WishlistPage() {
                 />
                 Include kiddie / family-style rides
               </label>
-              <div className="flex items-center gap-2">
+              <div className="flex w-full items-center gap-2 sm:w-auto">
                 <label htmlFor="wishlist-sort" className="text-sm font-medium text-slate-600">
                   Sort by
                 </label>
@@ -372,7 +373,7 @@ export default function WishlistPage() {
                   id="wishlist-sort"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as WishlistSort)}
-                  className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 sm:flex-none"
                 >
                   <option value="added_desc">Added (newest)</option>
                   <option value="added_asc">Added (oldest)</option>

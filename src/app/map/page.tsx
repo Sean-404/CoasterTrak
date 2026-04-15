@@ -834,7 +834,7 @@ export default function MapPage() {
           />
         ) : (
         <div className="mb-4 flex flex-col gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <input
               value={searchInput}
               onChange={(e) => {
@@ -843,39 +843,43 @@ export default function MapPage() {
               }}
               placeholder="Search by park or coaster…"
               aria-label="Search by park or coaster"
-              className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
+              className="w-full min-w-0 rounded border border-slate-300 px-3 py-2 sm:w-80"
             />
-            <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
-              <button
-                type="button"
-                onClick={() => setViewMode("map")}
-                aria-pressed={viewMode === "map"}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === "map"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Map
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode("list");
-                  setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
-                }}
-                aria-pressed={viewMode === "list"}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewMode === "list"
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                List
-              </button>
-            </div>
-            <div className="ml-auto shrink-0">
-              <UnitsToggle units={units} onChange={setUnits} />
+            <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center sm:gap-3">
+              <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("map")}
+                  aria-pressed={viewMode === "map"}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    viewMode === "map"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Map
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode("list");
+                    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                  }}
+                  aria-pressed={viewMode === "list"}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    viewMode === "list"
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  List
+                </button>
+              </div>
+              <div className="w-full overflow-x-auto sm:w-auto">
+                <div className="inline-block min-w-max">
+                  <UnitsToggle units={units} onChange={setUnits} />
+                </div>
+              </div>
             </div>
           </div>
           {viewMode === "list" ? (

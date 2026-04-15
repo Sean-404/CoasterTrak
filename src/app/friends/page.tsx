@@ -225,7 +225,7 @@ function comparisonTag(
   trend: StatTrend,
 ): string | null {
   if (sideValue == null || otherValue == null) return null;
-  if (sideValue === otherValue) return null;
+  if (sideValue === otherValue) return "TIED";
   const better = sideValue > otherValue;
   if (trend === "faster") return better ? "FASTER" : "SLOWER";
   if (trend === "longer") return better ? "LONGER" : "SHORTER";
@@ -783,18 +783,27 @@ export default function FriendsPage() {
                         <p className="text-sm font-semibold text-slate-900">
                           You vs {profileLabel(comparedFriendProfile, activeCompareUserId)}
                         </p>
-                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div className="mt-3 grid gap-2 md:grid-cols-2 md:gap-3">
                           <div className="flex h-full flex-col rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">You</p>
-                            <p className="mt-2 text-sm text-slate-700 break-words">Country: {countryNameFromCode(myProfile?.country_code)}</p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">Favorite ride: {coasterLabel(myProfile?.favorite_ride_id != null ? coastersById[myProfile.favorite_ride_id] : null)}</p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">Favorite park: {parkLabel(myProfile?.favorite_park_id != null ? parksById[myProfile.favorite_park_id] : null)}</p>
+                            <p className="mt-2 text-sm text-slate-700 break-words">
+                              <span className="font-semibold text-slate-800">Country:</span>{" "}
+                              {countryNameFromCode(myProfile?.country_code)}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-700 break-words">
+                              <span className="font-semibold text-slate-800">Favorite ride:</span>{" "}
+                              {coasterLabel(myProfile?.favorite_ride_id != null ? coastersById[myProfile.favorite_ride_id] : null)}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-700 break-words">
+                              <span className="font-semibold text-slate-800">Favorite park:</span>{" "}
+                              {parkLabel(myProfile?.favorite_park_id != null ? parksById[myProfile.favorite_park_id] : null)}
+                            </p>
                             <div className="mt-4 space-y-3 md:mt-auto">
                               <div className="rounded-md bg-slate-50 p-2">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Core stats</p>
                                 <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
                                   <span className="font-medium text-slate-500">Coasters</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{myStats.coasters}</span>
                                     {comparisonTag(myStats.coasters, comparedFriendStats.coasters, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -803,7 +812,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Parks</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{myStats.parks}</span>
                                     {comparisonTag(myStats.parks, comparedFriendStats.parks, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -812,7 +821,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Countries</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{myStats.countries}</span>
                                     {comparisonTag(myStats.countries, comparedFriendStats.countries, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -826,7 +835,7 @@ export default function FriendsPage() {
                                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Performance records</p>
                                 <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
                                   <span className="font-medium text-slate-500">Fastest</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(myStats.fastestMph, "mph")}</span>
                                     {comparisonTag(myStats.fastestMph, comparedFriendStats.fastestMph, "faster") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -835,7 +844,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Tallest</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(myStats.tallestFt, "ft")}</span>
                                     {comparisonTag(myStats.tallestFt, comparedFriendStats.tallestFt, "higher") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -844,7 +853,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Longest</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(myStats.longestFt, "ft")}</span>
                                     {comparisonTag(myStats.longestFt, comparedFriendStats.longestFt, "longer") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -853,7 +862,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Most inversions</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(myStats.mostInversions)}</span>
                                     {comparisonTag(myStats.mostInversions, comparedFriendStats.mostInversions, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -862,7 +871,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Longest ride</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{durationLabel(myStats.longestDurationS)}</span>
                                     {comparisonTag(myStats.longestDurationS, comparedFriendStats.longestDurationS, "longer") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -879,15 +888,24 @@ export default function FriendsPage() {
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                               {profileLabel(comparedFriendProfile, activeCompareUserId)}
                             </p>
-                            <p className="mt-2 text-sm text-slate-700 break-words">Country: {countryNameFromCode(comparedFriendProfile.country_code)}</p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">Favorite ride: {coasterLabel(comparedFriendProfile.favorite_ride_id != null ? coastersById[comparedFriendProfile.favorite_ride_id] : null)}</p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">Favorite park: {parkLabel(comparedFriendProfile.favorite_park_id != null ? parksById[comparedFriendProfile.favorite_park_id] : null)}</p>
+                            <p className="mt-2 text-sm text-slate-700 break-words">
+                              <span className="font-semibold text-slate-800">Country:</span>{" "}
+                              {countryNameFromCode(comparedFriendProfile.country_code)}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-700 break-words">
+                              <span className="font-semibold text-slate-800">Favorite ride:</span>{" "}
+                              {coasterLabel(comparedFriendProfile.favorite_ride_id != null ? coastersById[comparedFriendProfile.favorite_ride_id] : null)}
+                            </p>
+                            <p className="mt-1 text-sm text-slate-700 break-words">
+                              <span className="font-semibold text-slate-800">Favorite park:</span>{" "}
+                              {parkLabel(comparedFriendProfile.favorite_park_id != null ? parksById[comparedFriendProfile.favorite_park_id] : null)}
+                            </p>
                             <div className="mt-4 space-y-3 md:mt-auto">
                               <div className="rounded-md bg-slate-50 p-2">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Core stats</p>
                                 <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
                                   <span className="font-medium text-slate-500">Coasters</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{comparedFriendStats.coasters}</span>
                                     {comparisonTag(comparedFriendStats.coasters, myStats.coasters, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -896,7 +914,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Parks</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{comparedFriendStats.parks}</span>
                                     {comparisonTag(comparedFriendStats.parks, myStats.parks, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -905,7 +923,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Countries</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{comparedFriendStats.countries}</span>
                                     {comparisonTag(comparedFriendStats.countries, myStats.countries, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -919,7 +937,7 @@ export default function FriendsPage() {
                                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Performance records</p>
                                 <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
                                   <span className="font-medium text-slate-500">Fastest</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(comparedFriendStats.fastestMph, "mph")}</span>
                                     {comparisonTag(comparedFriendStats.fastestMph, myStats.fastestMph, "faster") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -928,7 +946,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Tallest</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(comparedFriendStats.tallestFt, "ft")}</span>
                                     {comparisonTag(comparedFriendStats.tallestFt, myStats.tallestFt, "higher") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -937,7 +955,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Longest</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(comparedFriendStats.longestFt, "ft")}</span>
                                     {comparisonTag(comparedFriendStats.longestFt, myStats.longestFt, "longer") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -946,7 +964,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Most inversions</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{metricLabel(comparedFriendStats.mostInversions)}</span>
                                     {comparisonTag(comparedFriendStats.mostInversions, myStats.mostInversions, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
@@ -955,7 +973,7 @@ export default function FriendsPage() {
                                     )}
                                   </span>
                                   <span className="font-medium text-slate-500">Longest ride</span>
-                                  <span className="flex items-center justify-between gap-2">
+                                  <span className="flex items-center justify-end gap-2">
                                     <span>{durationLabel(comparedFriendStats.longestDurationS)}</span>
                                     {comparisonTag(comparedFriendStats.longestDurationS, myStats.longestDurationS, "longer") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
