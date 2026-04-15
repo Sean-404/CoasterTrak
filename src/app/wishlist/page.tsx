@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
@@ -40,8 +40,102 @@ type WishlistSort =
   | "park_az"
   | "park_za";
 
-function imageFallbackKey(parkId: number, coasterName: string): string {
-  return `${parkId}:${normalizeCoasterDedupKey(coasterName)}`;
+type WishlistRowProps = {
+  item: WishlistItem;
+  busy: "ridden" | "removing" | null;
+  onMarkRidden: (coasterId: number) => void;
+  onRemoveFromWishlist: (coasterId: number) => void;
+};
+
+const WishlistRow = memo(function WishlistRow({
+  item,
+  busy,
+  onMarkRidden,
+  onRemoveFromWishlist,
+}: WishlistRowProps) {
+  const coaster = item.coasters;
+  const coasterName = cleanCoasterName(coaster?.name ?? `Coaster ${item.coaster_id}`);
+  const typeLabel = coaster
+    ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
+    : "Unknown";
+  const lifecycle = normalizeLifecycleStatus(coaster?.status);
+
+  return (
+    <li
+      className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <CoasterThumbnail
+          name={coasterName}
+          imageUrl={coaster?.image_url}
+          showMissingLabel
+        />
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-slate-900">
+            {coasterName}
+          </p>
+          {coaster?.parks?.name && (
+            <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
+          )}
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {typeLabel !== "Unknown" && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                {typeLabel}
+              </span>
+            )}
+            {coaster?.manufacturer && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                {coaster.manufacturer}
+              </span>
+            )}
+            {coaster?.status && (
+              lifecycle === "Defunct" && (
+                <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
+                  Defunct
+                </span>
+              )
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <button
+          onClick={() => onMarkRidden(item.coaster_id)}
+          disabled={!!busy}
+          className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+        >
+          {busy === "ridden" ? "Saving\u2026" : "Mark ridden"}
+        </button>
+        <button
+          onClick={() => onRemoveFromWishlist(item.coaster_id)}
+          disabled={!!busy}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-500 transition hover:border-red-300 hover:text-red-500 disabled:opacity-50"
+        >
+          {busy === "removing" ? "Removing\u2026" : "Remove"}
+        </button>
+      </div>
+    </li>
+  );
+}, (prev, next) =>
+  prev.item === next.item &&
+  prev.busy === next.busy &&
+  prev.onMarkRidden === next.onMarkRidden &&
+  prev.onRemoveFromWishlist === next.onRemoveFromWishlist
+);
+
+function imageFallbackKeys(parkId: number, coasterName: string): string[] {
+  const base = normalizeCoasterDedupKey(coasterName);
+  const keys = new Set<string>([`${parkId}:${base}`]);
+  const stripped = base
+    .replace(/megacoaster$/i, "")
+    .replace(/hypercoaster$/i, "")
+    .replace(/gigacoaster$/i, "")
+    .replace(/stratacoaster$/i, "")
+    .replace(/rollercoaster$/i, "")
+    .replace(/coaster$/i, "");
+  if (stripped && stripped !== base) keys.add(`${parkId}:${stripped}`);
+  return [...keys];
 }
 
 async function fillMissingWishlistImages(
@@ -54,26 +148,58 @@ async function fillMissingWishlistImages(
   if (missing.length === 0) return rows;
 
   const parkIds = [...new Set(missing.map((r) => r.coasters!.park_id!))];
-  const names = [...new Set(missing.map((r) => r.coasters!.name))];
-  const { data, error } = await supabase
-    .from("coasters")
-    .select("park_id, name, image_url")
-    .in("park_id", parkIds)
-    .in("name", names)
-    .not("image_url", "is", null);
-  if (error || !data?.length) return rows;
+  const wikidataIds = [
+    ...new Set(
+      missing
+        .map((r) => r.coasters?.wikidata_id?.trim().toUpperCase())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const [parkScopedRes, wikidataRes] = await Promise.all([
+    supabase
+      .from("coasters")
+      .select("park_id, name, wikidata_id, image_url")
+      .in("park_id", parkIds)
+      .not("image_url", "is", null),
+    wikidataIds.length > 0
+      ? supabase
+          .from("coasters")
+          .select("park_id, name, wikidata_id, image_url")
+          .in("wikidata_id", wikidataIds)
+          .not("image_url", "is", null)
+      : Promise.resolve({
+          data: [] as Array<{ park_id: number; name: string; wikidata_id: string | null; image_url: string | null }>,
+          error: null,
+        }),
+  ]);
+  if (parkScopedRes.error) return rows;
+  if (wikidataRes.error) return rows;
+  const data = [...(parkScopedRes.data ?? []), ...(wikidataRes.data ?? [])];
+  if (data.length === 0) return rows;
 
   const imageByKey = new Map<string, string>();
-  for (const entry of data as Array<{ park_id: number; name: string; image_url: string | null }>) {
+  const imageByWikidataId = new Map<string, string>();
+  for (const entry of data as Array<{ park_id: number; name: string; wikidata_id: string | null; image_url: string | null }>) {
     if (!entry.image_url) continue;
-    const key = imageFallbackKey(entry.park_id, entry.name);
-    if (!imageByKey.has(key)) imageByKey.set(key, entry.image_url);
+    const qid = entry.wikidata_id?.trim().toUpperCase();
+    if (qid && !imageByWikidataId.has(qid)) imageByWikidataId.set(qid, entry.image_url);
+    for (const key of imageFallbackKeys(entry.park_id, entry.name)) {
+      if (!imageByKey.has(key)) imageByKey.set(key, entry.image_url);
+    }
   }
 
   return rows.map((r) => {
     const coaster = r.coasters;
     if (!coaster || coaster.image_url || coaster.park_id == null) return r;
-    const fallback = imageByKey.get(imageFallbackKey(coaster.park_id, coaster.name));
+    const qid = coaster.wikidata_id?.trim().toUpperCase();
+    let fallback = qid ? imageByWikidataId.get(qid) : undefined;
+    for (const key of imageFallbackKeys(coaster.park_id, coaster.name)) {
+      const hit = imageByKey.get(key);
+      if (hit) {
+        fallback = hit;
+        break;
+      }
+    }
     if (!fallback) return r;
     return { ...r, coasters: { ...coaster, image_url: fallback } };
   });
@@ -170,7 +296,7 @@ export default function WishlistPage() {
     return sorted;
   }, [filteredItems, sortBy]);
 
-  async function markRidden(coasterId: number) {
+  const markRidden = useCallback(async (coasterId: number) => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId) return;
     setPending((p) => ({ ...p, [coasterId]: "ridden" }));
@@ -189,9 +315,9 @@ export default function WishlistPage() {
     await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
     setItems((prev) => prev.filter((i) => i.coaster_id !== coasterId));
     setPending((p) => ({ ...p, [coasterId]: null }));
-  }
+  }, [userId]);
 
-  async function removeFromWishlist(coasterId: number) {
+  const removeFromWishlist = useCallback(async (coasterId: number) => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId) return;
     setPending((p) => ({ ...p, [coasterId]: "removing" }));
@@ -205,7 +331,7 @@ export default function WishlistPage() {
 
     setItems((prev) => prev.filter((i) => i.coaster_id !== coasterId));
     setPending((p) => ({ ...p, [coasterId]: null }));
-  }
+  }, [userId]);
 
   return (
     <div className="min-h-screen">
@@ -285,70 +411,15 @@ export default function WishlistPage() {
           ) : (
             <ul className="space-y-3">
               {sortedItems.map((item) => {
-                const coaster = item.coasters;
                 const busy = pending[item.coaster_id];
-                const coasterName = cleanCoasterName(coaster?.name ?? `Coaster ${item.coaster_id}`);
-                const typeLabel = coaster
-                  ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
-                  : "Unknown";
-                const lifecycle = normalizeLifecycleStatus(coaster?.status);
                 return (
-                  <li
+                  <WishlistRow
                     key={item.coaster_id}
-                    className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm"
-                    style={{ contentVisibility: "auto", containIntrinsicSize: "96px" }}
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <CoasterThumbnail
-                        name={coasterName}
-                        imageUrl={coaster?.image_url}
-                        showMissingLabel
-                      />
-                      <div className="min-w-0">
-                      <p className="truncate font-semibold text-slate-900">
-                        {coasterName}
-                      </p>
-                      {coaster?.parks?.name && (
-                        <p className="mt-0.5 truncate text-sm text-slate-500">{coaster.parks.name}</p>
-                      )}
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {typeLabel !== "Unknown" && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                            {typeLabel}
-                          </span>
-                        )}
-                        {coaster?.manufacturer && (
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                            {coaster.manufacturer}
-                          </span>
-                        )}
-                        {coaster?.status && (
-                          lifecycle === "Defunct" && (
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-600">
-                              Defunct
-                            </span>
-                          )
-                        )}
-                      </div>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        onClick={() => markRidden(item.coaster_id)}
-                        disabled={!!busy}
-                        className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
-                      >
-                        {busy === "ridden" ? "Saving\u2026" : "Mark ridden"}
-                      </button>
-                      <button
-                        onClick={() => removeFromWishlist(item.coaster_id)}
-                        disabled={!!busy}
-                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-500 transition hover:border-red-300 hover:text-red-500 disabled:opacity-50"
-                      >
-                        {busy === "removing" ? "Removing\u2026" : "Remove"}
-                      </button>
-                    </div>
-                  </li>
+                    item={item}
+                    busy={busy ?? null}
+                    onMarkRidden={markRidden}
+                    onRemoveFromWishlist={removeFromWishlist}
+                  />
                 );
               })}
             </ul>

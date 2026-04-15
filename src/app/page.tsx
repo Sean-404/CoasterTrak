@@ -11,7 +11,7 @@ export default function Home() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-slate-950 pb-24 pt-20 text-white">
+      <section className="relative overflow-hidden bg-slate-950 pb-20 pt-16 text-white sm:pb-24 sm:pt-20">
         {/* Background image */}
         <Image
           src="/coaster-hero.png"
@@ -27,9 +27,9 @@ export default function Home() {
           <div className="inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-amber-400">
             Your ride tracker
           </div>
-          <h1 className="font-bungee mt-4 text-5xl leading-tight text-white sm:text-6xl lg:text-7xl">
+          <h1 className="font-bungee mt-4 text-4xl leading-tight text-white sm:text-6xl lg:text-7xl">
             Track Every<br />
-            <span className="text-amber-400">Rollercoaster</span>
+            <span className="break-words text-amber-400">Roller Coaster</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
             Explore parks worldwide on an interactive map, build your bucket list, and track your coaster stats.

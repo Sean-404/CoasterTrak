@@ -61,6 +61,10 @@ create table if not exists profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
   country_code text,
+  favorite_ride text,
+  favorite_ride_id bigint references coasters(id) on delete set null,
+  favorite_park text,
+  favorite_park_id bigint references parks(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -192,6 +196,14 @@ for each row
 execute function public.touch_friendships_updated_at();
 
 alter table profiles
+  add column if not exists favorite_ride text;
+alter table profiles
+  add column if not exists favorite_ride_id bigint references coasters(id) on delete set null;
+alter table profiles
+  add column if not exists favorite_park text;
+alter table profiles
+  add column if not exists favorite_park_id bigint references parks(id) on delete set null;
+alter table profiles
   drop constraint if exists profiles_display_name_allowed;
 alter table profiles
   add constraint profiles_display_name_allowed
@@ -202,6 +214,16 @@ alter table profiles
 alter table profiles
   add constraint profiles_country_code_format
   check (country_code is null or country_code ~ '^[A-Z]{2}$');
+alter table profiles
+  drop constraint if exists profiles_favorite_ride_length;
+alter table profiles
+  add constraint profiles_favorite_ride_length
+  check (favorite_ride is null or char_length(btrim(favorite_ride)) between 1 and 80);
+alter table profiles
+  drop constraint if exists profiles_favorite_park_length;
+alter table profiles
+  add constraint profiles_favorite_park_length
+  check (favorite_park is null or char_length(btrim(favorite_park)) between 1 and 80);
 
 alter table friendships
   drop constraint if exists friendships_not_self;
@@ -230,6 +252,8 @@ create index if not exists idx_rides_user_id on rides(user_id);
 create index if not exists idx_rides_coaster_id on rides(coaster_id);
 create index if not exists idx_wishlist_coaster_id on wishlist(coaster_id);
 create index if not exists idx_profiles_display_name on profiles(display_name);
+create index if not exists idx_profiles_favorite_ride_id on profiles(favorite_ride_id);
+create index if not exists idx_profiles_favorite_park_id on profiles(favorite_park_id);
 create unique index if not exists profiles_display_name_lower_uidx
   on profiles (lower(display_name))
   where display_name is not null;
@@ -314,7 +338,21 @@ drop policy if exists "public can read coasters" on coasters;
 create policy "public can read coasters" on coasters for select using (true);
 
 drop policy if exists "users can read own rides" on rides;
-create policy "users can read own rides" on rides for select using (auth.uid() = user_id);
+drop policy if exists "users can read own rides and accepted friends rides" on rides;
+create policy "users can read own rides and accepted friends rides"
+  on rides for select
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1
+      from friendships f
+      where f.status = 'accepted'
+        and (
+          (f.requester_id = auth.uid() and f.addressee_id = rides.user_id)
+          or (f.addressee_id = auth.uid() and f.requester_id = rides.user_id)
+        )
+    )
+  );
 
 drop policy if exists "users can create own rides" on rides;
 create policy "users can create own rides" on rides for insert with check (auth.uid() = user_id);

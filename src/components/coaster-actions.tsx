@@ -5,6 +5,101 @@ import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 type Status = "loading" | "idle" | "loading-wishlist" | "loading-ridden" | "wishlisted" | "ridden" | "error";
 
+type ActionStore = {
+  ready: boolean;
+  userId: string | null;
+  error: string | null;
+  ridden: Set<number>;
+  wishlisted: Set<number>;
+};
+
+const actionStore: ActionStore = {
+  ready: false,
+  userId: null,
+  error: null,
+  ridden: new Set<number>(),
+  wishlisted: new Set<number>(),
+};
+
+let actionStoreInitPromise: Promise<void> | null = null;
+const actionStoreListeners = new Set<() => void>();
+
+function emitActionStoreChange() {
+  for (const listener of actionStoreListeners) listener();
+}
+
+function subscribeActionStore(listener: () => void) {
+  actionStoreListeners.add(listener);
+  return () => {
+    actionStoreListeners.delete(listener);
+  };
+}
+
+async function ensureActionStoreLoaded(forceRefresh = false) {
+  if (actionStore.ready && !forceRefresh) return;
+  if (actionStoreInitPromise) return actionStoreInitPromise;
+
+  actionStoreInitPromise = (async () => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      actionStore.ready = true;
+      actionStore.userId = null;
+      actionStore.error = null;
+      actionStore.ridden = new Set<number>();
+      actionStore.wishlisted = new Set<number>();
+      emitActionStoreChange();
+      return;
+    }
+
+    const user = await getSupabaseUserSafe();
+    if (!user) {
+      actionStore.ready = true;
+      actionStore.userId = null;
+      actionStore.error = null;
+      actionStore.ridden = new Set<number>();
+      actionStore.wishlisted = new Set<number>();
+      emitActionStoreChange();
+      return;
+    }
+
+    const userId = user.id;
+    const [ridesRes, wishRes] = await Promise.all([
+      supabase.from("rides").select("coaster_id").eq("user_id", userId),
+      supabase.from("wishlist").select("coaster_id").eq("user_id", userId),
+    ]);
+    if (ridesRes.error || wishRes.error) {
+      actionStore.ready = true;
+      actionStore.userId = userId;
+      actionStore.error = "Could not load ride state.";
+      emitActionStoreChange();
+      return;
+    }
+
+    actionStore.ready = true;
+    actionStore.userId = userId;
+    actionStore.error = null;
+    actionStore.ridden = new Set((ridesRes.data ?? []).map((row) => row.coaster_id as number));
+    actionStore.wishlisted = new Set((wishRes.data ?? []).map((row) => row.coaster_id as number));
+    emitActionStoreChange();
+  })().finally(() => {
+    actionStoreInitPromise = null;
+  });
+
+  return actionStoreInitPromise;
+}
+
+function setWishlisted(coasterId: number, value: boolean) {
+  if (value) actionStore.wishlisted.add(coasterId);
+  else actionStore.wishlisted.delete(coasterId);
+  emitActionStoreChange();
+}
+
+function setRidden(coasterId: number, value: boolean) {
+  if (value) actionStore.ridden.add(coasterId);
+  else actionStore.ridden.delete(coasterId);
+  emitActionStoreChange();
+}
+
 export function CoasterActions({
   coasterId,
   disableWishlist = false,
@@ -14,48 +109,35 @@ export function CoasterActions({
 }) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
-  const [alreadyRidden, setAlreadyRidden] = useState(false);
-  const [alreadyWishlisted, setAlreadyWishlisted] = useState(false);
+  const [storeTick, setStoreTick] = useState(0);
+
+  const alreadyRidden = actionStore.ridden.has(coasterId);
+  const alreadyWishlisted = actionStore.wishlisted.has(coasterId);
 
   useEffect(() => {
-    let cancelled = false;
-    async function check() {
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) { setStatus("idle"); return; }
-      const user = await getSupabaseUserSafe();
-      if (!user || cancelled) { setStatus("idle"); return; }
-      const uid = user.id;
-
-      const [ridesRes, wishRes] = await Promise.all([
-        supabase.from("rides").select("id").eq("user_id", uid).eq("coaster_id", coasterId).maybeSingle(),
-        supabase
-          .from("wishlist")
-          .select("coaster_id")
-          .eq("user_id", uid)
-          .eq("coaster_id", coasterId)
-          .maybeSingle(),
-      ]);
-
-      if (cancelled) return;
-      if (ridesRes.error || wishRes.error) {
+    const unsubscribe = subscribeActionStore(() => {
+      setStoreTick((x) => x + 1);
+    });
+    // Force one shared refresh when action controls mount so stale cache from other pages
+    // (e.g. removing a ridden ride in stats) doesn't block re-adding here.
+    void ensureActionStoreLoaded(true).then(() => {
+      if (actionStore.error) {
         setStatus("error");
-        setErrorMsg("Could not load ride state.");
-        return;
+        setErrorMsg(actionStore.error);
+      } else {
+        setStatus("idle");
       }
-      if (ridesRes.data) setAlreadyRidden(true);
-      if (wishRes.data) setAlreadyWishlisted(true);
-      setStatus("idle");
-    }
-    check();
-    return () => { cancelled = true; };
-  }, [coasterId]);
+    });
+    return unsubscribe;
+  }, []);
 
   async function withUser(action: (userId: string) => Promise<void>) {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) { setStatus("error"); setErrorMsg("Supabase not configured."); return; }
-    const user = await getSupabaseUserSafe();
-    if (!user) { setStatus("error"); setErrorMsg("Sign in to track rides."); return; }
-    await action(user.id);
+    await ensureActionStoreLoaded();
+    const userId = actionStore.userId;
+    if (!userId) { setStatus("error"); setErrorMsg("Sign in to track rides."); return; }
+    await action(userId);
   }
 
   async function addWishlist() {
@@ -71,7 +153,7 @@ export function CoasterActions({
           { onConflict: "user_id,coaster_id", ignoreDuplicates: true },
         );
       if (error) { setStatus("error"); setErrorMsg(error.message); }
-      else { setStatus("wishlisted"); setAlreadyWishlisted(true); }
+      else { setStatus("wishlisted"); setWishlisted(coasterId, true); }
     });
   }
 
@@ -86,20 +168,21 @@ export function CoasterActions({
       else {
         if (alreadyWishlisted) {
           await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
-          setAlreadyWishlisted(false);
+          setWishlisted(coasterId, false);
         }
-        setStatus("ridden"); setAlreadyRidden(true);
+        setStatus("ridden");
+        setRidden(coasterId, true);
       }
     });
   }
 
-  if (status === "loading") return null;
+  if (status === "loading" || !actionStore.ready) return null;
 
   const busy = status === "loading-wishlist" || status === "loading-ridden";
   const showFeedback = status === "wishlisted" || status === "ridden" || status === "error";
 
   return (
-    <div className="mt-2 min-h-[32px]">
+    <div className="mt-2 min-h-[32px]" data-store-tick={storeTick}>
       {showFeedback ? (
         <p className={`text-xs font-medium ${status === "error" ? "text-red-500" : "text-green-600"}`}>
           {status === "wishlisted" && "Added to wishlist"}

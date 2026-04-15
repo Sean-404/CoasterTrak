@@ -24,15 +24,32 @@ function stripQueueVariantPhrases(s: string): string {
   return t;
 }
 
+/** Strip generic marketing/type suffixes so aliases collapse (e.g. "Blue Fire Megacoaster"). */
+function stripGenericTypeSuffixes(s: string): string {
+  let t = s;
+  t = t.replace(/\s+mega\s*coaster\s*$/i, "").trim();
+  t = t.replace(/\s+hyper\s*coaster\s*$/i, "").trim();
+  t = t.replace(/\s+giga\s*coaster\s*$/i, "").trim();
+  t = t.replace(/\s+strata\s*coaster\s*$/i, "").trim();
+  t = t.replace(/\s+roller\s*coaster\s*$/i, "").trim();
+  t = t.replace(/\s+coaster\s*$/i, "").trim();
+  return t;
+}
+
 /**
  * Map/list dedup: index the same coaster under normalized name and (when present) Wikidata id
  * so "Mayan" and "Fast Pass Mayan Kol Licznik" (Q…) collapse even if only one row has `wikidata_id`.
  */
 export function coasterDedupLookupKeys(c: Coaster): string[] {
-  const nameKey = `${c.park_id}:name:${normalizeCoasterDedupKey(c.name)}`;
+  const primary = normalizeCoasterDedupKey(c.name);
+  const alias = normalizeCoasterAliasKey(c.name);
+  const keySet = new Set<string>([
+    `${c.park_id}:name:${primary}`,
+    `${c.park_id}:name:${alias}`,
+  ]);
   const wd = c.wikidata_id?.trim().toUpperCase();
-  if (wd) return [nameKey, `${c.park_id}:wd:${wd}`];
-  return [nameKey];
+  if (wd) keySet.add(`${c.park_id}:wd:${wd}`);
+  return [...keySet];
 }
 
 export function coastersShareDedupBucket(a: Coaster, b: Coaster): boolean {
@@ -53,6 +70,17 @@ export function normalizeCoasterDedupKey(raw: string): string {
   s = s.replace(/\s*\(steel\)\s*/gi, " ");
   s = s.replace(/\s*\(wooden\)\s*/gi, " ");
   s = s.replace(/\s*\(wood\)\s*/gi, " ");
+  s = s.replace(/\s+/g, " ").trim();
+  return s.replace(/[^a-z0-9]/g, "");
+}
+
+function normalizeCoasterAliasKey(raw: string): string {
+  let s = cleanCoasterName(raw).toLowerCase();
+  s = stripQueueVariantPhrases(s);
+  s = stripGenericTypeSuffixes(s);
+  s = s.replace(/[™®©]/g, "");
+  s = s.replace(/^the\s+/i, "").trim();
+  s = s.replace(/\bth13teen\b/gi, "thirteen");
   s = s.replace(/\s+/g, " ").trim();
   return s.replace(/[^a-z0-9]/g, "");
 }
@@ -88,6 +116,10 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
   const sa = statsCount(a);
   const sb = statsCount(b);
   if (sa !== sb) return sa >= sb ? a : b;
+
+  const aHasImage = Boolean(a.image_url);
+  const bHasImage = Boolean(b.image_url);
+  if (aHasImage !== bHasImage) return aHasImage ? a : b;
 
   const singleRider = (n: string) => /\bsingle\s+rider\b/i.test(n);
   if (singleRider(a.name) !== singleRider(b.name)) return singleRider(a.name) ? b : a;

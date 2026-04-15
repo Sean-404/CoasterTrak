@@ -47,6 +47,17 @@ export type AchievementEval = {
   rarity: AchievementRarity;
 };
 
+export type AchievementMetrics = {
+  friendCount: number;
+  /** Accepted friend timestamps (oldest → newest), used for friend-achievement unlock times. */
+  friendAcceptedAt: string[];
+};
+
+const DEFAULT_METRICS: AchievementMetrics = {
+  friendCount: 0,
+  friendAcceptedAt: [],
+};
+
 function norm(s: string | null | undefined): string {
   return (s ?? "").trim();
 }
@@ -297,12 +308,15 @@ type Def = {
   description: string;
   dataNote?: string;
   target: number;
-  current: (rides: AchievementRide[]) => number;
+  current: (rides: AchievementRide[], metrics: AchievementMetrics) => number;
 };
 
 /** Per-achievement rarity for UI badges (defaults to common if omitted). */
 const RARITY: Partial<Record<string, AchievementRarity>> = {
   first_credit: "common",
+  friends_1: "common",
+  friends_5: "rare",
+  friends_10: "epic",
   credits_3: "common",
   credits_5: "common",
   wood_1: "common",
@@ -347,7 +361,7 @@ const RARITY: Partial<Record<string, AchievementRarity>> = {
   countries_5: "rare",
   countries_10: "epic",
   continents_3: "epic",
-  length_two_miles: "legendary",
+  length_five_miles: "legendary",
   duration_two_hours: "legendary",
   inversions_sum_500: "legendary",
   single_coaster_10_inversions: "epic",
@@ -365,6 +379,27 @@ const DEFINITIONS: Def[] = [
     description: "Log your first coaster.",
     target: 1,
     current: (rides) => rides.length,
+  },
+  {
+    id: "friends_1",
+    title: "First connection",
+    description: "Add your first friend.",
+    target: 1,
+    current: (_rides, metrics) => metrics.friendCount,
+  },
+  {
+    id: "friends_5",
+    title: "Coaster crew",
+    description: "Have 5 accepted friends.",
+    target: 5,
+    current: (_rides, metrics) => metrics.friendCount,
+  },
+  {
+    id: "friends_10",
+    title: "Social track star",
+    description: "Have 10 accepted friends.",
+    target: 10,
+    current: (_rides, metrics) => metrics.friendCount,
   },
   {
     id: "credits_3",
@@ -688,10 +723,10 @@ const DEFINITIONS: Def[] = [
     dataNote: "Continents are inferred from country names in the catalog; unmapped countries do not count.",
   },
   {
-    id: "length_two_miles",
-    title: "Two-mile track",
-    description: "Ride at least 10,560 ft of track in total (two miles, sum of credited coasters).",
-    target: 10560,
+    id: "length_five_miles",
+    title: "Five-mile track",
+    description: "Ride at least 26,400 ft of track in total (five miles, sum of credited coasters).",
+    target: 26400,
     current: (rides) => sumField(rides, "length_ft"),
     dataNote: "Sums length only for coasters with length data.",
   },
@@ -741,10 +776,13 @@ function ridesWithCatalogFixes(rides: AchievementRide[]): AchievementRide[] {
   }));
 }
 
-export function evaluateAchievements(uniqueRides: AchievementRide[]): AchievementEval[] {
+export function evaluateAchievements(
+  uniqueRides: AchievementRide[],
+  metrics: AchievementMetrics = DEFAULT_METRICS,
+): AchievementEval[] {
   const rides = ridesWithCatalogFixes(uniqueRides);
   return DEFINITIONS.map((d) => {
-    const raw = d.current(rides);
+    const raw = d.current(rides, metrics);
     const current = Math.max(0, raw);
     const unlocked = current >= d.target;
     return {
@@ -806,13 +844,29 @@ function unlockTimestampsByAchievementId(chronological: AchievementRide[]): Map<
 }
 
 /** Full metrics from all credits, plus `unlockedAt` from chronological simulation when `ridden_at` is present. */
-export function evaluateAchievementsWithUnlockTimes(rides: AchievementRide[]): AchievementEval[] {
+export function evaluateAchievementsWithUnlockTimes(
+  rides: AchievementRide[],
+  metrics: AchievementMetrics = DEFAULT_METRICS,
+): AchievementEval[] {
   const chronological = ridesChronologicalUnique(rides);
-  const evals = evaluateAchievements(chronological);
+  const evals = evaluateAchievements(chronological, metrics);
   const ts = unlockTimestampsByAchievementId(chronological);
+  const friendUnlockIndexById: Partial<Record<string, number>> = {
+    friends_1: 0,
+    friends_5: 4,
+    friends_10: 9,
+  };
+  const friendUnlockTimes = metrics.friendAcceptedAt;
   return evals.map((e) => ({
     ...e,
-    unlockedAt: e.unlocked ? ts.get(e.id) ?? null : null,
+    unlockedAt: (() => {
+      if (!e.unlocked) return null;
+      const rideDerived = ts.get(e.id);
+      if (rideDerived) return rideDerived;
+      const friendIndex = friendUnlockIndexById[e.id];
+      if (friendIndex == null) return null;
+      return friendUnlockTimes[friendIndex] ?? null;
+    })(),
   }));
 }
 

@@ -22,6 +22,9 @@ type CoasterThumbnailProps = {
 };
 
 const FALLBACK_SWATCH = { bg: "#dbeafe", fg: "#1d4ed8", border: "#93c5fd" } as const;
+type ImageStatus = "idle" | "loading" | "loaded" | "error";
+const IMAGE_STATUS_CACHE = new Map<string, Exclude<ImageStatus, "idle" | "loading">>();
+const IMAGE_REQUESTED_URLS = new Set<string>();
 
 export const CoasterThumbnail = memo(function CoasterThumbnail({
   name,
@@ -31,14 +34,74 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
   showMissingLabel = false,
   onPreview,
 }: CoasterThumbnailProps) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
+  const [imageStatus, setImageStatus] = useState<ImageStatus>(() => {
+    if (!imageUrl) return "idle";
+    const cached = IMAGE_STATUS_CACHE.get(imageUrl);
+    return cached ?? "loading";
+  });
+  const [isNearViewport, setIsNearViewport] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const openedFromPointerRef = useRef(false);
   const safeUrl = imageUrl ?? null;
-  const showImage = Boolean(safeUrl) && failedUrl !== safeUrl;
+  const canStartLoading =
+    Boolean(safeUrl) &&
+    (isNearViewport ||
+      Boolean(safeUrl && (IMAGE_STATUS_CACHE.has(safeUrl) || IMAGE_REQUESTED_URLS.has(safeUrl))));
+  const showImage =
+    Boolean(safeUrl) &&
+    canStartLoading &&
+    (imageStatus === "loading" || imageStatus === "loaded");
+  const showUnavailableFallback = !safeUrl || imageStatus === "error";
   const trimmed = name.trim();
   const canPortal = typeof window !== "undefined";
   const fallbackSwatch = FALLBACK_SWATCH;
+
+  useEffect(() => {
+    setIsNearViewport(false);
+  }, [safeUrl]);
+
+  useEffect(() => {
+    if (!safeUrl || imageStatus === "loaded") return;
+    if (typeof window === "undefined") return;
+    const node = containerRef.current;
+    if (!node || typeof window.IntersectionObserver === "undefined") {
+      setIsNearViewport(true);
+      return;
+    }
+    let cancelled = false;
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+          if (!cancelled) setIsNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "240px 0px" },
+    );
+    observer.observe(node);
+    return () => {
+      cancelled = true;
+      observer.disconnect();
+    };
+  }, [safeUrl, imageStatus]);
+
+  useEffect(() => {
+    if (!safeUrl) {
+      setImageStatus("idle");
+      return;
+    }
+    const cached = IMAGE_STATUS_CACHE.get(safeUrl);
+    if (cached) {
+      setImageStatus(cached);
+      return;
+    }
+    if (!canStartLoading) setImageStatus("idle");
+    else {
+      IMAGE_REQUESTED_URLS.add(safeUrl);
+      setImageStatus("loading");
+    }
+  }, [safeUrl, canStartLoading]);
 
   useEffect(() => {
     if (!previewOpen) return;
@@ -83,6 +146,9 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
     <>
       {showImage && allowPreview ? (
         <button
+          ref={(node) => {
+            containerRef.current = node;
+          }}
           type="button"
           onPointerDownCapture={handlePointerDownCapture}
           onClick={handleClick}
@@ -95,12 +161,24 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
             loading="lazy"
             decoding="async"
             referrerPolicy="no-referrer"
-            onError={() => setFailedUrl(safeUrl)}
+            onLoad={() => {
+              if (!safeUrl) return;
+              IMAGE_STATUS_CACHE.set(safeUrl, "loaded");
+              setImageStatus("loaded");
+            }}
+            onError={() => {
+              if (!safeUrl) return;
+              IMAGE_STATUS_CACHE.set(safeUrl, "error");
+              setImageStatus("error");
+            }}
             className="h-full w-full object-cover"
           />
         </button>
-      ) : (
+      ) : showUnavailableFallback ? (
         <div
+          ref={(node) => {
+            containerRef.current = node;
+          }}
           className={`${sizeClassName} relative shrink-0 overflow-hidden rounded-lg border`}
           style={{
             backgroundColor: fallbackSwatch.bg,
@@ -116,7 +194,16 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
-              onError={() => setFailedUrl(safeUrl)}
+              onLoad={() => {
+                if (!safeUrl) return;
+                IMAGE_STATUS_CACHE.set(safeUrl, "loaded");
+                setImageStatus("loaded");
+              }}
+              onError={() => {
+                if (!safeUrl) return;
+                IMAGE_STATUS_CACHE.set(safeUrl, "error");
+                setImageStatus("error");
+              }}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -132,12 +219,20 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
                   className="whitespace-nowrap rounded bg-white/85 px-1 py-[1px] text-[8px] font-semibold uppercase leading-none tracking-wide"
                   style={{ color: fallbackSwatch.fg }}
                 >
-                  {showMissingLabel ? "No photo" : "No img"}
+                  NO IMG
                 </span>
               </div>
             </div>
           )}
         </div>
+      ) : (
+        <div
+          ref={(node) => {
+            containerRef.current = node;
+          }}
+          className={`${sizeClassName} shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100`}
+          aria-hidden
+        />
       )}
 
       {canPortal &&

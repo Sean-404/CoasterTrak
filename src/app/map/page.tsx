@@ -9,7 +9,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
-import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import {
   absorbReverseGeocodeParks,
   isLikelyWaterParkName,
@@ -25,8 +25,8 @@ import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/u
 import {
   isLikelyCoasterEntry,
   isPlaceholderCoasterName,
+  normalizeCoasterDedupKey,
   coasterDedupLookupKeys,
-  coastersShareDedupBucket,
   preferCoasterForDedup,
   isThrillCoaster,
 } from "@/lib/coaster-dedup";
@@ -40,6 +40,9 @@ type RideOption = {
   /** Resolved display country (matches Country filter / park dropdown). */
   country: string;
 };
+
+const INITIAL_LIST_VISIBLE_RIDES = 40;
+const LOAD_MORE_LIST_RIDES_STEP = 40;
 
 function Shimmer({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-md bg-slate-200/90 ${className}`} aria-hidden />;
@@ -220,6 +223,157 @@ function getContinent(lat: number, lng: number): Continent {
   return "All";
 }
 
+function fillMissingMapImages(rows: Coaster[]): Coaster[] {
+  const imageByWikidataId = new Map<string, string>();
+  const imageByParkDedupKey = new Map<string, string>();
+
+  for (const coaster of rows) {
+    if (!coaster.image_url) continue;
+    const qid = coaster.wikidata_id?.trim().toUpperCase();
+    if (qid && !imageByWikidataId.has(qid)) {
+      imageByWikidataId.set(qid, coaster.image_url);
+    }
+    const dedupName = normalizeCoasterDedupKey(coaster.name);
+    if (dedupName) {
+      const key = `${coaster.park_id}:${dedupName}`;
+      if (!imageByParkDedupKey.has(key)) imageByParkDedupKey.set(key, coaster.image_url);
+    }
+  }
+
+  return rows.map((coaster) => {
+    if (coaster.image_url) return coaster;
+    const qid = coaster.wikidata_id?.trim().toUpperCase();
+    const wikidataImage = qid ? imageByWikidataId.get(qid) : undefined;
+    if (wikidataImage) return { ...coaster, image_url: wikidataImage };
+    const dedupName = normalizeCoasterDedupKey(coaster.name);
+    const parkFallback = dedupName
+      ? imageByParkDedupKey.get(`${coaster.park_id}:${dedupName}`)
+      : undefined;
+    if (parkFallback) return { ...coaster, image_url: parkFallback };
+    return coaster;
+  });
+}
+
+function imageUrlFromWikidataEntity(entity: unknown): string | null {
+  if (!entity || typeof entity !== "object") return null;
+  const claims = (entity as { claims?: Record<string, Array<{ mainsnak?: { datavalue?: { value?: unknown } } }>> }).claims;
+  const p18 = claims?.P18;
+  if (!Array.isArray(p18) || p18.length === 0) return null;
+  for (const claim of p18) {
+    const raw = claim?.mainsnak?.datavalue?.value;
+    if (typeof raw !== "string" || raw.trim() === "") continue;
+    const commonsUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(raw)}`;
+    const safe = sanitizeCoasterImageUrl(commonsUrl);
+    if (safe) return safe;
+  }
+  return null;
+}
+
+async function hydrateMissingMapImagesFromWikidata(rows: Coaster[]): Promise<Coaster[]> {
+  const missingQids = [
+    ...new Set(
+      rows
+        .filter((coaster) => !coaster.image_url)
+        .map((coaster) => coaster.wikidata_id?.trim().toUpperCase())
+        .filter((qid): qid is string => Boolean(qid)),
+    ),
+  ].slice(0, 200);
+  if (missingQids.length === 0) return rows;
+
+  const imageByQid = new Map<string, string>();
+  const chunkSize = 50;
+  for (let i = 0; i < missingQids.length; i += chunkSize) {
+    const chunk = missingQids.slice(i, i + chunkSize);
+    const ids = chunk.join("|");
+    const endpoint =
+      `https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims&ids=${encodeURIComponent(ids)}&origin=*`;
+    try {
+      const res = await fetch(endpoint);
+      if (!res.ok) continue;
+      const payload = (await res.json()) as { entities?: Record<string, unknown> };
+      const entities = payload.entities ?? {};
+      for (const qid of chunk) {
+        const imageUrl = imageUrlFromWikidataEntity(entities[qid]);
+        if (imageUrl) imageByQid.set(qid, imageUrl);
+      }
+    } catch {
+      // non-blocking fallback; keep original rows when Wikidata fetch fails
+    }
+  }
+
+  if (imageByQid.size === 0) return rows;
+
+  return rows.map((coaster) => {
+    if (coaster.image_url) return coaster;
+    const qid = coaster.wikidata_id?.trim().toUpperCase();
+    if (!qid) return coaster;
+    const imageUrl = imageByQid.get(qid);
+    return imageUrl ? { ...coaster, image_url: imageUrl } : coaster;
+  });
+}
+
+// Per-session cache for local catalog image hints to avoid repeat API calls on map reloads.
+const LOCAL_IMAGE_HINT_CACHE = new Map<number, string | null>();
+
+async function hydrateMissingMapImagesFromLocalCatalog(
+  rows: Coaster[],
+  parks: Park[],
+): Promise<Coaster[]> {
+  const parkById = new Map(parks.map((park) => [park.id, park]));
+  const missingRows = rows.filter((coaster) => !coaster.image_url);
+  if (missingRows.length === 0) return rows;
+
+  const imageMap = new Map<number, string>();
+  const items = missingRows
+    .filter((coaster) => {
+      if (!LOCAL_IMAGE_HINT_CACHE.has(coaster.id)) return true;
+      const cached = LOCAL_IMAGE_HINT_CACHE.get(coaster.id);
+      if (cached) imageMap.set(coaster.id, cached);
+      return false;
+    })
+    .map((coaster) => ({
+      coasterId: coaster.id,
+      wikidataId: coaster.wikidata_id ?? null,
+      name: coaster.name,
+      parkName: parkById.get(coaster.park_id)?.name ?? null,
+    }));
+  if (items.length === 0) {
+    if (imageMap.size === 0) return rows;
+    return rows.map((coaster) => {
+      if (coaster.image_url) return coaster;
+      const image = imageMap.get(coaster.id);
+      return image ? { ...coaster, image_url: image } : coaster;
+    });
+  }
+
+  try {
+    const response = await fetch("/api/catalog/image-hints", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    if (!response.ok) return rows;
+    const payload = (await response.json()) as {
+      imagesByCoasterId?: Record<string, string>;
+    };
+    for (const [key, value] of Object.entries(payload.imagesByCoasterId ?? {})) {
+      const id = Number(key);
+      if (Number.isFinite(id) && value) imageMap.set(id, value);
+    }
+    for (const item of items) {
+      LOCAL_IMAGE_HINT_CACHE.set(item.coasterId, imageMap.get(item.coasterId) ?? null);
+    }
+    if (imageMap.size === 0) return rows;
+    return rows.map((coaster) => {
+      if (coaster.image_url) return coaster;
+      const image = imageMap.get(coaster.id);
+      return image ? { ...coaster, image_url: image } : coaster;
+    });
+  } catch {
+    return rows;
+  }
+}
+
 function isLikelyPlaceholderParkName(name: string): boolean {
   const n = name.trim().toLowerCase();
   return n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc";
@@ -249,11 +403,20 @@ export default function MapPage() {
   const [countryFilter, setCountryFilter] = useState("All");
   const [parkFilter, setParkFilter] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("map");
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [selectedCoasterId, setSelectedCoasterId] = useState<number | null>(null);
+  const [focusedParkId, setFocusedParkId] = useState<number | null>(null);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
+  const [listVisibleRideCount, setListVisibleRideCount] = useState(INITIAL_LIST_VISIBLE_RIDES);
   const { units, setUnits } = useUnits();
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearch(searchInput);
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -274,9 +437,21 @@ export default function MapPage() {
           ),
         ]);
         if (cancelled) return;
-        if (!parksRes.error && parksRes.data.length) setParks(parksRes.data.map(fixUsParkLongitude));
+        const fixedParks =
+          !parksRes.error && parksRes.data.length
+            ? parksRes.data.map(fixUsParkLongitude)
+            : [];
+        if (fixedParks.length > 0) setParks(fixedParks);
         if (!coastersRes.error && coastersRes.data.length) {
-          setCoasters(coastersRes.data.map(applyCoasterKnownFixes));
+          const mapped = coastersRes.data.map(applyCoasterKnownFixes);
+          const withCatalogFallbacks = fillMissingMapImages(mapped);
+          const hydratedFromWikidata =
+            await hydrateMissingMapImagesFromWikidata(withCatalogFallbacks);
+          const hydrated = await hydrateMissingMapImagesFromLocalCatalog(
+            hydratedFromWikidata,
+            fixedParks,
+          );
+          setCoasters(hydrated);
         }
       } finally {
         if (!cancelled) setCatalogLoading(false);
@@ -486,23 +661,33 @@ export default function MapPage() {
 
   const hasCoasterNameMatches = coasterNameMatches.size > 0;
 
+  const dedupLookupKeysByCoasterId = useMemo(() => {
+    const byId = new Map<number, string[]>();
+    for (const coaster of visibleCoasters) {
+      byId.set(coaster.id, coasterDedupLookupKeys(coaster));
+    }
+    return byId;
+  }, [visibleCoasters]);
+
   const rideOptions = useMemo<RideOption[]>(() => {
     const deduped = new Map<string, Coaster>();
+    const keysFor = (coaster: Coaster) =>
+      dedupLookupKeysByCoasterId.get(coaster.id) ?? coasterDedupLookupKeys(coaster);
     const findExisting = (c: Coaster): Coaster | undefined => {
-      for (const k of coasterDedupLookupKeys(c)) {
+      for (const k of keysFor(c)) {
         const hit = deduped.get(k);
         if (hit) return hit;
       }
       return undefined;
     };
     const assignAllKeys = (c: Coaster, value: Coaster) => {
-      for (const k of coasterDedupLookupKeys(c)) deduped.set(k, value);
+      for (const k of keysFor(c)) deduped.set(k, value);
     };
     const allKeysForPair = (a: Coaster, b: Coaster, merged: Coaster) => {
       const keys = new Set<string>();
-      for (const k of coasterDedupLookupKeys(a)) keys.add(k);
-      for (const k of coasterDedupLookupKeys(b)) keys.add(k);
-      for (const k of coasterDedupLookupKeys(merged)) keys.add(k);
+      for (const k of keysFor(a)) keys.add(k);
+      for (const k of keysFor(b)) keys.add(k);
+      for (const k of keysFor(merged)) keys.add(k);
       return keys;
     };
 
@@ -525,7 +710,7 @@ export default function MapPage() {
       }
       const keysToSet = existing
         ? allKeysForPair(existing, coaster, withImage)
-        : new Set(coasterDedupLookupKeys(withImage));
+        : new Set(keysFor(withImage));
       for (const k of keysToSet) deduped.set(k, withImage);
     }
 
@@ -551,30 +736,58 @@ export default function MapPage() {
         if (byRide !== 0) return byRide;
         return a.parkName.localeCompare(b.parkName);
       });
-  }, [visibleCoasters, dedupedParkById, filteredParkIds, search, hasCoasterNameMatches, coasterNameMatches]);
+  }, [
+    visibleCoasters,
+    dedupedParkById,
+    filteredParkIds,
+    search,
+    hasCoasterNameMatches,
+    coasterNameMatches,
+    dedupLookupKeysByCoasterId,
+  ]);
+
+  const visibleRideOptions = useMemo(
+    () => rideOptions.slice(0, listVisibleRideCount),
+    [rideOptions, listVisibleRideCount],
+  );
+
+  const hasMoreListRides = visibleRideOptions.length < rideOptions.length;
 
   const listCountryGroups = useMemo(() => {
-    const by = new Map<string, RideOption[]>();
+    const by = new Map<string, { items: RideOption[]; totalCount: number }>();
     for (const opt of rideOptions) {
       const key = opt.country || "Unknown";
-      const arr = by.get(key) ?? [];
-      arr.push(opt);
-      by.set(key, arr);
+      const existing = by.get(key);
+      if (existing) existing.totalCount += 1;
+      else by.set(key, { items: [], totalCount: 1 });
+    }
+    for (const opt of visibleRideOptions) {
+      const key = opt.country || "Unknown";
+      const existing = by.get(key) ?? { items: [], totalCount: 0 };
+      existing.items.push(opt);
+      by.set(key, existing);
     }
     const keys = [...by.keys()].sort((a, b) => a.localeCompare(b));
-    return keys.map((country) => ({ country, items: by.get(country)! }));
-  }, [rideOptions]);
+    return keys
+      .map((country) => ({ country, items: by.get(country)!.items, totalCount: by.get(country)!.totalCount }))
+      .filter((group) => group.items.length > 0);
+  }, [rideOptions, visibleRideOptions]);
 
   useEffect(() => {
     if (selectedCoasterId == null) return;
     if (rideOptions.some((o) => o.coaster.id === selectedCoasterId)) return;
     const missing = visibleCoasters.find((c) => c.id === selectedCoasterId);
     if (!missing) return;
-    const replacement = rideOptions.find((o) => coastersShareDedupBucket(o.coaster, missing));
+    const missingKeys = new Set(dedupLookupKeysByCoasterId.get(missing.id) ?? coasterDedupLookupKeys(missing));
+    const replacement = rideOptions.find((o) => {
+      const keys = dedupLookupKeysByCoasterId.get(o.coaster.id) ?? coasterDedupLookupKeys(o.coaster);
+      return keys.some((k) => missingKeys.has(k));
+    });
     if (replacement) setSelectedCoasterId(replacement.coaster.id);
-  }, [rideOptions, selectedCoasterId, visibleCoasters]);
+  }, [rideOptions, selectedCoasterId, visibleCoasters, dedupLookupKeysByCoasterId]);
 
   function applyListCountryFilter(countryLabel: string) {
+    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
     if (!countryLabel || countryLabel === "Unknown") {
       setCountryFilter("All");
     } else {
@@ -588,13 +801,18 @@ export default function MapPage() {
     [rideOptions, selectedCoasterId],
   );
 
+  const activeParkId = selectedCoaster?.park_id ?? focusedParkId;
+
   /** Full-catalog park for the selected ride so the map can still fly/highlight if markers are filtered. */
   const focusParkForMap = useMemo(() => {
-    if (selectedCoasterId == null) return null;
-    const c = visibleCoasters.find((x) => x.id === selectedCoasterId);
-    if (!c) return null;
-    return dedupedParkById.get(c.park_id) ?? null;
-  }, [selectedCoasterId, visibleCoasters, dedupedParkById]);
+    if (selectedCoaster != null) {
+      return dedupedParkById.get(selectedCoaster.park_id) ?? null;
+    }
+    if (focusedParkId != null) {
+      return dedupedParkById.get(focusedParkId) ?? null;
+    }
+    return null;
+  }, [dedupedParkById, focusedParkId, selectedCoaster]);
 
   useEffect(() => {
     if (selectedCoasterId == null) return;
@@ -618,8 +836,11 @@ export default function MapPage() {
         <div className="mb-4 flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+              }}
               placeholder="Search by park or coaster…"
               aria-label="Search by park or coaster"
               className="w-full rounded border border-slate-300 px-3 py-2 sm:w-80"
@@ -639,7 +860,10 @@ export default function MapPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setViewMode("list")}
+                onClick={() => {
+                  setViewMode("list");
+                  setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                }}
                 aria-pressed={viewMode === "list"}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                   viewMode === "list"
@@ -663,6 +887,7 @@ export default function MapPage() {
                   onChange={(e) => {
                     setCountryFilter(e.target.value);
                     setParkFilter(null);
+                    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
                   }}
                   aria-label="Filter parks by country"
                   className="rounded border border-slate-300 bg-white px-3 py-2 text-sm"
@@ -679,7 +904,10 @@ export default function MapPage() {
                 <span className="font-medium">Park</span>
                 <select
                   value={parkFilter?.toString() ?? ""}
-                  onChange={(e) => setParkFilter(e.target.value ? Number(e.target.value) : null)}
+                  onChange={(e) => {
+                    setParkFilter(e.target.value ? Number(e.target.value) : null);
+                    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                  }}
                   aria-label="Filter by park"
                   className="rounded border border-slate-300 bg-white px-3 py-2 text-sm"
                 >
@@ -715,7 +943,10 @@ export default function MapPage() {
             <input
               type="checkbox"
               checked={includeFamilyRides}
-              onChange={(e) => setIncludeFamilyRides(e.target.checked)}
+              onChange={(e) => {
+                setIncludeFamilyRides(e.target.checked);
+                setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+              }}
               className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
             />
             Include kiddie / family-style rides
@@ -732,7 +963,7 @@ export default function MapPage() {
             units={units}
             continent={continent}
             selectedCoasterId={selectedCoasterId}
-            selectedParkId={selectedCoaster?.park_id ?? null}
+            selectedParkId={activeParkId}
             focusPark={focusParkForMap}
             onCoasterSelect={setSelectedCoasterId}
           />
@@ -743,7 +974,7 @@ export default function MapPage() {
               <p className="p-4 text-sm text-slate-500">No rides match the current filters.</p>
             ) : (
               <div>
-                {listCountryGroups.map(({ country, items }) => {
+                {listCountryGroups.map(({ country, items, totalCount }) => {
                   const headerActive = country !== "Unknown" && countryFilter === country;
                   return (
                     <div key={country} className="border-b border-slate-100 last:border-b-0">
@@ -760,7 +991,10 @@ export default function MapPage() {
                         >
                           {country}
                         </button>
-                        <span className="text-xs text-slate-500">{items.length} rides</span>
+                        <span className="text-xs text-slate-500">
+                          {items.length}
+                          {totalCount !== items.length ? ` / ${totalCount}` : ""} rides
+                        </span>
                       </div>
                       <div className="divide-y divide-slate-100">
                         {items.map(({ coaster, parkName }) => {
@@ -802,7 +1036,8 @@ export default function MapPage() {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setSelectedCoasterId(coaster.id);
+                                      setFocusedParkId(coaster.park_id);
+                                      setSelectedCoasterId(null);
                                       setViewMode("map");
                                     }}
                                     className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50"
@@ -839,6 +1074,17 @@ export default function MapPage() {
                     </div>
                   );
                 })}
+                {hasMoreListRides ? (
+                  <div className="border-t border-slate-100 px-3 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setListVisibleRideCount((count) => count + LOAD_MORE_LIST_RIDES_STEP)}
+                      className="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                    >
+                      Load more rides
+                    </button>
+                  </div>
+                ) : null}
               </div>
             )}
           </section>

@@ -8,6 +8,7 @@ import {
   achievementRarityLabel,
   type AchievementEval,
   type AchievementListSort,
+  type AchievementMetrics,
   type AchievementRide,
   type AchievementVisibilityFilter,
   evaluateAchievementsWithUnlockTimes,
@@ -25,7 +26,7 @@ function formatPair(id: string, current: number, target: number, units: Units): 
     const t = fmtDuration(target) ?? `${target}s`;
     return `${c} / ${t}`;
   }
-  if (id === "length_mile") {
+  if (id === "length_mile" || id === "length_five_miles") {
     const c = fmtLength(current, units) ?? `${Math.round(current)}`;
     const t = fmtLength(target, units) ?? `${target}`;
     return `${c} / ${t}`;
@@ -62,17 +63,6 @@ const ORDER_OPTIONS: {
   title: string;
 }[] = [
   {
-    value: "unlocked-first",
-    label: "Default",
-    title: "Unlocked first, then closest to completion for the rest",
-  },
-  {
-    value: "locked-first",
-    label: "In progress",
-    title: "Locked achievements first—closest to done at the top",
-  },
-  { value: "alpha", label: "A–Z", title: "Alphabetical by title" },
-  {
     value: "rarity-desc",
     label: "Rarest first",
     title: "Legendary and epic achievements first, then by title",
@@ -92,6 +82,12 @@ const ORDER_OPTIONS: {
     label: "Oldest unlock",
     title: "Earliest unlocks first (then locked by progress)",
   },
+  {
+    value: "locked-first",
+    label: "In progress",
+    title: "Locked achievements first—closest to done at the top",
+  },
+  { value: "alpha", label: "A–Z", title: "Alphabetical by title" },
 ];
 
 function isUnlockDateSort(sort: AchievementListSort): boolean {
@@ -102,6 +98,10 @@ function isInProgressSort(sort: AchievementListSort): boolean {
   return sort === "locked-first";
 }
 
+function isMixedStateSort(sort: AchievementListSort): boolean {
+  return sort === "unlocked-first" || sort === "locked-first";
+}
+
 /**
  * Coerce sort for the current filter without mutating stored `listSort`
  * (so switching tabs restores the user’s previous choice when it applies again).
@@ -110,17 +110,18 @@ function effectiveSortForFilter(
   filter: AchievementVisibilityFilter,
   sort: AchievementListSort,
 ): AchievementListSort {
-  if (filter === "locked" && isUnlockDateSort(sort)) return "locked-first";
-  if (filter === "unlocked" && isInProgressSort(sort)) return "unlocked-first";
+  if (filter === "locked" && (isUnlockDateSort(sort) || sort === "unlocked-first")) return "locked-first";
+  if (filter === "unlocked" && isMixedStateSort(sort)) return "unlock-newest";
   return sort;
 }
 
 export default function AchievementsPage() {
   const [rides, setRides] = useState<RideRow[]>([]);
+  const [metrics, setMetrics] = useState<AchievementMetrics>({ friendCount: 0, friendAcceptedAt: [] });
   const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [fetchError, setFetchError] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState<AchievementVisibilityFilter>("all");
-  const [listSort, setListSort] = useState<AchievementListSort>("unlocked-first");
+  const [listSort, setListSort] = useState<AchievementListSort>("rarity-desc");
   const { units } = useUnits();
 
   useEffect(() => {
@@ -135,15 +136,35 @@ export default function AchievementsPage() {
           return;
         }
 
-        const ridesRes = await supabase
-          .from("rides")
-          .select(
-            "coaster_id, ridden_at, coasters(park_id, name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
-          )
-          .eq("user_id", data.user.id);
+        const [ridesRes, friendshipsRes] = await Promise.all([
+          supabase
+            .from("rides")
+            .select(
+              "coaster_id, ridden_at, coasters(park_id, name, wikidata_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+            )
+            .eq("user_id", data.user.id),
+          supabase
+            .from("friendships")
+            .select("created_at, updated_at, responded_at")
+            .eq("status", "accepted")
+            .or(`requester_id.eq.${data.user.id},addressee_id.eq.${data.user.id}`),
+        ]);
 
         if (ridesRes.error) setFetchError(true);
+        if (friendshipsRes.error) setFetchError(true);
         setRides((ridesRes.data ?? []) as unknown as RideRow[]);
+        const friendAcceptedAt = ((friendshipsRes.data ?? []) as Array<{
+          created_at: string | null;
+          updated_at: string | null;
+          responded_at: string | null;
+        }>)
+          .map((row) => row.responded_at ?? row.updated_at ?? row.created_at)
+          .filter((value): value is string => Boolean(value))
+          .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        setMetrics({
+          friendCount: friendAcceptedAt.length,
+          friendAcceptedAt,
+        });
         setLoading(false);
       })
       .catch(() => {
@@ -152,7 +173,10 @@ export default function AchievementsPage() {
       });
   }, []);
 
-  const achievementEvals = useMemo(() => evaluateAchievementsWithUnlockTimes(rides), [rides]);
+  const achievementEvals = useMemo(
+    () => evaluateAchievementsWithUnlockTimes(rides, metrics),
+    [rides, metrics],
+  );
 
   const sortApplied = useMemo(
     () => effectiveSortForFilter(visibilityFilter, listSort),
@@ -161,10 +185,10 @@ export default function AchievementsPage() {
 
   const orderOptionsVisible = useMemo(() => {
     if (visibilityFilter === "locked") {
-      return ORDER_OPTIONS.filter((o) => !isUnlockDateSort(o.value));
+      return ORDER_OPTIONS.filter((o) => !isUnlockDateSort(o.value) && o.value !== "unlocked-first");
     }
     if (visibilityFilter === "unlocked") {
-      return ORDER_OPTIONS.filter((o) => !isInProgressSort(o.value));
+      return ORDER_OPTIONS.filter((o) => o.value !== "unlocked-first" && !isInProgressSort(o.value));
     }
     return ORDER_OPTIONS;
   }, [visibilityFilter]);

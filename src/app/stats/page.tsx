@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
@@ -40,14 +40,89 @@ type RideRow = {
   coasters?: RideCoaster | null;
 };
 
+type RiddenRideRowProps = {
+  ride: RideRow;
+  removing: number | null;
+  onRemove: (coasterId: number, name: string) => void;
+};
+
+const RiddenRideRow = memo(function RiddenRideRow({
+  ride,
+  removing,
+  onRemove,
+}: RiddenRideRowProps) {
+  const parkLine = formatParkLabel(
+    ride.coasters?.parks?.name,
+    ride.coasters?.parks?.country,
+  );
+  const coasterName = cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`);
+  return (
+    <li
+      className="group flex items-start justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "74px" }}
+    >
+      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+        <CoasterThumbnail
+          name={coasterName}
+          imageUrl={ride.coasters?.image_url}
+          sizeClassName="h-11 w-11"
+          showMissingLabel
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-slate-900">
+            {coasterName}
+          </p>
+          <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words">
+            {parkLine && <span>{parkLine} &middot; </span>}
+            {effectiveCoasterType(ride.coasters?.coaster_type, ride.coasters?.manufacturer)}
+            {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => onRemove(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
+        disabled={removing === ride.coaster_id}
+        title="Remove ride"
+        className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
+      >
+        {removing === ride.coaster_id ? (
+          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+        ) : (
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        )}
+      </button>
+    </li>
+  );
+}, (prev, next) =>
+  prev.ride === next.ride &&
+  prev.removing === next.removing &&
+  prev.onRemove === next.onRemove
+);
+
 const INITIAL_VISIBLE_RIDES = 80;
 const LOAD_MORE_RIDES_STEP = 80;
 const RIDE_ROW_HEIGHT_PX = 74;
-const RIDE_ROW_OVERSCAN = 8;
+// Keep a larger buffer mounted to avoid thumbnail remount/reload churn while scrolling.
+const RIDE_ROW_OVERSCAN = 24;
 const RIDE_LIST_FALLBACK_VIEWPORT_PX = 352;
 
-function imageFallbackKey(parkId: number, coasterName: string): string {
-  return `${parkId}:${normalizeCoasterDedupKey(coasterName)}`;
+function imageFallbackKeys(parkId: number, coasterName: string): string[] {
+  const base = normalizeCoasterDedupKey(coasterName);
+  const keys = new Set<string>([`${parkId}:${base}`]);
+  const stripped = base
+    .replace(/megacoaster$/i, "")
+    .replace(/hypercoaster$/i, "")
+    .replace(/gigacoaster$/i, "")
+    .replace(/stratacoaster$/i, "")
+    .replace(/rollercoaster$/i, "")
+    .replace(/coaster$/i, "");
+  if (stripped && stripped !== base) keys.add(`${parkId}:${stripped}`);
+  return [...keys];
 }
 
 async function fillMissingRideImages(
@@ -60,26 +135,58 @@ async function fillMissingRideImages(
   if (missing.length === 0) return rows;
 
   const parkIds = [...new Set(missing.map((r) => r.coasters!.park_id!))];
-  const names = [...new Set(missing.map((r) => r.coasters!.name))];
-  const { data, error } = await supabase
-    .from("coasters")
-    .select("park_id, name, image_url")
-    .in("park_id", parkIds)
-    .in("name", names)
-    .not("image_url", "is", null);
-  if (error || !data?.length) return rows;
+  const wikidataIds = [
+    ...new Set(
+      missing
+        .map((r) => r.coasters?.wikidata_id?.trim().toUpperCase())
+        .filter((value): value is string => Boolean(value)),
+    ),
+  ];
+  const [parkScopedRes, wikidataRes] = await Promise.all([
+    supabase
+      .from("coasters")
+      .select("park_id, name, wikidata_id, image_url")
+      .in("park_id", parkIds)
+      .not("image_url", "is", null),
+    wikidataIds.length > 0
+      ? supabase
+          .from("coasters")
+          .select("park_id, name, wikidata_id, image_url")
+          .in("wikidata_id", wikidataIds)
+          .not("image_url", "is", null)
+      : Promise.resolve({
+          data: [] as Array<{ park_id: number; name: string; wikidata_id: string | null; image_url: string | null }>,
+          error: null,
+        }),
+  ]);
+  if (parkScopedRes.error) return rows;
+  if (wikidataRes.error) return rows;
+  const data = [...(parkScopedRes.data ?? []), ...(wikidataRes.data ?? [])];
+  if (data.length === 0) return rows;
 
   const imageByKey = new Map<string, string>();
-  for (const entry of data as Array<{ park_id: number; name: string; image_url: string | null }>) {
+  const imageByWikidataId = new Map<string, string>();
+  for (const entry of data as Array<{ park_id: number; name: string; wikidata_id: string | null; image_url: string | null }>) {
     if (!entry.image_url) continue;
-    const key = imageFallbackKey(entry.park_id, entry.name);
-    if (!imageByKey.has(key)) imageByKey.set(key, entry.image_url);
+    const qid = entry.wikidata_id?.trim().toUpperCase();
+    if (qid && !imageByWikidataId.has(qid)) imageByWikidataId.set(qid, entry.image_url);
+    for (const key of imageFallbackKeys(entry.park_id, entry.name)) {
+      if (!imageByKey.has(key)) imageByKey.set(key, entry.image_url);
+    }
   }
 
   return rows.map((r) => {
     const coaster = r.coasters;
     if (!coaster || coaster.image_url || coaster.park_id == null) return r;
-    const fallback = imageByKey.get(imageFallbackKey(coaster.park_id, coaster.name));
+    const qid = coaster.wikidata_id?.trim().toUpperCase();
+    let fallback = qid ? imageByWikidataId.get(qid) : undefined;
+    for (const key of imageFallbackKeys(coaster.park_id, coaster.name)) {
+      const hit = imageByKey.get(key);
+      if (hit) {
+        fallback = hit;
+        break;
+      }
+    }
     if (!fallback) return r;
     return { ...r, coasters: { ...coaster, image_url: fallback } };
   });
@@ -285,7 +392,10 @@ export default function StatsPage() {
     if (rideListRef.current) {
       rideListRef.current.scrollTop = 0;
     }
-    setRideListScrollTop(0);
+    const raf = window.requestAnimationFrame(() => {
+      setRideListScrollTop(0);
+    });
+    return () => window.cancelAnimationFrame(raf);
   }, [rideFilter, includeFamilyRides]);
 
   const virtualizedRideRows = useMemo(() => {
@@ -312,7 +422,7 @@ export default function StatsPage() {
     };
   }, [displayedRides, rideListScrollTop, rideListViewportHeight]);
 
-  async function removeRide(coasterId: number, name: string) {
+  const removeRide = useCallback(async (coasterId: number, name: string) => {
     if (!confirm(`Remove "${name}" from your ridden list?`)) return;
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId || removing !== null) return;
@@ -322,7 +432,7 @@ export default function StatsPage() {
       setRides((prev) => prev.filter((r) => r.coaster_id !== coasterId));
     }
     setRemoving(null);
-  }
+  }, [removing, userId]);
 
   const statCards = [
     { label: "Coasters ridden", value: filteredUniqueRides.length },
@@ -517,53 +627,13 @@ export default function StatsPage() {
                       />
                     )}
                     {virtualizedRideRows.rows.map((ride) => {
-                      const parkLine = formatParkLabel(
-                        ride.coasters?.parks?.name,
-                        ride.coasters?.parks?.country,
-                      );
-                      const coasterName = cleanCoasterName(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`);
                       return (
-                        <li
+                        <RiddenRideRow
                           key={ride.coaster_id}
-                          className="group flex items-start justify-between gap-3 border-b border-slate-100 py-2.5 last:border-b-0"
-                          style={{ contentVisibility: "auto", containIntrinsicSize: "74px" }}
-                        >
-                          <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                            <CoasterThumbnail
-                              name={coasterName}
-                              imageUrl={ride.coasters?.image_url}
-                              sizeClassName="h-11 w-11"
-                              showMissingLabel
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-slate-900">
-                                {coasterName}
-                              </p>
-                              <p className="mt-0.5 text-xs leading-snug text-slate-500 break-words">
-                                {parkLine && <span>{parkLine} &middot; </span>}
-                                {effectiveCoasterType(ride.coasters?.coaster_type, ride.coasters?.manufacturer)}
-                                {ride.coasters?.manufacturer && <span> &middot; {ride.coasters.manufacturer}</span>}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeRide(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
-                            disabled={removing === ride.coaster_id}
-                            title="Remove ride"
-                            className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
-                          >
-                            {removing === ride.coaster_id ? (
-                              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                              </svg>
-                            ) : (
-                              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </button>
-                        </li>
+                          ride={ride}
+                          removing={removing}
+                          onRemove={removeRide}
+                        />
                       );
                     })}
                     {virtualizedRideRows.bottomSpacerHeight > 0 && (
