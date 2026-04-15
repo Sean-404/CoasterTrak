@@ -21,20 +21,60 @@ const bungee = Bungee({
   weight: "400",
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+
 export const metadata: Metadata = {
-  title: "CoasterTrak",
-  description: "Track coasters, wishlist rides, and view your stats.",
-  metadataBase: new URL("https://coastertrak.vercel.app"),
+  title: {
+    default: "CoasterTrak",
+    template: "%s | CoasterTrak",
+  },
+  description:
+    "Track every roller coaster you ride. Explore parks on a world map, build your wishlist, and compare stats with friends.",
+  metadataBase: new URL(SITE_URL),
+  applicationName: "CoasterTrak",
+  keywords: [
+    "roller coaster tracker",
+    "coaster stats",
+    "coaster map",
+    "coaster wishlist",
+    "theme park rides",
+    "CoasterTrak",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  category: "travel",
+  icons: {
+    icon: [{ url: "/rollercoaster_icon.png", type: "image/png" }],
+    shortcut: [{ url: "/rollercoaster_icon.png", type: "image/png" }],
+    apple: [{ url: "/rollercoaster_icon.png", type: "image/png" }],
+  },
   openGraph: {
     title: "CoasterTrak",
-    description: "Track every roller coaster you ride. Map, wishlist, and stats.",
+    description:
+      "Track every roller coaster you ride. Explore parks on a map, build your wishlist, and compare stats.",
     siteName: "CoasterTrak",
+    url: "/",
     type: "website",
+    locale: "en_GB",
+    images: [
+      {
+        url: "/coaster-hero.png",
+        width: 1200,
+        height: 630,
+        alt: "CoasterTrak hero image",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "CoasterTrak",
-    description: "Track every roller coaster you ride. Map, wishlist, and stats.",
+    description:
+      "Track every roller coaster you ride. Explore parks on a map, build your wishlist, and compare stats.",
+    images: ["/coaster-hero.png"],
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,
   },
 };
 

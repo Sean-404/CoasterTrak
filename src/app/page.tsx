@@ -4,10 +4,42 @@ import { AuthErrorHandler } from "@/components/auth-error-handler";
 import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteHeader } from "@/components/site-header";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+
 export default function Home() {
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "CoasterTrak",
+    url: SITE_URL,
+    description:
+      "Track every roller coaster you ride. Explore parks on a map, build your wishlist, and compare stats.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${SITE_URL}/map?search={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "CoasterTrak",
+    url: SITE_URL,
+    logo: `${SITE_URL}/rollercoaster_icon.png`,
+  };
+
   return (
     <div className="min-h-screen">
       <AuthErrorHandler />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <SiteHeader />
 
       {/* Hero */}
