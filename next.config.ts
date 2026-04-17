@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV !== "production";
+const adsenseScriptSources = [
+  "https://pagead2.googlesyndication.com",
+  "https://partner.googleadservices.com",
+].join(" ");
+const adsenseConnectSources = [
+  "https://pagead2.googlesyndication.com",
+  "https://googleads.g.doubleclick.net",
+  "https://partner.googleadservices.com",
+].join(" ");
+const adsenseFrameSources = [
+  "https://googleads.g.doubleclick.net",
+  "https://tpc.googlesyndication.com",
+  "https://pagead2.googlesyndication.com",
+].join(" ");
+
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -10,8 +25,11 @@ const csp = [
   "font-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   // Next.js injects small inline bootstrap/data scripts unless CSP nonces are wired up.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  isDev ? "connect-src 'self' http: https: ws: wss:" : "connect-src 'self' https: wss:",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${adsenseScriptSources}`,
+  isDev
+    ? `connect-src 'self' http: https: ws: wss: ${adsenseConnectSources}`
+    : `connect-src 'self' https: wss: ${adsenseConnectSources}`,
+  `frame-src 'self' ${adsenseFrameSources}`,
   "form-action 'self'",
   ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
