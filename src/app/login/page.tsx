@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { validateDisplayName } from "@/lib/display-name";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,6 +40,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -70,6 +72,10 @@ function LoginForm() {
 
   function validate() {
     if (!EMAIL_RE.test(email)) { setError("Enter a valid email address."); return false; }
+    if (mode === "signup") {
+      const displayNameValidation = validateDisplayName(displayName);
+      if (!displayNameValidation.ok) { setError(displayNameValidation.reason); return false; }
+    }
     if (mode !== "forgot" && password.length < 8) { setError("Password must be at least 8 characters."); return false; }
     if (mode === "signup" && password !== confirmPassword) { setError("Passwords do not match."); return false; }
     return true;
@@ -94,9 +100,46 @@ function LoginForm() {
         if (err) { setError(friendlyAuthError(err)); return; }
         setInfo("If that email is registered, you\u2019ll receive a password reset link shortly. Check your inbox (and spam).");
       } else if (mode === "signup") {
+        const displayNameValidation = validateDisplayName(displayName);
+        if (!displayNameValidation.ok) {
+          setLoading(false);
+          setError(displayNameValidation.reason);
+          return;
+        }
+
+        const normalizedDisplayName = displayNameValidation.normalized;
+        const { data: existingDisplayNameProfile, error: displayNameLookupError } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .ilike("display_name", normalizedDisplayName)
+          .maybeSingle();
+
+        if (displayNameLookupError) {
+          setLoading(false);
+          setError("Could not verify display name availability. Please try again.");
+          return;
+        }
+        if (existingDisplayNameProfile) {
+          setLoading(false);
+          setError("That display name is already taken.");
+          return;
+        }
+
         const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
-        setLoading(false);
         if (err) { setError(friendlyAuthError(err)); return; }
+        if (signUpData.user?.id) {
+          const { error: profileErr } = await supabase
+            .from("profiles")
+            .upsert({ user_id: signUpData.user.id, display_name: normalizedDisplayName }, { onConflict: "user_id" });
+          if (profileErr) {
+            const message = (profileErr.message ?? "").toLowerCase();
+            const isDuplicate = message.includes("profiles_display_name_lower_uidx") || message.includes("duplicate key");
+            setLoading(false);
+            setError(isDuplicate ? "That display name is already taken." : "Could not save display name. Please try again.");
+            return;
+          }
+        }
+        setLoading(false);
         if (signUpData.session) {
           router.push("/stats");
           router.refresh();
@@ -104,6 +147,7 @@ function LoginForm() {
           setInfo("Account created! Check your email to confirm, then sign in.");
           switchMode("signin");
           setEmail(email);
+          setDisplayName("");
         }
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -154,6 +198,18 @@ function LoginForm() {
               autoComplete="email"
               required
             />
+            {mode === "signup" && (
+              <input
+                type="text"
+                value={displayName}
+                onChange={(e) => { setDisplayName(e.target.value); setError(""); }}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                placeholder="Display name"
+                autoComplete="nickname"
+                maxLength={24}
+                required
+              />
+            )}
             {mode !== "forgot" && (
               <input
                 type="password"

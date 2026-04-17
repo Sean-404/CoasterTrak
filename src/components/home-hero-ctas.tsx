@@ -26,6 +26,12 @@ export function HomeHeroCtas() {
       >
         Open map &rarr;
       </Link>
+      <Link
+        href="/coaster-tracker"
+        className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
+      >
+        What is CoasterTrak?
+      </Link>
       {isAuthed ? (
         <Link
           href="/account"

@@ -96,6 +96,23 @@ export default function Home() {
           Data quality note: Coaster and park data is sourced from third-party datasets and community-maintained
           sources. Some entries may be incomplete, outdated, or occasionally inaccurate.
         </p>
+
+        <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Build your coaster journey, then share it</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
+            CoasterTrak helps riders track roller coaster credits, compare stats, and discover parks worldwide.
+            Create an account to save your progress, keep your wishlist in one place, and revisit your profile after
+            every trip.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/coaster-tracker"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Explore the coaster tracker guide
+            </Link>
+          </div>
+        </section>
       </main>
     </div>
   );

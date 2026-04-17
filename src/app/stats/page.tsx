@@ -40,6 +40,22 @@ type RideRow = {
   coasters?: RideCoaster | null;
 };
 
+type ProfileRow = {
+  display_name: string | null;
+  favorite_ride_id: number | null;
+  favorite_park_id: number | null;
+};
+
+type ParkRow = {
+  name: string | null;
+  country: string | null;
+};
+
+type FavoriteCoasterRow = {
+  name: string | null;
+  parks: ParkRow | ParkRow[] | null;
+};
+
 type RiddenRideRowProps = {
   ride: RideRow;
   removing: number | null;
@@ -110,6 +126,11 @@ const RIDE_ROW_HEIGHT_PX = 74;
 // Keep a larger buffer mounted to avoid thumbnail remount/reload churn while scrolling.
 const RIDE_ROW_OVERSCAN = 24;
 const RIDE_LIST_FALLBACK_VIEWPORT_PX = 352;
+
+function firstPark(park: ParkRow | ParkRow[] | null | undefined): ParkRow | null {
+  if (!park) return null;
+  return Array.isArray(park) ? (park[0] ?? null) : park;
+}
 
 function imageFallbackKeys(parkId: number, coasterName: string): string[] {
   const base = normalizeCoasterDedupKey(coasterName);
@@ -202,6 +223,10 @@ export default function StatsPage() {
   const [visibleRideCount, setVisibleRideCount] = useState(INITIAL_VISIBLE_RIDES);
   const [rideListScrollTop, setRideListScrollTop] = useState(0);
   const [rideListViewportHeight, setRideListViewportHeight] = useState(0);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
+  const [favoriteRideLabel, setFavoriteRideLabel] = useState("Not set");
+  const [favoriteParkLabel, setFavoriteParkLabel] = useState("Not set");
   const rideListRef = useRef<HTMLUListElement | null>(null);
   const rideListRafRef = useRef<number | null>(null);
   const { units, setUnits } = useUnits();
@@ -214,12 +239,19 @@ export default function StatsPage() {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
 
-      const ridesRes = await supabase
-        .from("rides")
-        .select(
-          "coaster_id, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
-        )
-        .eq("user_id", user.id);
+      const [profileRes, ridesRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("display_name, favorite_ride_id, favorite_park_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("rides")
+          .select(
+            "coaster_id, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+          )
+          .eq("user_id", user.id),
+      ]);
 
       if (ridesRes.error) {
         setFetchError(true);
@@ -232,6 +264,43 @@ export default function StatsPage() {
       }));
       const hydrated = await fillMissingRideImages(mapped, supabase);
       setRides(hydrated);
+
+      const profile = (profileRes.data as ProfileRow | null) ?? null;
+      const displayName = profile?.display_name?.trim() || null;
+      setShareDisplayName(displayName);
+      let nextFavoriteRideLabel = "Not set";
+      let nextFavoriteParkLabel = "Not set";
+
+      if (profile?.favorite_ride_id != null) {
+        const { data: favoriteRide } = await supabase
+          .from("coasters")
+          .select("name, parks(name, country)")
+          .eq("id", profile.favorite_ride_id)
+          .maybeSingle();
+        const rideRow = (favoriteRide as FavoriteCoasterRow | null) ?? null;
+        const rideName = cleanCoasterName(rideRow?.name ?? "");
+        const ridePark = firstPark(rideRow?.parks);
+        const rideParkLabel = formatParkLabel(ridePark?.name ?? undefined, ridePark?.country ?? undefined);
+        if (rideName && rideParkLabel) {
+          nextFavoriteRideLabel = `${rideName} (${rideParkLabel})`;
+        } else if (rideName) {
+          nextFavoriteRideLabel = rideName;
+        }
+      }
+
+      if (profile?.favorite_park_id != null) {
+        const { data: favoritePark } = await supabase
+          .from("parks")
+          .select("name, country")
+          .eq("id", profile.favorite_park_id)
+          .maybeSingle();
+        const parkRow = (favoritePark as ParkRow | null) ?? null;
+        const parkLabel = formatParkLabel(parkRow?.name ?? undefined, parkRow?.country ?? undefined);
+        if (parkLabel) nextFavoriteParkLabel = parkLabel;
+      }
+
+      setFavoriteRideLabel(nextFavoriteRideLabel);
+      setFavoriteParkLabel(nextFavoriteParkLabel);
       setLoading(false);
     });
   }, []);
@@ -440,12 +509,52 @@ export default function StatsPage() {
     { label: "Countries visited", value: countriesVisited },
   ];
 
+  async function copyStatsSummary() {
+    const shareTitle = shareDisplayName ? `${shareDisplayName}'s CoasterTrak stats` : "My CoasterTrak stats";
+    const summary = [
+      shareTitle,
+      `- Ride filter: ${includeFamilyRides ? "Includes kiddie/family rides" : "Thrill rides only"}`,
+      `- Coasters ridden: ${filteredUniqueRides.length}`,
+      `- Parks visited: ${parksVisited}`,
+      `- Countries visited: ${countriesVisited}`,
+      `- Favorite ride: ${favoriteRideLabel}`,
+      `- Favorite park: ${favoriteParkLabel}`,
+      personalRecords.fastest ? `- Fastest coaster: ${cleanCoasterName(personalRecords.fastest.name)} (${fmtSpeed(personalRecords.fastest.value, units) ?? `${personalRecords.fastest.value} mph`})` : null,
+      personalRecords.tallest ? `- Tallest coaster: ${cleanCoasterName(personalRecords.tallest.name)} (${fmtHeight(personalRecords.tallest.value, units) ?? `${personalRecords.tallest.value} ft`})` : null,
+      personalRecords.longest ? `- Longest coaster: ${cleanCoasterName(personalRecords.longest.name)} (${fmtLength(personalRecords.longest.value, units) ?? `${personalRecords.longest.value} ft`})` : null,
+      personalRecords.mostInversions ? `- Most inversions: ${cleanCoasterName(personalRecords.mostInversions.name)} (${personalRecords.mostInversions.value})` : null,
+      personalRecords.longestDuration ? `- Longest ride: ${cleanCoasterName(personalRecords.longestDuration.name)} (${fmtDuration(personalRecords.longestDuration.value) ?? `${personalRecords.longestDuration.value}s`})` : null,
+      "",
+      "Track your rides on CoasterTrak: https://coastertrak.com",
+    ].filter(Boolean).join("\n");
+
+    try {
+      await navigator.clipboard.writeText(summary);
+      setShareFeedback("Stats copied. Share it with your friends.");
+    } catch {
+      setShareFeedback("Could not copy stats. Please try again.");
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto max-w-4xl p-6">
         <AuthGate>
-          <h1 className="mb-6 text-2xl font-bold text-slate-900">Your stats</h1>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-2xl font-bold text-slate-900">Your stats</h1>
+            {!loading && filteredUniqueRides.length > 0 && (
+              <button
+                onClick={() => void copyStatsSummary()}
+                className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Copy my stats
+              </button>
+            )}
+          </div>
+          {shareFeedback && (
+            <p className="mb-4 rounded-lg bg-slate-900 px-4 py-2 text-sm text-white">{shareFeedback}</p>
+          )}
           {fetchError && (
             <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
               Something went wrong loading your data. Please refresh the page.
