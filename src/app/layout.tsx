@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Bungee, Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { UnitsProvider } from "@/components/providers";
 
@@ -22,6 +23,7 @@ const bungee = Bungee({
 });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+const ADSENSE_CLIENT = "ca-pub-2576999274764112";
 
 export const metadata: Metadata = {
   title: {
@@ -92,6 +94,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bungee.variable} antialiased`}
       >
+        <Script
+          id="adsense-script"
+          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`}
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+        />
         <UnitsProvider>{children}</UnitsProvider>
         <Analytics />
         <SpeedInsights />
