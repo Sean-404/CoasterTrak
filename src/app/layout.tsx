@@ -44,10 +44,14 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   category: "travel",
+  manifest: "/site.webmanifest",
   icons: {
-    icon: [{ url: "/rollercoaster_icon.png", type: "image/png" }],
-    shortcut: [{ url: "/rollercoaster_icon.png", type: "image/png" }],
-    apple: [{ url: "/rollercoaster_icon.png", type: "image/png" }],
+    icon: [
+      { url: "/coastertrak-logo.png", type: "image/png", sizes: "384x384" },
+      { url: "/coastertrak-logo.png", type: "image/png" },
+    ],
+    shortcut: [{ url: "/coastertrak-logo.png", type: "image/png" }],
+    apple: [{ url: "/coastertrak-logo.png", type: "image/png", sizes: "384x384" }],
   },
   openGraph: {
     title: "CoasterTrak",

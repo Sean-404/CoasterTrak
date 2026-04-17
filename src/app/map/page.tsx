@@ -43,6 +43,64 @@ type RideOption = {
 
 const INITIAL_LIST_VISIBLE_RIDES = 40;
 const LOAD_MORE_LIST_RIDES_STEP = 40;
+const MAP_CACHE_TTL_MS = 5 * 60 * 1000;
+const PARK_SELECT_COLUMNS = "id,name,country,latitude,longitude";
+const COASTER_SELECT_COLUMNS =
+  "id,park_id,name,coaster_type,manufacturer,status,wikidata_id,image_url,length_ft,speed_mph,height_ft,inversions,duration_s,opening_year,closing_year";
+
+type BrowserSupabase = NonNullable<ReturnType<typeof getSupabaseBrowserClient>>;
+type MapCatalogCache = {
+  loadedAt: number;
+  parks: Park[];
+  coasters: Coaster[];
+};
+
+let MAP_CATALOG_CACHE: MapCatalogCache | null = null;
+let MAP_CATALOG_IN_FLIGHT: Promise<{ parks: Park[]; coasters: Coaster[] }> | null = null;
+
+function isMapCatalogCacheFresh(): boolean {
+  if (!MAP_CATALOG_CACHE) return false;
+  return Date.now() - MAP_CATALOG_CACHE.loadedAt < MAP_CACHE_TTL_MS;
+}
+
+function storeMapCatalogCache(parks: Park[], coasters: Coaster[]) {
+  MAP_CATALOG_CACHE = {
+    loadedAt: Date.now(),
+    parks: [...parks],
+    coasters: [...coasters],
+  };
+}
+
+async function loadMapCatalog(supabase: BrowserSupabase): Promise<{ parks: Park[]; coasters: Coaster[] }> {
+  if (isMapCatalogCacheFresh() && MAP_CATALOG_CACHE) {
+    return { parks: [...MAP_CATALOG_CACHE.parks], coasters: [...MAP_CATALOG_CACHE.coasters] };
+  }
+  if (MAP_CATALOG_IN_FLIGHT) return MAP_CATALOG_IN_FLIGHT;
+
+  MAP_CATALOG_IN_FLIGHT = (async () => {
+    const [parksRes, coastersRes] = await Promise.all([
+      fetchAllPages<Park>(SUPABASE_PAGE_SIZE, (from, to) =>
+        supabase.from("parks").select(PARK_SELECT_COLUMNS).order("id", { ascending: true }).range(from, to),
+      ),
+      fetchAllPages<Coaster>(SUPABASE_PAGE_SIZE, (from, to) =>
+        supabase
+          .from("coasters")
+          .select(COASTER_SELECT_COLUMNS)
+          .order("id", { ascending: true })
+          .range(from, to),
+      ),
+    ]);
+
+    const parks = !parksRes.error && parksRes.data.length ? parksRes.data.map(fixUsParkLongitude) : [];
+    const coasters = !coastersRes.error && coastersRes.data.length ? coastersRes.data.map(applyCoasterKnownFixes) : [];
+    storeMapCatalogCache(parks, coasters);
+    return { parks, coasters };
+  })().finally(() => {
+    MAP_CATALOG_IN_FLIGHT = null;
+  });
+
+  return MAP_CATALOG_IN_FLIGHT;
+}
 
 function Shimmer({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-md bg-slate-200/90 ${className}`} aria-hidden />;
@@ -379,6 +437,92 @@ function isLikelyPlaceholderParkName(name: string): boolean {
   return n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc";
 }
 
+function isUnknownHistoricalParkName(name: string): boolean {
+  return /^unknown\s*\/\s*historical park/i.test(name.trim());
+}
+
+function displayCountryForPark(park: Park | null | undefined): string {
+  if (!park) return "Unknown";
+  if (isLikelyPlaceholderParkName(park.name) || isUnknownHistoricalParkName(park.name)) {
+    return "Unknown";
+  }
+  const resolved = reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null).trim();
+  return resolved || "Unknown";
+}
+
+function coasterDataRichness(c: Coaster): number {
+  let score = 0;
+  if (c.image_url) score += 1;
+  if (c.manufacturer) score += 1;
+  if (c.length_ft != null) score += 1;
+  if (c.speed_mph != null) score += 1;
+  if (c.height_ft != null) score += 1;
+  if (c.duration_s != null) score += 1;
+  if (c.inversions != null) score += 1;
+  return score;
+}
+
+function parkQualityForQidDedup(parkName: string | null | undefined): number {
+  const name = (parkName ?? "").trim();
+  if (!name) return 0;
+  if (isLikelyPlaceholderParkName(name)) return 1;
+  if (isUnknownHistoricalParkName(name)) return 2;
+  return 5;
+}
+
+function isPlaceholderLikeParkName(name: string | null | undefined): boolean {
+  const parkName = (name ?? "").trim();
+  return isLikelyPlaceholderParkName(parkName) || isUnknownHistoricalParkName(parkName);
+}
+
+function approxEqual(a: number | null | undefined, b: number | null | undefined, tolerance: number): boolean {
+  if (a == null || b == null) return false;
+  return Math.abs(a - b) <= tolerance;
+}
+
+function likelySameRideAcrossParks(a: Coaster, b: Coaster): boolean {
+  const aKey = normalizeCoasterDedupKey(a.name);
+  const bKey = normalizeCoasterDedupKey(b.name);
+  if (!aKey || aKey !== bKey) return false;
+
+  const aQid = a.wikidata_id?.trim().toUpperCase() ?? null;
+  const bQid = b.wikidata_id?.trim().toUpperCase() ?? null;
+  if (aQid && bQid && aQid !== bQid) return false;
+
+  const manufacturerMatch =
+    Boolean(a.manufacturer && b.manufacturer) &&
+    a.manufacturer!.trim().toLowerCase() === b.manufacturer!.trim().toLowerCase();
+
+  const inversionsMatch =
+    a.inversions != null && b.inversions != null && a.inversions === b.inversions;
+  const speedMatch = approxEqual(a.speed_mph, b.speed_mph, 3);
+  const heightMatch = approxEqual(a.height_ft, b.height_ft, 12);
+  const lengthMatch = approxEqual(a.length_ft, b.length_ft, 260);
+  const metricMatches = [inversionsMatch, speedMatch, heightMatch, lengthMatch].filter(Boolean).length;
+
+  // Require more than just name overlap to avoid collapsing genuine different rides with common names.
+  if (aQid && bQid && aQid === bQid) return true;
+  if (manufacturerMatch && metricMatches >= 1) return true;
+  return metricMatches >= 2;
+}
+
+function preferCoasterForCrossParkWikidataDedup(
+  a: Coaster,
+  aParkName: string | null | undefined,
+  b: Coaster,
+  bParkName: string | null | undefined,
+): Coaster {
+  const parkScoreA = parkQualityForQidDedup(aParkName);
+  const parkScoreB = parkQualityForQidDedup(bParkName);
+  if (parkScoreA !== parkScoreB) return parkScoreA > parkScoreB ? a : b;
+
+  const dataScoreA = coasterDataRichness(a);
+  const dataScoreB = coasterDataRichness(b);
+  if (dataScoreA !== dataScoreB) return dataScoreA >= dataScoreB ? a : b;
+
+  return a.id <= b.id ? a : b;
+}
+
 function hasUniversalStudiosVsIslandsConflict(a: string, b: string): boolean {
   const na = a.toLowerCase();
   const nb = b.toLowerCase();
@@ -395,6 +539,55 @@ function hasUniversalStudiosVsIslandsConflict(a: string, b: string): boolean {
   return studiosVsIslands || resortVsGate;
 }
 
+const NON_DISTINCTIVE_LOCATION_TOKENS = new Set([
+  "hong",
+  "kong",
+  "north",
+  "south",
+  "east",
+  "west",
+  "new",
+  "city",
+  "town",
+  "county",
+  "state",
+  "province",
+  "region",
+  "district",
+  "island",
+  "islands",
+  "park",
+  "parks",
+  "theme",
+  "amusement",
+  "resort",
+  "world",
+  "land",
+  "the",
+  "and",
+]);
+
+function tokenizeParkName(name: string): string[] {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 2);
+}
+
+function hasSharedDistinctiveParkToken(a: string, b: string): boolean {
+  const aTokens = new Set(
+    tokenizeParkName(a).filter((token) => !NON_DISTINCTIVE_LOCATION_TOKENS.has(token)),
+  );
+  if (aTokens.size === 0) return false;
+  for (const token of tokenizeParkName(b)) {
+    if (!NON_DISTINCTIVE_LOCATION_TOKENS.has(token) && aTokens.has(token)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export default function MapPage() {
   const [parks, setParks] = useState<Park[]>([]);
   const [coasters, setCoasters] = useState<Coaster[]>([]);
@@ -408,6 +601,7 @@ export default function MapPage() {
   const [selectedCoasterId, setSelectedCoasterId] = useState<number | null>(null);
   const [focusedParkId, setFocusedParkId] = useState<number | null>(null);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
+  const [includeUnknownHistoricalParks, setIncludeUnknownHistoricalParks] = useState(false);
   const [listVisibleRideCount, setListVisibleRideCount] = useState(INITIAL_LIST_VISIBLE_RIDES);
   const { units, setUnits } = useUnits();
 
@@ -428,30 +622,26 @@ export default function MapPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const [parksRes, coastersRes] = await Promise.all([
-          fetchAllPages<Park>(SUPABASE_PAGE_SIZE, (from, to) =>
-            supabase.from("parks").select("*").order("id", { ascending: true }).range(from, to),
-          ),
-          fetchAllPages<Coaster>(SUPABASE_PAGE_SIZE, (from, to) =>
-            supabase.from("coasters").select("*").order("id", { ascending: true }).range(from, to),
-          ),
-        ]);
+        const { parks: fixedParks, coasters: loadedCoasters } = await loadMapCatalog(supabase);
         if (cancelled) return;
-        const fixedParks =
-          !parksRes.error && parksRes.data.length
-            ? parksRes.data.map(fixUsParkLongitude)
-            : [];
         if (fixedParks.length > 0) setParks(fixedParks);
-        if (!coastersRes.error && coastersRes.data.length) {
-          const mapped = coastersRes.data.map(applyCoasterKnownFixes);
-          const withCatalogFallbacks = fillMissingMapImages(mapped);
-          const hydratedFromWikidata =
-            await hydrateMissingMapImagesFromWikidata(withCatalogFallbacks);
-          const hydrated = await hydrateMissingMapImagesFromLocalCatalog(
-            hydratedFromWikidata,
-            fixedParks,
-          );
-          setCoasters(hydrated);
+        if (loadedCoasters.length > 0) {
+          const withCatalogFallbacks = fillMissingMapImages(loadedCoasters);
+          // Render catalog data immediately; image hydration can continue in the background.
+          setCoasters(withCatalogFallbacks);
+
+          void (async () => {
+            const hydratedFromWikidata =
+              await hydrateMissingMapImagesFromWikidata(withCatalogFallbacks);
+            const hydrated = await hydrateMissingMapImagesFromLocalCatalog(
+              hydratedFromWikidata,
+              fixedParks,
+            );
+            if (!cancelled) {
+              setCoasters(hydrated);
+              storeMapCatalogCache(fixedParks, hydrated);
+            }
+          })();
         }
       } finally {
         if (!cancelled) setCatalogLoading(false);
@@ -521,6 +711,7 @@ export default function MapPage() {
           fuzzyName &&
           !sameName &&
           dist < 40 &&
+          hasSharedDistinctiveParkToken(existing.name, park.name) &&
           !hasUniversalStudiosVsIslandsConflict(existing.name, park.name);
 
         if (sameNameNearby || fuzzyNameNearby) {
@@ -565,18 +756,91 @@ export default function MapPage() {
     const mappedCoasters = remappedCoasters.filter((c) => {
       if (isPlaceholderCoasterName(c.name)) return false;
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
+      if (
+        !includeUnknownHistoricalParks &&
+        (isUnknownHistoricalParkName(parkName ?? "") || isLikelyPlaceholderParkName(parkName ?? ""))
+      ) {
+        return false;
+      }
       return !isLikelyWaterParkName(parkName);
     });
     const coasterEntries = mappedCoasters.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isLikelyCoasterEntry(c, parkName);
     });
-    if (includeFamilyRides) return coasterEntries;
-    return coasterEntries.filter((c) => {
+    const preferredByWikidataId = new Map<string, Coaster>();
+    for (const coaster of coasterEntries) {
+      const qid = coaster.wikidata_id?.trim().toUpperCase();
+      if (!qid) continue;
+      const existing = preferredByWikidataId.get(qid);
+      if (!existing) {
+        preferredByWikidataId.set(qid, coaster);
+        continue;
+      }
+      preferredByWikidataId.set(
+        qid,
+        preferCoasterForCrossParkWikidataDedup(
+          existing,
+          dedupedParkById.get(existing.park_id)?.name ?? null,
+          coaster,
+          dedupedParkById.get(coaster.park_id)?.name ?? null,
+        ),
+      );
+    }
+    const crossParkDedupedEntries = coasterEntries.filter((coaster) => {
+      const qid = coaster.wikidata_id?.trim().toUpperCase();
+      if (!qid) return true;
+      const preferred = preferredByWikidataId.get(qid);
+      return !preferred || preferred.id === coaster.id;
+    });
+
+    const knownByDedupKey = new Map<string, Coaster[]>();
+    for (const coaster of crossParkDedupedEntries) {
+      const parkName = dedupedParkById.get(coaster.park_id)?.name ?? null;
+      if (isPlaceholderLikeParkName(parkName)) continue;
+      const key = normalizeCoasterDedupKey(coaster.name);
+      if (!key) continue;
+      const list = knownByDedupKey.get(key) ?? [];
+      list.push(coaster);
+      knownByDedupKey.set(key, list);
+    }
+
+    const withoutPlaceholderDupes = crossParkDedupedEntries.filter((coaster) => {
+      const parkName = dedupedParkById.get(coaster.park_id)?.name ?? null;
+      if (!isPlaceholderLikeParkName(parkName)) return true;
+      const key = normalizeCoasterDedupKey(coaster.name);
+      if (!key) return true;
+      const knownCandidates = knownByDedupKey.get(key) ?? [];
+      return !knownCandidates.some((known) => likelySameRideAcrossParks(coaster, known));
+    });
+
+    if (includeFamilyRides) return withoutPlaceholderDupes;
+    return withoutPlaceholderDupes.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isThrillCoaster(c, parkName);
     });
-  }, [includeFamilyRides, remappedCoasters, dedupedParkById]);
+  }, [includeFamilyRides, includeUnknownHistoricalParks, remappedCoasters, dedupedParkById]);
+
+  const unknownHistoricalCounts = useMemo(() => {
+    const parkIds = new Set<number>();
+    let rideCount = 0;
+    for (const coaster of remappedCoasters) {
+      if (isPlaceholderCoasterName(coaster.name)) continue;
+      const parkName = dedupedParkById.get(coaster.park_id)?.name ?? null;
+      if (
+        !isUnknownHistoricalParkName(parkName ?? "") &&
+        !isLikelyPlaceholderParkName(parkName ?? "")
+      ) {
+        continue;
+      }
+      if (isLikelyWaterParkName(parkName)) continue;
+      if (!isLikelyCoasterEntry(coaster, parkName)) continue;
+      if (!includeFamilyRides && !isThrillCoaster(coaster, parkName)) continue;
+      rideCount += 1;
+      parkIds.add(coaster.park_id);
+    }
+    return { rideCount, parkCount: parkIds.size };
+  }, [dedupedParkById, includeFamilyRides, remappedCoasters]);
 
   const visibleParkIds = useMemo(() => {
     const ids = new Set<number>();
@@ -586,6 +850,15 @@ export default function MapPage() {
 
   const candidateParks = useMemo(() => {
     return deduplicatedParks.parks.filter((park) => {
+      if (!visibleParkIds.has(park.id)) return false;
+
+      const placeholderLike =
+        isLikelyPlaceholderParkName(park.name) || isUnknownHistoricalParkName(park.name);
+      if (viewMode === "list") {
+        if (!includeUnknownHistoricalParks && placeholderLike) return false;
+        return true;
+      }
+
       if (
         park.latitude == null ||
         park.longitude == null ||
@@ -595,19 +868,17 @@ export default function MapPage() {
         return false;
       }
       if (park.latitude === 0 && park.longitude === 0) return false;
-      if (!visibleParkIds.has(park.id)) return false;
+      // Keep map pins focused on named venues.
       if (isLikelyPlaceholderParkName(park.name)) return false;
       return continent === "All" || getContinent(park.latitude, park.longitude) === continent;
     });
-  }, [continent, deduplicatedParks, visibleParkIds]);
+  }, [continent, deduplicatedParks, includeUnknownHistoricalParks, viewMode, visibleParkIds]);
 
   const countryOptions = useMemo(() => {
     return Array.from(
       new Set(
         candidateParks
-          .map((park) =>
-            reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null).trim(),
-          )
+          .map((park) => displayCountryForPark(park))
           .filter(Boolean),
       ),
     ).sort((a, b) => a.localeCompare(b));
@@ -617,11 +888,7 @@ export default function MapPage() {
     const activeCountryFilter = viewMode === "list" ? countryFilter : "All";
     return candidateParks
       .filter((park) => {
-        const resolvedCountry = reconcileCountryWithCoords(
-          park.country,
-          park.latitude ?? null,
-          park.longitude ?? null,
-        );
+        const resolvedCountry = displayCountryForPark(park);
         return activeCountryFilter === "All" || resolvedCountry === activeCountryFilter;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -720,9 +987,7 @@ export default function MapPage() {
       .filter((coaster) => filteredParkIds.has(coaster.park_id))
       .map((coaster) => {
         const park = dedupedParkById.get(coaster.park_id);
-        const country = park
-          ? reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null).trim()
-          : "";
+        const country = displayCountryForPark(park);
         return {
           coaster,
           parkName: park?.name ?? "Unknown park",
@@ -845,40 +1110,38 @@ export default function MapPage() {
               aria-label="Search by park or coaster"
               className="w-full min-w-0 rounded border border-slate-300 px-3 py-2 sm:w-80"
             />
-            <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center sm:gap-3">
-              <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("map")}
-                  aria-pressed={viewMode === "map"}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    viewMode === "map"
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Map
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode("list");
-                    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
-                  }}
-                  aria-pressed={viewMode === "list"}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    viewMode === "list"
-                      ? "bg-slate-900 text-white"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  List
-                </button>
-              </div>
-              <div className="w-full overflow-x-auto sm:w-auto">
-                <div className="inline-block min-w-max">
-                  <UnitsToggle units={units} onChange={setUnits} />
-                </div>
+            <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode("map")}
+                aria-pressed={viewMode === "map"}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "map"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Map
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewMode("list");
+                  setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                }}
+                aria-pressed={viewMode === "list"}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewMode === "list"
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                List
+              </button>
+            </div>
+            <div className="w-full overflow-x-auto sm:ml-auto sm:w-auto">
+              <div className="inline-block min-w-max">
+                <UnitsToggle units={units} onChange={setUnits} />
               </div>
             </div>
           </div>
@@ -955,6 +1218,27 @@ export default function MapPage() {
             />
             Include kiddie / family-style rides
           </label>
+          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={includeUnknownHistoricalParks}
+              onChange={(e) => {
+                setIncludeUnknownHistoricalParks(e.target.checked);
+                setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+              }}
+              className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+            />
+            Include unknown / historical park entries
+            {(unknownHistoricalCounts.rideCount > 0 || unknownHistoricalCounts.parkCount > 0) && (
+              <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                {includeUnknownHistoricalParks ? "showing" : "hidden"} {unknownHistoricalCounts.rideCount} rides ·{" "}
+                {unknownHistoricalCounts.parkCount} parks
+              </span>
+            )}
+          </label>
+          <p className="text-xs text-slate-500">
+            Data quality note: ride and park details can be incomplete or outdated while upstream sources are refreshed.
+          </p>
         </div>
         )}
         {!catalogLoading && deduplicatedParks.parks.length === 0 && (

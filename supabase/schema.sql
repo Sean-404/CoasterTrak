@@ -61,9 +61,7 @@ create table if not exists profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
   country_code text,
-  favorite_ride text,
   favorite_ride_id bigint references coasters(id) on delete set null,
-  favorite_park text,
   favorite_park_id bigint references parks(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -196,13 +194,17 @@ for each row
 execute function public.touch_friendships_updated_at();
 
 alter table profiles
-  add column if not exists favorite_ride text;
-alter table profiles
   add column if not exists favorite_ride_id bigint references coasters(id) on delete set null;
 alter table profiles
-  add column if not exists favorite_park text;
-alter table profiles
   add column if not exists favorite_park_id bigint references parks(id) on delete set null;
+alter table profiles
+  drop constraint if exists profiles_favorite_ride_length;
+alter table profiles
+  drop constraint if exists profiles_favorite_park_length;
+alter table profiles
+  drop column if exists favorite_ride;
+alter table profiles
+  drop column if exists favorite_park;
 alter table profiles
   drop constraint if exists profiles_display_name_allowed;
 alter table profiles
@@ -214,17 +216,6 @@ alter table profiles
 alter table profiles
   add constraint profiles_country_code_format
   check (country_code is null or country_code ~ '^[A-Z]{2}$');
-alter table profiles
-  drop constraint if exists profiles_favorite_ride_length;
-alter table profiles
-  add constraint profiles_favorite_ride_length
-  check (favorite_ride is null or char_length(btrim(favorite_ride)) between 1 and 80);
-alter table profiles
-  drop constraint if exists profiles_favorite_park_length;
-alter table profiles
-  add constraint profiles_favorite_park_length
-  check (favorite_park is null or char_length(btrim(favorite_park)) between 1 and 80);
-
 alter table friendships
   drop constraint if exists friendships_not_self;
 alter table friendships
@@ -234,7 +225,10 @@ alter table parks
   drop constraint if exists parks_external_source_allowed;
 alter table parks
   add constraint parks_external_source_allowed
-  check (external_source is null or external_source = 'wikidata');
+  check (
+    external_source is null
+    or external_source in ('wikidata', 'wikidata_unknown_park')
+  );
 
 alter table coasters
   drop constraint if exists coasters_external_source_allowed;

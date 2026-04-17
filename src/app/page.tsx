@@ -26,7 +26,7 @@ export default function Home() {
     "@type": "Organization",
     name: "CoasterTrak",
     url: SITE_URL,
-    logo: `${SITE_URL}/rollercoaster_icon.png`,
+    logo: `${SITE_URL}/coastertrak-logo.png`,
   };
 
   return (
@@ -92,6 +92,10 @@ export default function Home() {
             href="/stats"
           />
         </div>
+        <p className="mt-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          Data quality note: Coaster and park data is sourced from third-party datasets and community-maintained
+          sources. Some entries may be incomplete, outdated, or occasionally inaccurate.
+        </p>
       </main>
     </div>
   );

@@ -55,6 +55,10 @@ type DbCoaster = {
   external_id: string | null;
   coaster_type: string | null;
   manufacturer: string | null;
+  length_ft: number | null;
+  speed_mph: number | null;
+  height_ft: number | null;
+  inversions: number | null;
   parks: {
     name: string;
     country: string;
@@ -291,6 +295,93 @@ function nearestPark(
     }
   }
   return best;
+}
+
+function isPlaceholderLikeParkLabel(name: string | null | undefined): boolean {
+  const n = (name ?? "").trim().toLowerCase();
+  return (
+    n === "" ||
+    n === "other" ||
+    n === "unknown" ||
+    n === "n/a" ||
+    n === "na" ||
+    n === "misc" ||
+    /^unknown\s*\/\s*historical park/.test(n)
+  );
+}
+
+function approxEqual(a: number | null | undefined, b: number | null | undefined, tolerance: number): boolean {
+  if (a == null || b == null) return false;
+  return Math.abs(a - b) <= tolerance;
+}
+
+function wdLikelyMatchesExistingRide(wd: WikidataCoasterRow, c: DbCoaster): boolean {
+  const wdKeys = new Set<string>();
+  const addWdKey = (value: string | null | undefined) => {
+    if (!value) return;
+    const k1 = normalizeNameKey(value);
+    if (k1) wdKeys.add(k1);
+    const k2 = normalizeCoasterDedupKey(value);
+    if (k2) wdKeys.add(k2);
+  };
+  addWdKey(wd.label);
+  addWdKey(wd.enwikiTitle ?? null);
+
+  const coasterNameKey = normalizeNameKey(c.name);
+  const coasterDedupKey = normalizeCoasterDedupKey(c.name);
+  const hasNameOverlap =
+    (coasterNameKey && wdKeys.has(coasterNameKey)) ||
+    (coasterDedupKey && wdKeys.has(coasterDedupKey));
+  if (!hasNameOverlap) return false;
+
+  const wdQid = wd.wikidataId.trim().toUpperCase();
+  const cQid = c.wikidata_id?.trim().toUpperCase() ?? null;
+  if (wdQid && cQid) return wdQid === cQid;
+
+  const manufacturerMatch =
+    Boolean(wd.manufacturerLabel && c.manufacturer) &&
+    wd.manufacturerLabel!.trim().toLowerCase() === c.manufacturer!.trim().toLowerCase();
+
+  const metricMatches = [
+    wd.inversions != null && c.inversions != null && wd.inversions === c.inversions,
+    approxEqual(wd.speedMph, c.speed_mph ?? null, 3),
+    approxEqual(wd.heightFt, c.height_ft ?? null, 12),
+    approxEqual(wd.lengthFt, c.length_ft ?? null, 260),
+  ].filter(Boolean).length;
+
+  return metricMatches >= 2 || (manufacturerMatch && metricMatches >= 1);
+}
+
+function findLikelyKnownParkDuplicate(
+  wd: WikidataCoasterRow,
+  index: Map<string, DbCoaster[]>,
+): DbCoaster | undefined {
+  const candidates = lookupCandidates(index, wd) ?? [];
+  if (!candidates.length) return undefined;
+
+  let knownCandidates = candidates.filter((c) => !isPlaceholderLikeParkLabel(c.parks?.name ?? null));
+  if (!knownCandidates.length) return undefined;
+
+  if (wd.countryLabel?.trim()) {
+    const byCountry = knownCandidates.filter((c) => {
+      if (!c.parks) return false;
+      const parkLike: DbPark = {
+        id: c.park_id,
+        name: c.parks.name,
+        country: c.parks.country,
+        latitude: c.parks.latitude,
+        longitude: c.parks.longitude,
+        external_source: null,
+        external_id: null,
+      };
+      return countryAlignedWithWikidata(wd.countryLabel, parkLike);
+    });
+    if (byCountry.length > 0) knownCandidates = byCountry;
+  }
+
+  const likely = knownCandidates.filter((c) => wdLikelyMatchesExistingRide(wd, c));
+  if (likely.length === 1) return likely[0];
+  return undefined;
 }
 
 /** Last parenthetical in an article title, e.g. "Big Dipper (Blackpool Pleasure Beach)". */
@@ -712,7 +803,7 @@ async function main() {
       supabase
         .from("coasters")
         .select(
-          "id, name, park_id, wikidata_id, external_source, external_id, coaster_type, manufacturer, parks(name, country, latitude, longitude)",
+          "id, name, park_id, wikidata_id, external_source, external_id, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, parks(name, country, latitude, longitude)",
         )
         .order("id", { ascending: true })
         .range(from, to),
@@ -906,6 +997,45 @@ async function main() {
     // to attach to nearby parks when the label is a real ride title (e.g. Anaconda, Gold Reef City).
     if (isPlaceholderQidLabel(wd.label)) continue;
     if (!wd.parkLabel && !hasCoords) continue;
+
+    // Placeholder/unknown park labels often represent a known coaster that failed park matching.
+    // Prefer binding that Wikidata row to an existing known-park ride instead of creating an "Unknown" duplicate.
+    if (isPlaceholderLikeParkLabel(wd.parkLabel)) {
+      const knownMatch = findLikelyKnownParkDuplicate(wd, index);
+      if (knownMatch) {
+        if (DRY_RUN) {
+          console.error(
+            `  Skip placeholder insert "${wd.label}" -> likely existing coaster id=${knownMatch.id} (${knownMatch.name}) at ${knownMatch.parks?.name ?? "known park"}.`,
+          );
+        } else if (!knownMatch.wikidata_id || knownMatch.wikidata_id.trim().toUpperCase() !== wd.wikidataId) {
+          const bindPatch: {
+            wikidata_id: string;
+            external_source: "wikidata";
+            external_id: string;
+            last_synced_at: string;
+          } = {
+            wikidata_id: wd.wikidataId,
+            external_source: "wikidata",
+            external_id: wd.wikidataId,
+            last_synced_at: new Date().toISOString(),
+          };
+          const { error: bindErr } = await supabase.from("coasters").update(bindPatch).eq("id", knownMatch.id);
+          if (bindErr) {
+            console.error(
+              `  Failed binding placeholder row "${wd.label}" to known coaster id=${knownMatch.id}: ${bindErr.message}`,
+            );
+          } else {
+            knownMatch.wikidata_id = wd.wikidataId;
+            knownMatch.external_source = "wikidata";
+            knownMatch.external_id = wd.wikidataId;
+            console.error(
+              `  Bound placeholder row "${wd.label}" to existing coaster id=${knownMatch.id} (${knownMatch.name}).`,
+            );
+          }
+        }
+        continue;
+      }
+    }
 
     // Primary: exact name index, else fuzzy park name match (no per-resort hardcoding)
     let park = findParkForWikidataInsert(wd, parkByName, parkByExternalQid, allDbParks, {

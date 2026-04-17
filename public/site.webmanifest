@@ -1,0 +1,16 @@
+{
+  "name": "CoasterTrak",
+  "short_name": "CoasterTrak",
+  "description": "Track every roller coaster you ride, explore parks, and compare stats.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "/coastertrak-logo.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    }
+  ]
+}

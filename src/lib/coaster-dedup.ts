@@ -96,9 +96,16 @@ function hasCoasterishType(t: string): boolean {
   );
 }
 
+/** Exclude incident/event pages that can leak in via broad Wikidata class links. */
+function isLikelyNonRideEventName(raw: string): boolean {
+  const n = cleanCoasterName(raw).toLowerCase();
+  return /\b(disaster|accident|derailment|fatality|catastrophe|tragedy)\b/.test(n);
+}
+
 /** Broad "is this a coaster row at all?" gate used before thrill/family filtering. */
 export function isLikelyCoasterEntry(c: Coaster, parkName?: string | null): boolean {
   if (isPlaceholderCoasterName(c.name)) return false;
+  if (isLikelyNonRideEventName(c.name)) return false;
   if (c.inversions != null || c.speed_mph != null || c.height_ft != null || c.length_ft != null) return true;
   if (isLikelySmallFamilyCoaster(c, parkName)) return true;
   const t = effectiveCoasterType(c.coaster_type, c.manufacturer).toLowerCase();
@@ -221,6 +228,13 @@ export function isThrillCoaster(c: Coaster, parkName?: string | null): boolean {
     /\b(kiddie|kiddy|junior|children'?s|family)\b/i.test(n);
   if (isLikelySmallFamilyCoaster(c, parkName) || familyCue) {
     return false;
+  }
+
+  // Keep likely coasters visible when the source lacks numeric intensity fields.
+  // This avoids false negatives on parks where Wikidata has sparse ride stats.
+  const hasQuantSignals = speed != null || height != null || length != null || inv > 0;
+  if (!hasQuantSignals) {
+    return true;
   }
 
   // Moderate but still high-intensity profile (e.g. airtime-focused wood/hybrid rides).
