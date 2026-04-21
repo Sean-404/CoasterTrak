@@ -48,12 +48,9 @@ export const metadata: Metadata = {
   category: "travel",
   manifest: "/site.webmanifest",
   icons: {
-    icon: [
-      { url: "/coastertrak-logo.png", type: "image/png", sizes: "384x384" },
-      { url: "/coastertrak-logo.png", type: "image/png" },
-    ],
-    shortcut: [{ url: "/coastertrak-logo.png", type: "image/png" }],
-    apple: [{ url: "/coastertrak-logo.png", type: "image/png", sizes: "384x384" }],
+    icon: [{ url: "/icon", type: "image/png" }],
+    shortcut: [{ url: "/icon", type: "image/png" }],
+    apple: [{ url: "/apple-icon", type: "image/png" }],
   },
   openGraph: {
     title: "CoasterTrak",

@@ -4,7 +4,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
-  const routes = ["/", "/map", "/login", "/achievements"];
+  const routes = ["/", "/coaster-tracker", "/map"];
 
   return routes.map((route) => ({
     url: `${BASE_URL}${route}`,

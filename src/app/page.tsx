@@ -1,10 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
+import { AdsenseAd } from "@/components/adsense-ad";
 import { AuthErrorHandler } from "@/components/auth-error-handler";
 import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteHeader } from "@/components/site-header";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+const HOME_AD_SLOT_PRIMARY = process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME_PRIMARY;
+const HOME_AD_SLOT_SECONDARY = process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME_SECONDARY;
 
 export default function Home() {
   const websiteJsonLd = {
@@ -92,6 +95,12 @@ export default function Home() {
             href="/stats"
           />
         </div>
+        <AdsenseAd
+          slot={HOME_AD_SLOT_PRIMARY}
+          format="horizontal"
+          fullWidthResponsive
+          className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+        />
         <p className="mt-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Data quality note: Coaster and park data is sourced from third-party datasets and community-maintained
           sources. Some entries may be incomplete, outdated, or occasionally inaccurate.
@@ -113,6 +122,11 @@ export default function Home() {
             </Link>
           </div>
         </section>
+        <AdsenseAd
+          slot={HOME_AD_SLOT_SECONDARY}
+          format="rectangle"
+          className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+        />
       </main>
     </div>
   );

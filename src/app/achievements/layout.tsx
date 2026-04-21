@@ -7,6 +7,14 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/achievements",
   },
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
 };
 
 export default function AchievementsLayout({ children }: { children: React.ReactNode }) {
