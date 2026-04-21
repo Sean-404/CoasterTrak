@@ -26,7 +26,7 @@ function formatPair(id: string, current: number, target: number, units: Units): 
     const t = fmtDuration(target) ?? `${target}s`;
     return `${c} / ${t}`;
   }
-  if (id === "length_mile" || id === "length_five_miles") {
+  if (id === "length_mile" || id === "length_five_miles" || id === "length_to_karman") {
     const c = fmtLength(current, units) ?? `${Math.round(current)}`;
     const t = fmtLength(target, units) ?? `${target}`;
     return `${c} / ${t}`;

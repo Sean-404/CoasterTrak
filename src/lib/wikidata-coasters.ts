@@ -62,6 +62,48 @@ WHERE {
 `;
 
 /**
+ * Mid-weight fallback: keeps numeric fields (length/speed/height/duration),
+ * but drops the park-parent traversal that frequently triggers WDQS timeouts.
+ * This preserves high-value stat completeness when full query is unstable.
+ */
+const ROLLER_COASTER_SPARQL_CORE = `
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX schema: <http://schema.org/>
+
+SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
+  ?clsLabel
+  ?lengthM ?speedMs ?heightM ?durationS
+  ?opening ?retirement ?demolished ?rcdbId ?enwiki ?image
+  ?park
+WHERE {
+  ?item wdt:P31 ?cls .
+  ?cls wdt:P279* wd:Q204832 .
+  OPTIONAL { ?item wdt:P625 ?coord . }
+  OPTIONAL { ?item wdt:P17 ?country . }
+  OPTIONAL { ?item wdt:P361 ?park . }
+  OPTIONAL { ?item wdt:P176 ?manufacturer . }
+  OPTIONAL { ?item p:P2043/psn:P2043/wikibase:quantityAmount ?lengthM . }
+  OPTIONAL { ?item p:P2052/psn:P2052/wikibase:quantityAmount ?speedMs . }
+  OPTIONAL { ?item p:P2048/psn:P2048/wikibase:quantityAmount ?heightM . }
+  OPTIONAL { ?item p:P2047/psn:P2047/wikibase:quantityAmount ?durationS . }
+  OPTIONAL { ?item wdt:P1619 ?opening . }
+  OPTIONAL { ?item wdt:P730 ?retirement . }
+  OPTIONAL { ?item wdt:P576 ?demolished . }
+  OPTIONAL { ?item wdt:P2751 ?rcdbId . }
+  OPTIONAL { ?item wdt:P18 ?image . }
+  OPTIONAL {
+    ?article schema:about ?item ;
+             schema:isPartOf <https://en.wikipedia.org/> ;
+             schema:name ?enwiki .
+  }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+}
+`;
+
+/**
  * Lighter fallback query for WDQS outage windows.
  * Drops expensive quantity statement paths and park-parent traversal so CI can still progress.
  */
@@ -347,7 +389,11 @@ export function mergeRowsByItem(rows: WikidataCoasterRow[]): WikidataCoasterRow[
 
 /** WDQS allows a longer server-side cap via query string (ms); anonymous limit may still apply. */
 const WDQS_SPARQL_URL = `${WIKIDATA_SPARQL_ENDPOINT}?format=json&timeout=300000`;
-const MIN_WDQS_PAGE_SIZE = 200;
+/**
+ * WDQS can still 504 on complex full queries at LIMIT 200.
+ * Allow the adaptive retry loop to shrink further before giving up to lite.
+ */
+const MIN_WDQS_PAGE_SIZE = 50;
 
 class WikidataSparqlError extends Error {
   status: number;
@@ -450,8 +496,9 @@ export async function fetchAllRollerCoasters(options?: {
 
   const out: WikidataCoasterRow[] = [];
   let currentPageSize = pageSize;
+  type QueryMode = "full" | "core" | "lite";
+  let queryMode: QueryMode = "full";
   let activeQuery = ROLLER_COASTER_SPARQL;
-  let usingLiteQuery = false;
   let hardTransientRetries = 0;
   const maxHardTransientRetries = 8;
   let offset = 0;
@@ -470,18 +517,32 @@ export async function fetchAllRollerCoasters(options?: {
         err instanceof WikidataSparqlError && err.transient;
       const canShrink = isTransientSparqlError && currentPageSize > MIN_WDQS_PAGE_SIZE;
       if (!isTransientSparqlError) throw err;
-      if (!canShrink && !usingLiteQuery) {
+      if (!canShrink && queryMode !== "lite") {
+        if (queryMode === "full") {
+          queryMode = "core";
+          activeQuery = ROLLER_COASTER_SPARQL_CORE;
+          currentPageSize = Math.max(MIN_WDQS_PAGE_SIZE, Math.floor(pageSize / 2));
+          hardTransientRetries = 0;
+          offset = 0;
+          console.error(
+            "  WDQS unstable on full query at minimum page size; switching to core SPARQL query (keeps numeric stats) and restarting pagination...",
+          );
+          await new Promise((r) => setTimeout(r, 8_000));
+          continue;
+        }
         if (!allowLiteFallback) {
           throw new Error(
-            "WDQS stayed unstable at minimum page size and --no-lite-fallback is set. Retry later for full-query completeness.",
+            "WDQS stayed unstable at minimum page size for full/core queries and --no-lite-fallback is set. Retry later for full-query completeness.",
           );
         }
         options?.onLiteFallback?.();
-        usingLiteQuery = true;
+        queryMode = "lite";
         activeQuery = ROLLER_COASTER_SPARQL_LITE;
         currentPageSize = MIN_WDQS_PAGE_SIZE;
+        hardTransientRetries = 0;
+        offset = 0;
         console.error(
-          "  WDQS still unstable at minimum page size; switching to lite SPARQL query and retrying...",
+          "  WDQS still unstable on core query; switching to lite SPARQL query and restarting pagination...",
         );
         await new Promise((r) => setTimeout(r, 8_000));
         continue;
@@ -524,7 +585,7 @@ export async function fetchAllRollerCoasters(options?: {
     if (uniqueSoFar.length >= maxRows) break;
     if (bindings.length < currentPageSize) break;
     offset += currentPageSize;
-    if (currentPageSize < pageSize && !usingLiteQuery) {
+    if (currentPageSize < pageSize && queryMode !== "lite") {
       currentPageSize = Math.min(pageSize, currentPageSize * 2);
     }
     if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));

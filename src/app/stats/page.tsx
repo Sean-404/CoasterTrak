@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
+import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
@@ -59,12 +61,14 @@ type FavoriteCoasterRow = {
 type RiddenRideRowProps = {
   ride: RideRow;
   removing: number | null;
+  canRemove: boolean;
   onRemove: (coasterId: number, name: string) => void;
 };
 
 const RiddenRideRow = memo(function RiddenRideRow({
   ride,
   removing,
+  canRemove,
   onRemove,
 }: RiddenRideRowProps) {
   const parkLine = formatParkLabel(
@@ -95,28 +99,31 @@ const RiddenRideRow = memo(function RiddenRideRow({
           </p>
         </div>
       </div>
-      <button
-        onClick={() => onRemove(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
-        disabled={removing === ride.coaster_id}
-        title="Remove ride"
-        className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
-      >
-        {removing === ride.coaster_id ? (
-          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-        ) : (
-          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-        )}
-      </button>
+      {canRemove && (
+        <button
+          onClick={() => onRemove(ride.coaster_id, cleanCoasterName(ride.coasters?.name ?? "this ride"))}
+          disabled={removing === ride.coaster_id}
+          title="Remove ride"
+          className="mt-0.5 shrink-0 rounded p-0.5 text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:text-red-500 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 disabled:cursor-wait"
+        >
+          {removing === ride.coaster_id ? (
+            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          )}
+        </button>
+      )}
     </li>
   );
 }, (prev, next) =>
   prev.ride === next.ride &&
   prev.removing === next.removing &&
+  prev.canRemove === next.canRemove &&
   prev.onRemove === next.onRemove
 );
 
@@ -214,11 +221,15 @@ async function fillMissingRideImages(
 }
 
 export default function StatsPage() {
+  const searchParams = useSearchParams();
+  const requestedUserId = searchParams.get("user")?.trim() || null;
   const [rides, setRides] = useState<RideRow[]>([]);
   const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [userId, setUserId] = useState<string | null>(null);
+  const [activeStatsUserId, setActiveStatsUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   const [fetchError, setFetchError] = useState(false);
+  const [friendAccessDenied, setFriendAccessDenied] = useState(false);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
   const [visibleRideCount, setVisibleRideCount] = useState(INITIAL_VISIBLE_RIDES);
   const [rideListScrollTop, setRideListScrollTop] = useState(0);
@@ -230,27 +241,54 @@ export default function StatsPage() {
   const rideListRef = useRef<HTMLUListElement | null>(null);
   const rideListRafRef = useRef<number | null>(null);
   const { units, setUnits } = useUnits();
+  const isOwnStatsView = !activeStatsUserId || (!!userId && userId === activeStatsUserId);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
+    setLoading(true);
+    setFetchError(false);
+    setFriendAccessDenied(false);
+    setRides([]);
+    setShareDisplayName(null);
+    setFavoriteRideLabel("Not set");
+    setFavoriteParkLabel("Not set");
 
     void getSupabaseUserSafe().then(async (user) => {
       if (!user) { setLoading(false); return; }
       setUserId(user.id);
+      const targetUserId = requestedUserId && requestedUserId !== user.id ? requestedUserId : user.id;
+      setActiveStatsUserId(targetUserId);
+
+      if (targetUserId !== user.id) {
+        const { data: friendshipRows, error: friendshipError } = await supabase
+          .from("friendships")
+          .select("id")
+          .eq("status", "accepted")
+          .or(
+            `and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`,
+          )
+          .limit(1);
+        if (friendshipError || !friendshipRows || friendshipRows.length === 0) {
+          setRides([]);
+          setFriendAccessDenied(true);
+          setLoading(false);
+          return;
+        }
+      }
 
       const [profileRes, ridesRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("display_name, favorite_ride_id, favorite_park_id")
-          .eq("user_id", user.id)
+          .eq("user_id", targetUserId)
           .maybeSingle(),
         supabase
           .from("rides")
           .select(
             "coaster_id, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
           )
-          .eq("user_id", user.id),
+          .eq("user_id", targetUserId),
       ]);
 
       if (ridesRes.error) {
@@ -303,7 +341,7 @@ export default function StatsPage() {
       setFavoriteParkLabel(nextFavoriteParkLabel);
       setLoading(false);
     });
-  }, []);
+  }, [requestedUserId]);
 
   const uniqueRides = useMemo(() => {
     const seen = new Set<number>();
@@ -492,6 +530,7 @@ export default function StatsPage() {
   }, [displayedRides, rideListScrollTop, rideListViewportHeight]);
 
   const removeRide = useCallback(async (coasterId: number, name: string) => {
+    if (!isOwnStatsView) return;
     if (!confirm(`Remove "${name}" from your ridden list?`)) return;
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId || removing !== null) return;
@@ -501,12 +540,45 @@ export default function StatsPage() {
       setRides((prev) => prev.filter((r) => r.coaster_id !== coasterId));
     }
     setRemoving(null);
-  }, [removing, userId]);
+  }, [isOwnStatsView, removing, userId]);
+
+  const totalTrackLengthFt = useMemo(
+    () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.length_ft ?? 0), 0),
+    [filteredUniqueRides],
+  );
+  const totalRideDurationS = useMemo(
+    () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.duration_s ?? 0), 0),
+    [filteredUniqueRides],
+  );
+  const totalInversions = useMemo(
+    () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.inversions ?? 0), 0),
+    [filteredUniqueRides],
+  );
+  const totalSpeedMph = useMemo(
+    () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.speed_mph ?? 0), 0),
+    [filteredUniqueRides],
+  );
+  const continentsVisited = useMemo(
+    () => {
+      const continentIds = new Set<string>();
+      for (const ride of filteredUniqueRides) {
+        const continentId = continentIdForCountryLabel(ride.coasters?.parks?.country);
+        if (continentId) continentIds.add(continentId);
+      }
+      return continentIds.size;
+    },
+    [filteredUniqueRides],
+  );
 
   const statCards = [
-    { label: "Coasters ridden", value: filteredUniqueRides.length },
-    { label: "Parks visited", value: parksVisited },
-    { label: "Countries visited", value: countriesVisited },
+    { label: "Coasters ridden", value: filteredUniqueRides.length.toLocaleString() },
+    { label: "Parks visited", value: parksVisited.toLocaleString() },
+    { label: "Countries visited", value: countriesVisited.toLocaleString() },
+    { label: "Continents visited", value: continentsVisited.toLocaleString() },
+    { label: "Total ride time", value: fmtDuration(totalRideDurationS) ?? `${Math.round(totalRideDurationS).toLocaleString()} s` },
+    { label: "Total inversions", value: Math.round(totalInversions).toLocaleString() },
+    { label: "Total listed speed", value: fmtSpeed(totalSpeedMph, units) ?? `${Math.round(totalSpeedMph).toLocaleString()} mph` },
+    { label: "Total track length", value: fmtLength(totalTrackLengthFt, units) ?? `${Math.round(totalTrackLengthFt).toLocaleString()} ft` },
   ];
 
   async function copyStatsSummary() {
@@ -517,6 +589,11 @@ export default function StatsPage() {
       `- Coasters ridden: ${filteredUniqueRides.length}`,
       `- Parks visited: ${parksVisited}`,
       `- Countries visited: ${countriesVisited}`,
+      `- Continents visited: ${continentsVisited}`,
+      `- Total track length: ${fmtLength(totalTrackLengthFt, units) ?? `${Math.round(totalTrackLengthFt).toLocaleString()} ft`}`,
+      `- Total ride time: ${fmtDuration(totalRideDurationS) ?? `${Math.round(totalRideDurationS).toLocaleString()} s`}`,
+      `- Total inversions: ${Math.round(totalInversions).toLocaleString()}`,
+      `- Total listed speed: ${fmtSpeed(totalSpeedMph, units) ?? `${Math.round(totalSpeedMph).toLocaleString()} mph`}`,
       `- Favorite ride: ${favoriteRideLabel}`,
       `- Favorite park: ${favoriteParkLabel}`,
       personalRecords.fastest ? `- Fastest coaster: ${cleanCoasterName(personalRecords.fastest.name)} (${fmtSpeed(personalRecords.fastest.value, units) ?? `${personalRecords.fastest.value} mph`})` : null,
@@ -542,8 +619,15 @@ export default function StatsPage() {
       <main className="mx-auto max-w-4xl p-6">
         <AuthGate>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-slate-900">Your stats</h1>
-            {!loading && filteredUniqueRides.length > 0 && (
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                {isOwnStatsView ? "Your stats" : `${shareDisplayName ?? "Friend"}'s stats`}
+              </h1>
+              {!isOwnStatsView && (
+                <p className="mt-1 text-sm text-slate-500">Viewing a friend profile from your accepted friends list.</p>
+              )}
+            </div>
+            {!loading && isOwnStatsView && filteredUniqueRides.length > 0 && (
               <button
                 onClick={() => void copyStatsSummary()}
                 className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
@@ -560,32 +644,39 @@ export default function StatsPage() {
               Something went wrong loading your data. Please refresh the page.
             </p>
           )}
-          {!loading && uniqueRides.length > 0 && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-              <p className="text-sm font-medium text-slate-700">Ride filters</p>
-              <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={includeFamilyRides}
-                  onChange={(e) => setIncludeFamilyRides(e.target.checked)}
-                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
-                />
-                Include kiddie / family-style rides
-              </label>
-            </div>
+          {friendAccessDenied && (
+            <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
+              You can only view stats for users in your accepted friends list.
+            </p>
           )}
+          {!friendAccessDenied && (
+            <>
+              {!loading && uniqueRides.length > 0 && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <p className="text-sm font-medium text-slate-700">Ride filters</p>
+                  <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={includeFamilyRides}
+                      onChange={(e) => setIncludeFamilyRides(e.target.checked)}
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                    />
+                    Include kiddie / family-style rides
+                  </label>
+                </div>
+              )}
 
-          {/* Stat cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            {statCards.map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-slate-500">{label}</p>
-                <p className="mt-1 text-3xl font-bold text-slate-900">
-                  {loading ? <span className="text-slate-300">&mdash;</span> : value}
-                </p>
+              {/* Stat cards */}
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {statCards.map(({ label, value }) => (
+                  <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-sm text-slate-500">{label}</p>
+                    <p className="mt-1 text-3xl font-bold text-slate-900">
+                      {loading ? <span className="text-slate-300">&mdash;</span> : value}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
 
           {/* Personal records */}
           {(loading || hasAnyRecord) && (
@@ -688,7 +779,7 @@ export default function StatsPage() {
             </div>
           )}
 
-          <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
+              <div className="mt-6 grid gap-5 lg:grid-cols-2 lg:items-start">
             {/* Rides ridden */}
             <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
@@ -696,11 +787,17 @@ export default function StatsPage() {
                 <p className="text-sm text-slate-400">Loading&hellip;</p>
               ) : filteredUniqueRides.length === 0 ? (
                 <p className="text-sm text-slate-500">
-                  No rides logged yet. Mark rides as ridden from the map or your{" "}
-                  <Link href="/wishlist" className="font-medium text-amber-700 underline decoration-amber-300 underline-offset-2 hover:text-amber-800">
-                    wishlist
-                  </Link>
-                  .
+                  {isOwnStatsView ? (
+                    <>
+                      No rides logged yet. Mark rides as ridden from the map or your{" "}
+                      <Link href="/wishlist" className="font-medium text-amber-700 underline decoration-amber-300 underline-offset-2 hover:text-amber-800">
+                        wishlist
+                      </Link>
+                      .
+                    </>
+                  ) : (
+                    "No rides logged yet."
+                  )}
                 </p>
               ) : (
                 <>
@@ -741,6 +838,7 @@ export default function StatsPage() {
                           key={ride.coaster_id}
                           ride={ride}
                           removing={removing}
+                          canRemove={isOwnStatsView}
                           onRemove={removeRide}
                         />
                       );
@@ -817,7 +915,9 @@ export default function StatsPage() {
                 )}
               </section>
             </div>
-          </div>
+              </div>
+            </>
+          )}
         </AuthGate>
       </main>
     </div>

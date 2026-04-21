@@ -26,7 +26,7 @@ jobs:
         run: npm ci
 
       - name: Fetch & enrich coaster data from Wikidata + Wikipedia
-        run: npx tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 1000
+        run: npx tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 1000 --no-lite-fallback
 
       - name: Validate fetched Wikidata dataset
         run: npm run wikidata:validate

@@ -311,6 +311,8 @@ type Def = {
   current: (rides: AchievementRide[], metrics: AchievementMetrics) => number;
 };
 
+export const KARMAN_LINE_FT = 328_084;
+
 /** Per-achievement rarity for UI badges (defaults to common if omitted). */
 const RARITY: Partial<Record<string, AchievementRarity>> = {
   first_credit: "common",
@@ -362,6 +364,7 @@ const RARITY: Partial<Record<string, AchievementRarity>> = {
   countries_10: "epic",
   continents_3: "epic",
   length_five_miles: "legendary",
+  length_to_karman: "legendary",
   duration_two_hours: "legendary",
   inversions_sum_500: "legendary",
   single_coaster_10_inversions: "epic",
@@ -727,6 +730,14 @@ const DEFINITIONS: Def[] = [
     title: "Five-mile track",
     description: "Ride at least 26,400 ft of track in total (five miles, sum of credited coasters).",
     target: 26400,
+    current: (rides) => sumField(rides, "length_ft"),
+    dataNote: "Sums length only for coasters with length data.",
+  },
+  {
+    id: "length_to_karman",
+    title: "Edge of space",
+    description: "Ride enough total track length to reach the Karman line (100 km).",
+    target: KARMAN_LINE_FT,
     current: (rides) => sumField(rides, "length_ft"),
     dataNote: "Sums length only for coasters with length data.",
   },

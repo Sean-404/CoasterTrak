@@ -28,7 +28,7 @@ type WishlistItem = {
     height_ft?: number | null;
     inversions?: number | null;
     duration_s?: number | null;
-    parks?: { name: string } | null;
+    parks?: { name: string; country?: string | null } | null;
   } | null;
 };
 
@@ -39,6 +39,15 @@ type WishlistSort =
   | "ride_za"
   | "park_az"
   | "park_za";
+
+function formatRideDuration(seconds: number | null | undefined): string | null {
+  if (seconds == null) return null;
+  const total = Math.max(0, Math.round(seconds));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  if (mins <= 0) return `${secs}s`;
+  return `${mins}m ${secs}s`;
+}
 
 type WishlistRowProps = {
   item: WishlistItem;
@@ -59,6 +68,20 @@ const WishlistRow = memo(function WishlistRow({
     ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
     : "Unknown";
   const lifecycle = normalizeLifecycleStatus(coaster?.status);
+  const parkName = coaster?.parks?.name?.trim() ?? "";
+  const parkCountry = coaster?.parks?.country?.trim() ?? "";
+  const parkLabel = parkName && parkCountry ? `${parkName} · ${parkCountry}` : parkName || parkCountry;
+  const mapHref = coaster?.park_id != null
+    ? `/map?view=list&park=${coaster.park_id}`
+    : `/map?coaster=${item.coaster_id}`;
+  const durationLabel = formatRideDuration(coaster?.duration_s);
+  const statBadges = [
+    coaster?.length_ft != null ? `Length ${Math.round(coaster.length_ft).toLocaleString()} ft` : null,
+    coaster?.speed_mph != null ? `Speed ${Math.round(coaster.speed_mph).toLocaleString()} mph` : null,
+    coaster?.height_ft != null ? `Height ${Math.round(coaster.height_ft).toLocaleString()} ft` : null,
+    coaster?.inversions != null ? `Inversions ${Math.round(coaster.inversions).toLocaleString()}` : null,
+    durationLabel ? `Duration ${durationLabel}` : null,
+  ].filter((badge): badge is string => Boolean(badge));
 
   return (
     <li
@@ -76,8 +99,8 @@ const WishlistRow = memo(function WishlistRow({
           <p className="break-words font-semibold leading-snug text-slate-900">
             {coasterName}
           </p>
-          {coaster?.parks?.name && (
-            <p className="mt-0.5 break-words text-sm text-slate-500">{coaster.parks.name}</p>
+          {parkLabel && (
+            <p className="mt-0.5 break-words text-sm text-slate-500">{parkLabel}</p>
           )}
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {typeLabel !== "Unknown" && (
@@ -98,9 +121,27 @@ const WishlistRow = memo(function WishlistRow({
               )
             )}
           </div>
+          {statBadges.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {statBadges.map((badge) => (
+                <span
+                  key={badge}
+                  className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex w-full flex-wrap gap-2 sm:mt-0 sm:w-auto sm:flex-nowrap sm:shrink-0">
+        <Link
+          href={mapHref}
+          className="flex-1 whitespace-nowrap rounded-lg border border-slate-300 px-3 py-1.5 text-center text-sm text-slate-700 transition hover:bg-slate-50 sm:flex-none"
+        >
+          View on map
+        </Link>
         <button
           onClick={() => onMarkRidden(item.coaster_id)}
           disabled={!!busy}
@@ -225,7 +266,7 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name))")
+        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))")
         .eq("user_id", user.id)
         .order("added_at", { ascending: false });
 
@@ -297,6 +338,34 @@ export default function WishlistPage() {
     return sorted;
   }, [filteredItems, sortBy]);
 
+  const wishlistParkCount = useMemo(
+    () =>
+      new Set(
+        filteredItems
+          .map((item) => item.coasters?.park_id)
+          .filter((id): id is number => id != null),
+      ).size,
+    [filteredItems],
+  );
+
+  const wishlistCountryCount = useMemo(
+    () =>
+      new Set(
+        filteredItems
+          .map((item) => item.coasters?.parks?.country?.trim())
+          .filter((country): country is string => Boolean(country)),
+      ).size,
+    [filteredItems],
+  );
+
+  const avgListedSpeedMph = useMemo(() => {
+    const speeds = filteredItems
+      .map((item) => item.coasters?.speed_mph)
+      .filter((speed): speed is number => speed != null);
+    if (speeds.length === 0) return null;
+    return speeds.reduce((sum, speed) => sum + speed, 0) / speeds.length;
+  }, [filteredItems]);
+
   const markRidden = useCallback(async (coasterId: number) => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId) return;
@@ -342,17 +411,30 @@ export default function WishlistPage() {
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">Your wishlist</h1>
-              {!loading && items.length > 0 && (
-                <p className="mt-0.5 text-sm text-slate-500">
-                  {sortedItems.length} ride{sortedItems.length !== 1 ? "s" : ""} to conquer
-                  {!includeFamilyRides ? " (thrill-focused)" : ""}
-                </p>
-              )}
             </div>
             <Link href="/map" className="inline-flex w-fit rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
               Find more &rarr;
             </Link>
           </div>
+
+          {!loading && filteredItems.length > 0 && (
+            <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: "Wishlist rides", value: sortedItems.length.toLocaleString() },
+                { label: "Parks", value: wishlistParkCount.toLocaleString() },
+                { label: "Countries", value: wishlistCountryCount.toLocaleString() },
+                {
+                  label: "Avg listed speed",
+                  value: avgListedSpeedMph != null ? `${Math.round(avgListedSpeedMph).toLocaleString()} mph` : "N/A",
+                },
+              ].map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">{stat.label}</p>
+                  <p className="mt-1 text-2xl font-bold text-slate-900">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           {!loading && items.length > 0 && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">

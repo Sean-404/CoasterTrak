@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
@@ -9,6 +10,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import {
   absorbReverseGeocodeParks,
@@ -274,10 +276,61 @@ function getContinent(lat: number, lng: number): Continent {
   if (lat > -47 && lat < -10 && lng > 110 && lng < 180) return "Oceania";
   // Arabian Peninsula + Gulf — classify as Asia (not Africa). Must run before Africa bbox.
   if (lat > 12 && lat < 33 && lng > 34 && lng < 62) return "Asia";
-  // Africa (Egypt through Maghreb + sub-Saharan). lng < 52 keeps Horn of Africa in Africa.
-  if (lat > -35 && lat < 38 && lng > -18 && lng < 52) return "Africa";
+  // Africa (Maghreb + sub-Saharan + nearby islands like Cape Verde/Mauritius/Seychelles).
+  if (lat > -40 && lat < 38 && lng > -27 && lng < 64) return "Africa";
   // Remaining eastern hemisphere: central Asia, India, Russia east of Europe, etc.
   if (lat > -10 && lat < 77 && lng > 25 && lng < 180) return "Asia";
+  return "All";
+}
+
+function continentFromCountryLabel(country: string | null | undefined): Continent {
+  const raw = (country ?? "").trim();
+  if (!raw) return "All";
+
+  const candidates = new Set<string>([
+    raw,
+    raw.replace(/\s+/g, " ").trim(),
+    raw.split(",")[0]?.trim() ?? "",
+    raw.replace(/\s*\(.*?\)\s*/g, "").trim(),
+  ]);
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const id = continentIdForCountryLabel(candidate);
+    switch (id) {
+      case "AF":
+        return "Africa";
+      case "AS":
+        return "Asia";
+      case "EU":
+        return "Europe";
+      case "NA":
+        return "North America";
+      case "OC":
+        return "Oceania";
+      case "SA":
+        return "South America";
+      default:
+        break;
+    }
+  }
+  return "All";
+}
+
+function getParkContinent(park: Park): Continent {
+  const lat = park.latitude;
+  const lng = park.longitude;
+  const resolvedCountry = reconcileCountryWithCoords(park.country, lat ?? null, lng ?? null);
+
+  const byCountry = continentFromCountryLabel(resolvedCountry) !== "All"
+    ? continentFromCountryLabel(resolvedCountry)
+    : continentFromCountryLabel(park.country);
+  if (byCountry !== "All") return byCountry;
+
+  if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
+    const byCoords = getContinent(lat, lng);
+    if (byCoords !== "All") return byCoords;
+  }
   return "All";
 }
 
@@ -589,6 +642,25 @@ function hasSharedDistinctiveParkToken(a: string, b: string): boolean {
 }
 
 export default function MapPage() {
+  const searchParams = useSearchParams();
+  const deepLinkedView = useMemo<ViewMode | null>(() => {
+    const raw = searchParams.get("view");
+    if (raw === "map" || raw === "list") return raw;
+    return null;
+  }, [searchParams]);
+  const deepLinkedCoasterId = useMemo(() => {
+    const raw = searchParams.get("coaster");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [searchParams]);
+  const deepLinkedParkId = useMemo(() => {
+    const raw = searchParams.get("park");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [searchParams]);
+  const hasAppliedDeepLink = useRef(false);
   const [parks, setParks] = useState<Park[]>([]);
   const [coasters, setCoasters] = useState<Coaster[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -600,7 +672,7 @@ export default function MapPage() {
   const [search, setSearch] = useState("");
   const [selectedCoasterId, setSelectedCoasterId] = useState<number | null>(null);
   const [focusedParkId, setFocusedParkId] = useState<number | null>(null);
-  const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
+  const [includeFamilyRides, setIncludeFamilyRides] = useState(true);
   const [includeUnknownHistoricalParks, setIncludeUnknownHistoricalParks] = useState(false);
   const [listVisibleRideCount, setListVisibleRideCount] = useState(INITIAL_LIST_VISIBLE_RIDES);
   const { units, setUnits } = useUnits();
@@ -752,7 +824,7 @@ export default function MapPage() {
     rawParkById,
   ]);
 
-  const visibleCoasters = useMemo(() => {
+  const coasterEntries = useMemo(() => {
     const mappedCoasters = remappedCoasters.filter((c) => {
       if (isPlaceholderCoasterName(c.name)) return false;
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
@@ -764,10 +836,13 @@ export default function MapPage() {
       }
       return !isLikelyWaterParkName(parkName);
     });
-    const coasterEntries = mappedCoasters.filter((c) => {
+    return mappedCoasters.filter((c) => {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isLikelyCoasterEntry(c, parkName);
     });
+  }, [includeUnknownHistoricalParks, remappedCoasters, dedupedParkById]);
+
+  const visibleCoasters = useMemo(() => {
     const preferredByWikidataId = new Map<string, Coaster>();
     for (const coaster of coasterEntries) {
       const qid = coaster.wikidata_id?.trim().toUpperCase();
@@ -819,34 +894,13 @@ export default function MapPage() {
       const parkName = dedupedParkById.get(c.park_id)?.name ?? null;
       return isThrillCoaster(c, parkName);
     });
-  }, [includeFamilyRides, includeUnknownHistoricalParks, remappedCoasters, dedupedParkById]);
-
-  const unknownHistoricalCounts = useMemo(() => {
-    const parkIds = new Set<number>();
-    let rideCount = 0;
-    for (const coaster of remappedCoasters) {
-      if (isPlaceholderCoasterName(coaster.name)) continue;
-      const parkName = dedupedParkById.get(coaster.park_id)?.name ?? null;
-      if (
-        !isUnknownHistoricalParkName(parkName ?? "") &&
-        !isLikelyPlaceholderParkName(parkName ?? "")
-      ) {
-        continue;
-      }
-      if (isLikelyWaterParkName(parkName)) continue;
-      if (!isLikelyCoasterEntry(coaster, parkName)) continue;
-      if (!includeFamilyRides && !isThrillCoaster(coaster, parkName)) continue;
-      rideCount += 1;
-      parkIds.add(coaster.park_id);
-    }
-    return { rideCount, parkCount: parkIds.size };
-  }, [dedupedParkById, includeFamilyRides, remappedCoasters]);
+  }, [coasterEntries, dedupedParkById, includeFamilyRides]);
 
   const visibleParkIds = useMemo(() => {
     const ids = new Set<number>();
-    for (const c of visibleCoasters) ids.add(c.park_id);
+    for (const c of coasterEntries) ids.add(c.park_id);
     return ids;
-  }, [visibleCoasters]);
+  }, [coasterEntries]);
 
   const candidateParks = useMemo(() => {
     return deduplicatedParks.parks.filter((park) => {
@@ -870,7 +924,7 @@ export default function MapPage() {
       if (park.latitude === 0 && park.longitude === 0) return false;
       // Keep map pins focused on named venues.
       if (isLikelyPlaceholderParkName(park.name)) return false;
-      return continent === "All" || getContinent(park.latitude, park.longitude) === continent;
+      return continent === "All" || getParkContinent(park) === continent;
     });
   }, [continent, deduplicatedParks, includeUnknownHistoricalParks, viewMode, visibleParkIds]);
 
@@ -1085,6 +1139,33 @@ export default function MapPage() {
     if (!stillVisible) setSelectedCoasterId(null);
   }, [visibleCoasters, selectedCoasterId]);
 
+  useEffect(() => {
+    if (hasAppliedDeepLink.current) return;
+    if (deepLinkedCoasterId == null && deepLinkedParkId == null) return;
+    if (coasters.length === 0 || deduplicatedParks.parks.length === 0) return;
+
+    hasAppliedDeepLink.current = true;
+    const canonicalParkId =
+      deepLinkedParkId != null ? (deduplicatedParks.idRemap.get(deepLinkedParkId) ?? deepLinkedParkId) : null;
+
+    setViewMode(deepLinkedView ?? (canonicalParkId != null ? "list" : "map"));
+
+    if (deepLinkedCoasterId != null) {
+      const matchedCoaster = coasters.find((coaster) => coaster.id === deepLinkedCoasterId);
+      if (!matchedCoaster) return;
+      setSelectedCoasterId(matchedCoaster.id);
+      setFocusedParkId(matchedCoaster.park_id);
+      return;
+    }
+
+    if (canonicalParkId != null) {
+      setSelectedCoasterId(null);
+      setFocusedParkId(canonicalParkId);
+      setParkFilter(canonicalParkId);
+      setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+    }
+  }, [coasters, deduplicatedParks, deepLinkedCoasterId, deepLinkedParkId, deepLinkedView]);
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -1216,7 +1297,7 @@ export default function MapPage() {
               }}
               className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
             />
-            Include kiddie / family-style rides
+            Show kiddie / family-style rides
           </label>
           <label className="inline-flex items-center gap-2 text-sm text-slate-600">
             <input
@@ -1229,12 +1310,6 @@ export default function MapPage() {
               className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
             />
             Include unknown / historical park entries
-            {(unknownHistoricalCounts.rideCount > 0 || unknownHistoricalCounts.parkCount > 0) && (
-              <span className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                {includeUnknownHistoricalParks ? "showing" : "hidden"} {unknownHistoricalCounts.rideCount} rides ·{" "}
-                {unknownHistoricalCounts.parkCount} parks
-              </span>
-            )}
           </label>
           <p className="text-xs text-slate-500">
             Data quality note: ride and park details can be incomplete or outdated while upstream sources are refreshed.
@@ -1247,7 +1322,7 @@ export default function MapPage() {
         {!catalogLoading && viewMode === "map" ? (
           <ParkMap
             parks={filteredParks}
-            coasters={visibleCoasters}
+            coasters={coasterEntries}
             units={units}
             continent={continent}
             selectedCoasterId={selectedCoasterId}

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "wikidata:fetch": "tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 200",
+    "wikidata:fetch": "tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 200 --no-lite-fallback",
     "wikidata:reenrich": "tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000",
     "wikidata:validate": "tsx scripts/validate-wikidata-coasters.ts",
     "wikidata:merge": "tsx scripts/merge-wikidata-coasters.ts",
