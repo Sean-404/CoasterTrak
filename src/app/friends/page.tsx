@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
@@ -20,6 +21,7 @@ type ProfileRow = {
   user_id: string;
   display_name: string | null;
   country_code: string | null;
+  avatar_key: string | null;
   favorite_ride_id: number | null;
   favorite_park_id: number | null;
 };
@@ -294,7 +296,7 @@ export default function FriendsPage() {
     const [{ data: profile }, { data: friendRows, error: friendErr }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("user_id, display_name, country_code, favorite_ride_id, favorite_park_id")
+        .select("user_id, display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
         .eq("user_id", activeUserId)
         .maybeSingle(),
       supabase
@@ -326,7 +328,7 @@ export default function FriendsPage() {
 
     const { data: relatedProfiles } = await supabase
       .from("profiles")
-      .select("user_id, display_name, country_code, favorite_ride_id, favorite_park_id")
+      .select("user_id, display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
       .in("user_id", [...relatedIds]);
 
     const map: Record<string, ProfileRow> = {};
@@ -535,7 +537,7 @@ export default function FriendsPage() {
     setSearching(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id, display_name, country_code, favorite_ride_id, favorite_park_id")
+      .select("user_id, display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
       .ilike("display_name", `%${q}%`)
       .neq("user_id", userId)
       .limit(20);
@@ -643,18 +645,21 @@ export default function FriendsPage() {
                       const relation = relationshipByOtherId.get(profile.user_id);
                       const canAdd = !relation || relation.status === "declined";
                       return (
-                        <li key={profile.user_id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-                          <div>
-                            <p className="font-medium text-slate-900">{profileLabel(profile, profile.user_id)}</p>
-                            <p className="text-xs text-slate-500">
-                              {countryNameFromCode(profile.country_code)}
-                              {relation?.status === "accepted" ? " · Friend" : ""}
-                              {relation?.status === "pending"
-                                ? relation.requester_id === userId
-                                  ? " · Request sent"
-                                  : " · Requested you"
-                                : ""}
-                            </p>
+                        <li key={profile.user_id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <ProfileAvatar avatarKey={profile.avatar_key} name={profile.display_name} size="sm" />
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-slate-900">{profileLabel(profile, profile.user_id)}</p>
+                              <p className="text-xs text-slate-500">
+                                {countryNameFromCode(profile.country_code)}
+                                {relation?.status === "accepted" ? " · Friend" : ""}
+                                {relation?.status === "pending"
+                                  ? relation.requester_id === userId
+                                    ? " · Request sent"
+                                    : " · Requested you"
+                                  : ""}
+                              </p>
+                            </div>
                           </div>
                           <button
                             onClick={() => void sendRequest(profile.user_id)}
@@ -688,8 +693,13 @@ export default function FriendsPage() {
                         const other = profilesById[otherId];
                         return (
                           <li key={row.id} className="rounded-lg border border-slate-200 px-3 py-2">
-                            <p className="font-medium text-slate-900">{profileLabel(other, otherId)}</p>
-                            <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                            <div className="flex items-center gap-3">
+                              <ProfileAvatar avatarKey={other?.avatar_key} name={other?.display_name} size="sm" />
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-slate-900">{profileLabel(other, otherId)}</p>
+                                <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                              </div>
+                            </div>
                             <div className="mt-2 flex gap-2">
                               <button
                                 onClick={() => void acceptRequest(row)}
@@ -723,10 +733,13 @@ export default function FriendsPage() {
                         const otherId = row.addressee_id;
                         const other = profilesById[otherId];
                         return (
-                          <li key={row.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
-                            <div>
-                              <p className="font-medium text-slate-900">{profileLabel(other, otherId)}</p>
-                              <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                          <li key={row.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <ProfileAvatar avatarKey={other?.avatar_key} name={other?.display_name} size="sm" />
+                              <div className="min-w-0">
+                                <p className="truncate font-medium text-slate-900">{profileLabel(other, otherId)}</p>
+                                <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                              </div>
                             </div>
                             <button
                               onClick={() => void removeFriend(row)}
@@ -761,14 +774,17 @@ export default function FriendsPage() {
                         return (
                           <li key={row.id} className={`rounded-lg border px-3 py-3 ${isSelected ? "border-amber-300 bg-amber-50/40" : "border-slate-200"}`}>
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="min-w-0">
-                                <Link
-                                  href={`/stats?user=${encodeURIComponent(otherId)}`}
-                                  className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
-                                >
-                                  {profileLabel(other, otherId)}
-                                </Link>
-                                <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                              <div className="flex min-w-0 items-center gap-3">
+                                <ProfileAvatar avatarKey={other?.avatar_key} name={other?.display_name} size="md" />
+                                <div className="min-w-0">
+                                  <Link
+                                    href={`/stats?user=${encodeURIComponent(otherId)}`}
+                                    className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
+                                  >
+                                    {profileLabel(other, otherId)}
+                                  </Link>
+                                  <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                                </div>
                               </div>
                               <div className="flex w-full gap-2 sm:w-auto">
                                 <button

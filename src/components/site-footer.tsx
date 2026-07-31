@@ -2,13 +2,22 @@ import Link from "next/link";
 
 type SiteFooterProps = {
   variant?: "light" | "dark";
+  className?: string;
 };
 
-export function SiteFooter({ variant = "light" }: SiteFooterProps) {
+export function SiteFooter({ variant = "light", className = "" }: SiteFooterProps) {
   const isDark = variant === "dark";
 
   return (
-    <footer className={isDark ? "border-t border-white/10 bg-slate-950" : "border-t border-slate-200 bg-white"}>
+    <footer
+      className={[
+        "mt-auto",
+        isDark ? "border-t border-white/10 bg-slate-950" : "border-t border-slate-200 bg-white",
+        className,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-bungee text-sm tracking-wide text-amber-500">CoasterTrak</p>

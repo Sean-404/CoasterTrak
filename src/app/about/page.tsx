@@ -14,9 +14,9 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <SiteHeader />
-      <main className="mx-auto max-w-3xl px-6 py-14">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">About</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">
           Built for coaster enthusiasts

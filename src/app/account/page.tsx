@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { ProfileAvatar } from "@/components/profile-avatar";
+import { AVATAR_OPTIONS, DEFAULT_AVATAR_KEY, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { validateDisplayName } from "@/lib/display-name";
 
@@ -168,6 +170,7 @@ export default function AccountPage() {
   const [userId, setUserId] = useState("");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [avatarKey, setAvatarKey] = useState<AvatarKey>(DEFAULT_AVATAR_KEY);
   const [countryCode, setCountryCode] = useState("");
   const [favoriteRideQuery, setFavoriteRideQuery] = useState("");
   const [favoriteRideId, setFavoriteRideId] = useState<number | null>(null);
@@ -203,7 +206,7 @@ export default function AccountPage() {
       setEmail(user.email ?? "");
       void supabase
         .from("profiles")
-        .select("display_name, country_code, favorite_ride_id, favorite_park_id")
+        .select("display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
         .eq("user_id", user.id)
         .maybeSingle()
         .then(async ({ data, error }) => {
@@ -211,6 +214,7 @@ export default function AccountPage() {
             setProfileError("Could not load profile. Please try again.");
           } else {
             setDisplayName(data?.display_name ?? "");
+            setAvatarKey(normalizeAvatarKey(data?.avatar_key));
             setCountryCode((data?.country_code ?? "").toUpperCase());
             const selectedRideId = (data?.favorite_ride_id as number | null | undefined) ?? null;
             setFavoriteRideId(selectedRideId);
@@ -399,6 +403,7 @@ export default function AccountPage() {
         {
           user_id: userId,
           display_name: validation.normalized,
+          avatar_key: avatarKey,
           country_code: normalizedCountryCode || null,
           favorite_ride_id: favoriteRideId,
           favorite_park_id: favoriteParkId,
@@ -475,12 +480,17 @@ export default function AccountPage() {
         ) : (
           <div className="space-y-4">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Signed in as</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{email}</p>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Display name</p>
-              <p className="mt-1 text-sm text-slate-700">
-                {displayName.trim() ? displayName : "Not set yet"}
-              </p>
+              <div className="flex items-start gap-4">
+                <ProfileAvatar avatarKey={avatarKey} name={displayName} size="lg" title="Your avatar" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Signed in as</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{email}</p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Display name</p>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {displayName.trim() ? displayName : "Not set yet"}
+                  </p>
+                </div>
+              </div>
               <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Country</p>
               <p className="mt-1 text-sm text-slate-700">
                 {countryCode ? countryNameFromCode(countryCode) : "Not set yet"}
@@ -518,6 +528,37 @@ export default function AccountPage() {
                 />
                 <p className="text-xs text-slate-500">
                   3-24 chars. Letters/numbers, spaces, dot, dash, underscore. Must start/end with a letter or number.
+                </p>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Avatar colour</label>
+                <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+                  {AVATAR_OPTIONS.map((option) => {
+                    const selected = avatarKey === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => {
+                          setAvatarKey(option.key);
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        aria-pressed={selected}
+                        aria-label={`Choose ${option.label} avatar colour`}
+                        className={[
+                          "flex flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 transition",
+                          selected
+                            ? "border-slate-900 bg-slate-50 ring-2 ring-slate-900/15"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        <ProfileAvatar avatarKey={option.key} name={displayName} size="md" />
+                        <span className="text-[10px] font-medium text-slate-600">{option.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-slate-500">
+                  Initials come from your display name. Pick a colour for your public profile.
                 </p>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Country</label>
                 <select

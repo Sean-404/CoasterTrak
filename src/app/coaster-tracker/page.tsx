@@ -23,9 +23,9 @@ export const metadata: Metadata = {
 
 export default function CoasterTrackerLandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="flex min-h-screen flex-col bg-slate-950 text-white">
       <SiteHeader />
-      <main className="mx-auto max-w-6xl px-6 py-14">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">CoasterTrak Guide</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">Your roller coaster tracker</h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">

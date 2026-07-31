@@ -31,7 +31,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <AuthErrorHandler />
       <script
         type="application/ld+json"
@@ -69,7 +69,7 @@ export default function Home() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-6xl px-6 py-14">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
         <div className="grid gap-5 sm:grid-cols-3">
           <FeatureCard
             icon={<MapIcon />}

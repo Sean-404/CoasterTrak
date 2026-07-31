@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { isAdminUser } from "@/lib/admin";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 export function SiteHeader() {
   const [isAuthed, setIsAuthed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -15,6 +17,7 @@ export function SiteHeader() {
 
     void getSupabaseUserSafe().then((user) => {
       setIsAuthed(Boolean(user));
+      setIsAdmin(isAdminUser(user));
       setAuthReady(true);
     });
 
@@ -22,6 +25,7 @@ export function SiteHeader() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthed(Boolean(session?.user));
+      setIsAdmin(isAdminUser(session?.user));
       setAuthReady(true);
     });
 
@@ -52,6 +56,11 @@ export function SiteHeader() {
       <Link href="/achievements" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Achievements
       </Link>
+      {isAdmin ? (
+        <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-amber-400 transition hover:text-amber-300">
+          Admin
+        </Link>
+      ) : null}
     </>
   );
 

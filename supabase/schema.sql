@@ -61,6 +61,9 @@ create table if not exists profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   display_name text,
   country_code text,
+  avatar_key text,
+  banned_at timestamptz,
+  ban_reason text,
   favorite_ride_id bigint references coasters(id) on delete set null,
   favorite_park_id bigint references parks(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -210,6 +213,26 @@ alter table profiles
 alter table profiles
   add constraint profiles_display_name_allowed
   check (display_name is null or public.is_display_name_allowed(display_name));
+
+alter table profiles
+  add column if not exists avatar_key text;
+alter table profiles
+  drop constraint if exists profiles_avatar_key_allowed;
+alter table profiles
+  add constraint profiles_avatar_key_allowed
+  check (
+    avatar_key is null
+    or avatar_key in (
+      'rose',
+      'sky',
+      'violet',
+      'amber',
+      'orange',
+      'emerald',
+      'slate',
+      'cyan'
+    )
+  );
 
 alter table profiles
   drop constraint if exists profiles_country_code_format;
@@ -367,13 +390,13 @@ drop policy if exists "users can read own profile" on profiles;
 create policy "users can read own profile" on profiles for select using (auth.uid() = user_id);
 
 drop policy if exists "authenticated can read public profiles" on profiles;
-create policy "authenticated can read public profiles" on profiles for select to authenticated using (display_name is not null);
+create policy "authenticated can read public profiles" on profiles for select to authenticated using (display_name is not null and banned_at is null);
 
 drop policy if exists "users can insert own profile" on profiles;
 create policy "users can insert own profile" on profiles for insert with check (auth.uid() = user_id);
 
 drop policy if exists "users can update own profile" on profiles;
-create policy "users can update own profile" on profiles for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "users can update own profile" on profiles for update using (auth.uid() = user_id and banned_at is null) with check (auth.uid() = user_id and banned_at is null);
 
 drop policy if exists "users can delete own profile" on profiles;
 create policy "users can delete own profile" on profiles for delete using (auth.uid() = user_id);
