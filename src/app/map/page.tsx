@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { CoasterActions } from "@/components/coaster-actions";
@@ -641,7 +641,7 @@ function hasSharedDistinctiveParkToken(a: string, b: string): boolean {
   return false;
 }
 
-export default function MapPage() {
+function MapPageContent() {
   const searchParams = useSearchParams();
   const deepLinkedView = useMemo<ViewMode | null>(() => {
     const raw = searchParams.get("view");
@@ -1454,5 +1454,23 @@ export default function MapPage() {
         ) : null}
       </main>
     </div>
+  );
+}
+
+export default function MapPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50">
+          <SiteHeader />
+          <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+            <p className="mb-4 text-sm text-slate-500">Loading map…</p>
+            <MapAreaSkeleton />
+          </main>
+        </div>
+      }
+    >
+      <MapPageContent />
+    </Suspense>
   );
 }

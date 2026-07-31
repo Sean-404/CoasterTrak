@@ -111,8 +111,8 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold text-slate-900">Contact</h2>
           <p>
             Questions about privacy can be sent to{" "}
-            <a href="mailto:privacy@coastertrak.com" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-              privacy@coastertrak.com
+            <a href="mailto:hello@coastertrak.com" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              hello@coastertrak.com
             </a>
             . See also our{" "}
             <Link href="/terms" className="font-medium text-amber-700 underline-offset-2 hover:underline">

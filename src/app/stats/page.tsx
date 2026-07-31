@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
@@ -220,7 +220,7 @@ async function fillMissingRideImages(
   });
 }
 
-export default function StatsPage() {
+function StatsPageContent() {
   const searchParams = useSearchParams();
   const requestedUserId = searchParams.get("user")?.trim() || null;
   const [rides, setRides] = useState<RideRow[]>([]);
@@ -921,5 +921,22 @@ export default function StatsPage() {
         </AuthGate>
       </main>
     </div>
+  );
+}
+
+export default function StatsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50">
+          <SiteHeader />
+          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+            <p className="text-sm text-slate-500">Loading stats…</p>
+          </main>
+        </div>
+      }
+    >
+      <StatsPageContent />
+    </Suspense>
   );
 }
