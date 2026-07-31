@@ -554,10 +554,17 @@ function StatsPageContent() {
     () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.inversions ?? 0), 0),
     [filteredUniqueRides],
   );
-  const totalSpeedMph = useMemo(
-    () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.speed_mph ?? 0), 0),
-    [filteredUniqueRides],
-  );
+  const averageSpeedMph = useMemo(() => {
+    let sum = 0;
+    let count = 0;
+    for (const ride of filteredUniqueRides) {
+      const speed = ride.coasters?.speed_mph;
+      if (speed == null) continue;
+      sum += speed;
+      count += 1;
+    }
+    return count > 0 ? sum / count : 0;
+  }, [filteredUniqueRides]);
   const continentsVisited = useMemo(
     () => {
       const continentIds = new Set<string>();
@@ -577,7 +584,13 @@ function StatsPageContent() {
     { label: "Continents visited", value: continentsVisited.toLocaleString() },
     { label: "Total ride time", value: fmtDuration(totalRideDurationS) ?? `${Math.round(totalRideDurationS).toLocaleString()} s` },
     { label: "Total inversions", value: Math.round(totalInversions).toLocaleString() },
-    { label: "Total listed speed", value: fmtSpeed(totalSpeedMph, units) ?? `${Math.round(totalSpeedMph).toLocaleString()} mph` },
+    {
+      label: "Average speed",
+      value:
+        averageSpeedMph > 0
+          ? (fmtSpeed(Math.round(averageSpeedMph), units) ?? `${Math.round(averageSpeedMph).toLocaleString()} mph`)
+          : "—",
+    },
     { label: "Total track length", value: fmtLength(totalTrackLengthFt, units) ?? `${Math.round(totalTrackLengthFt).toLocaleString()} ft` },
   ];
 
@@ -593,7 +606,11 @@ function StatsPageContent() {
       `- Total track length: ${fmtLength(totalTrackLengthFt, units) ?? `${Math.round(totalTrackLengthFt).toLocaleString()} ft`}`,
       `- Total ride time: ${fmtDuration(totalRideDurationS) ?? `${Math.round(totalRideDurationS).toLocaleString()} s`}`,
       `- Total inversions: ${Math.round(totalInversions).toLocaleString()}`,
-      `- Total listed speed: ${fmtSpeed(totalSpeedMph, units) ?? `${Math.round(totalSpeedMph).toLocaleString()} mph`}`,
+      `- Average speed: ${
+        averageSpeedMph > 0
+          ? (fmtSpeed(Math.round(averageSpeedMph), units) ?? `${Math.round(averageSpeedMph).toLocaleString()} mph`)
+          : "N/A"
+      }`,
       `- Favorite ride: ${favoriteRideLabel}`,
       `- Favorite park: ${favoriteParkLabel}`,
       personalRecords.fastest ? `- Fastest coaster: ${cleanCoasterName(personalRecords.fastest.name)} (${fmtSpeed(personalRecords.fastest.value, units) ?? `${personalRecords.fastest.value} mph`})` : null,

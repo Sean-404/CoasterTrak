@@ -70,7 +70,7 @@ type UserStats = {
   totalLengthFt: number;
   totalDurationS: number;
   totalInversions: number;
-  totalSpeedMph: number;
+  averageSpeedMph: number;
   longestFt: number | null;
   tallestFt: number | null;
   fastestMph: number | null;
@@ -85,7 +85,7 @@ const EMPTY_USER_STATS: UserStats = {
   totalLengthFt: 0,
   totalDurationS: 0,
   totalInversions: 0,
-  totalSpeedMph: 0,
+  averageSpeedMph: 0,
   longestFt: null,
   tallestFt: null,
   fastestMph: null,
@@ -163,7 +163,8 @@ function computeUserStats(rows: RideStatsRow[]): Record<string, UserStats> {
   const totalLengthFtByUser = new Map<string, number>();
   const totalDurationByUser = new Map<string, number>();
   const totalInversionsByUser = new Map<string, number>();
-  const totalSpeedByUser = new Map<string, number>();
+  const speedSumByUser = new Map<string, number>();
+  const speedCountByUser = new Map<string, number>();
   const longestFtByUser = new Map<string, number>();
   const tallestFtByUser = new Map<string, number>();
   const fastestMphByUser = new Map<string, number>();
@@ -200,7 +201,8 @@ function computeUserStats(rows: RideStatsRow[]): Record<string, UserStats> {
       if (current == null || coaster.height_ft > current) tallestFtByUser.set(row.user_id, coaster.height_ft);
     }
     if (coaster?.speed_mph != null) {
-      totalSpeedByUser.set(row.user_id, (totalSpeedByUser.get(row.user_id) ?? 0) + coaster.speed_mph);
+      speedSumByUser.set(row.user_id, (speedSumByUser.get(row.user_id) ?? 0) + coaster.speed_mph);
+      speedCountByUser.set(row.user_id, (speedCountByUser.get(row.user_id) ?? 0) + 1);
       const current = fastestMphByUser.get(row.user_id);
       if (current == null || coaster.speed_mph > current) fastestMphByUser.set(row.user_id, coaster.speed_mph);
     }
@@ -226,7 +228,11 @@ function computeUserStats(rows: RideStatsRow[]): Record<string, UserStats> {
       totalLengthFt: totalLengthFtByUser.get(id) ?? 0,
       totalDurationS: totalDurationByUser.get(id) ?? 0,
       totalInversions: totalInversionsByUser.get(id) ?? 0,
-      totalSpeedMph: totalSpeedByUser.get(id) ?? 0,
+      averageSpeedMph: (() => {
+        const count = speedCountByUser.get(id) ?? 0;
+        if (count <= 0) return 0;
+        return (speedSumByUser.get(id) ?? 0) / count;
+      })(),
       longestFt: longestFtByUser.get(id) ?? null,
       tallestFt: tallestFtByUser.get(id) ?? null,
       fastestMph: fastestMphByUser.get(id) ?? null,
@@ -239,8 +245,9 @@ function computeUserStats(rows: RideStatsRow[]): Record<string, UserStats> {
 
 function metricLabel(value: number | null, unitSuffix?: string): string {
   if (value == null) return "N/A";
-  if (unitSuffix) return `${value.toLocaleString()} ${unitSuffix}`;
-  return value.toLocaleString();
+  const rounded = Number.isInteger(value) ? value : Math.round(value * 10) / 10;
+  if (unitSuffix) return `${rounded.toLocaleString()} ${unitSuffix}`;
+  return rounded.toLocaleString();
 }
 
 function durationLabel(seconds: number | null): string {
@@ -890,12 +897,12 @@ export default function FriendsPage() {
                                       </span>
                                     )}
                                   </span>
-                                  <span className="font-medium text-slate-500">Listed speed</span>
+                                  <span className="font-medium text-slate-500">Average speed</span>
                                   <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.totalSpeedMph, "mph")}</span>
-                                    {comparisonTag(myStats.totalSpeedMph, comparedFriendStats.totalSpeedMph, "faster") && (
+                                    <span>{metricLabel(myStats.averageSpeedMph || null, "mph")}</span>
+                                    {comparisonTag(myStats.averageSpeedMph, comparedFriendStats.averageSpeedMph, "faster") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.totalSpeedMph, comparedFriendStats.totalSpeedMph, "faster")}
+                                        {comparisonTag(myStats.averageSpeedMph, comparedFriendStats.averageSpeedMph, "faster")}
                                       </span>
                                     )}
                                   </span>
@@ -1033,12 +1040,12 @@ export default function FriendsPage() {
                                       </span>
                                     )}
                                   </span>
-                                  <span className="font-medium text-slate-500">Listed speed</span>
+                                  <span className="font-medium text-slate-500">Average speed</span>
                                   <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.totalSpeedMph, "mph")}</span>
-                                    {comparisonTag(comparedFriendStats.totalSpeedMph, myStats.totalSpeedMph, "faster") && (
+                                    <span>{metricLabel(comparedFriendStats.averageSpeedMph || null, "mph")}</span>
+                                    {comparisonTag(comparedFriendStats.averageSpeedMph, myStats.averageSpeedMph, "faster") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.totalSpeedMph, myStats.totalSpeedMph, "faster")}
+                                        {comparisonTag(comparedFriendStats.averageSpeedMph, myStats.averageSpeedMph, "faster")}
                                       </span>
                                     )}
                                   </span>
