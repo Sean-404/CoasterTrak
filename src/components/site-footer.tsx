@@ -47,9 +47,6 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           <FooterLink href="/map" isDark={isDark}>
             Map
           </FooterLink>
-          <FooterLink href="/about" isDark={isDark}>
-            About
-          </FooterLink>
         </nav>
       </div>
     </footer>
