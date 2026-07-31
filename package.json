@@ -19,7 +19,7 @@
     "status:normalize": "tsx scripts/normalize-coaster-statuses.ts"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.103.0",
+    "@supabase/supabase-js": "^2.105.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "bad-words": "^4.0.0",
@@ -28,7 +28,7 @@
     "next": "^16.2.12",
     "papaparse": "^5.5.3",
     "react": "^19.2.5",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.6",
     "react-leaflet": "^5.0.0",
     "react-leaflet-cluster": "^4.1.3"
   },
