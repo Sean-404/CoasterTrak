@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { AuthErrorHandler } from "@/components/auth-error-handler";
@@ -6,6 +7,17 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: "CoasterTrak — Track every roller coaster you ride",
+  },
+  description:
+    "Track every roller coaster you ride. Explore parks on a world map, build your wishlist, and compare stats with friends.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default function Home() {
   const websiteJsonLd = {
@@ -154,6 +166,12 @@ export default function Home() {
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
               Explore the coaster tracker guide
+            </Link>
+            <Link
+              href="/parks"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              Browse parks
             </Link>
             <Link
               href="/about"

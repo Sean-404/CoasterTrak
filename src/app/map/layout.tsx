@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/map",
   },
+  openGraph: {
+    title: "Coaster Map | CoasterTrak",
+    description:
+      "Explore roller coasters around the world on an interactive map and open park pages to browse rides.",
+    url: "/map",
+    type: "website",
+  },
 };
 
 export default function MapLayout({ children }: { children: React.ReactNode }) {

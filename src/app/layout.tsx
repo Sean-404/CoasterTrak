@@ -41,9 +41,6 @@ export const metadata: Metadata = {
     "theme park rides",
     "CoasterTrak",
   ],
-  alternates: {
-    canonical: "/",
-  },
   category: "travel",
   manifest: "/site.webmanifest",
   icons: {
