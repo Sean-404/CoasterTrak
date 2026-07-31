@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
@@ -29,7 +30,8 @@ export default function CoasterTrackerLandingPage() {
         <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">Your roller coaster tracker</h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
           CoasterTrak is a free roller coaster tracker for enthusiasts who want to log rides, discover new parks, and
-          watch their coaster credits grow over time.
+          watch their coaster credits grow over time. This guide explains how the main tools fit together so you can
+          get useful value on day one.
         </p>
 
         <section className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -51,7 +53,46 @@ export default function CoasterTrackerLandingPage() {
           />
         </section>
 
-        <section className="mt-10 rounded-2xl border border-white/10 bg-slate-900/70 p-6">
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">What is a coaster credit?</h2>
+          <p>
+            In enthusiast slang, a &quot;credit&quot; usually means a distinct roller coaster you have ridden at least
+            once. People count credits differently — some include family coasters, others only full-circuit thrill
+            rides — but the idea is the same: a lasting tally of rides experienced, not just parks visited.
+          </p>
+          <p>
+            CoasterTrak is built around that habit. Log the rides you have done, keep a wishlist for the ones still
+            ahead, and use stats and achievements to see progress without maintaining a separate spreadsheet.
+          </p>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Using the world map</h2>
+          <p>
+            The map is the fastest way to browse parks and coasters. Zoom into a region, search by name, and open
+            ride details when you are planning a trip. You can explore without an account; signing in unlocks saving
+            rides and wishlists so your plans persist across sessions.
+          </p>
+          <p>
+            Catalog data is compiled from third-party and community sources. Treat it as a planning aid: park lineups
+            change, temporary closures happen, and a few records may be incomplete. Confirm operating status and
+            restrictions with the park before you travel.
+          </p>
+          <Link href="/map" className="inline-flex text-sm font-semibold text-amber-400 hover:text-amber-300">
+            Open the interactive map →
+          </Link>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Wishlists, stats, and friends</h2>
+          <p>
+            After you create an account, add coasters to your wishlist while browsing, then mark them ridden when you
+            get the credit. The stats view summarises how many rides you have logged and related totals. Friends
+            features are for comparing progress with people you actually ride with — not a public social network.
+          </p>
+        </section>
+
+        <section className="mt-12 rounded-2xl border border-white/10 bg-slate-900/70 p-6">
           <h2 className="text-2xl font-semibold text-white">Why riders use CoasterTrak</h2>
           <ul className="mt-4 space-y-2 text-sm leading-relaxed text-slate-300">
             <li>- One place for coaster credits, wishlists, and park discovery.</li>
@@ -73,9 +114,40 @@ export default function CoasterTrackerLandingPage() {
             >
               Create account
             </Link>
+            <Link
+              href="/about"
+              className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
+            >
+              About the project
+            </Link>
+          </div>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Frequently asked questions</h2>
+          <div>
+            <h3 className="font-semibold text-white">Is CoasterTrak free?</h3>
+            <p className="mt-1">
+              Yes. Core tracking, map browsing, wishlists, and stats are free to use with a standard account.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">Do I need an account to browse?</h3>
+            <p className="mt-1">
+              No. Anyone can explore the map. An account is required to save ride history, wishlists, and friend
+              connections.
+            </p>
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">Where does the park data come from?</h3>
+            <p className="mt-1">
+              From third-party and community-maintained datasets. We aim for useful coverage, but entries can be wrong
+              or outdated — verify important details with the park.
+            </p>
           </div>
         </section>
       </main>
+      <SiteFooter variant="dark" />
     </div>
   );
 }

@@ -1,13 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AdsenseAd } from "@/components/adsense-ad";
 import { AuthErrorHandler } from "@/components/auth-error-handler";
 import { HomeHeroCtas } from "@/components/home-hero-ctas";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
-const HOME_AD_SLOT_PRIMARY = process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME_PRIMARY;
-const HOME_AD_SLOT_SECONDARY = process.env.NEXT_PUBLIC_ADSENSE_SLOT_HOME_SECONDARY;
 
 export default function Home() {
   const websiteJsonLd = {
@@ -45,9 +43,7 @@ export default function Home() {
       />
       <SiteHeader />
 
-      {/* Hero */}
       <section className="relative overflow-hidden bg-slate-950 pb-20 pt-16 text-white sm:pb-24 sm:pt-20">
-        {/* Background image */}
         <Image
           src="/coaster-hero.png"
           alt=""
@@ -56,14 +52,14 @@ export default function Home() {
           className="object-cover object-center opacity-80"
           priority
         />
-        {/* Left-side overlay keeps text readable, right side lets the image breathe */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-slate-950/10" />
         <div className="relative z-10 mx-auto max-w-6xl px-6">
           <div className="inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-amber-400">
             Your ride tracker
           </div>
           <h1 className="font-bungee mt-4 text-4xl leading-tight text-white sm:text-6xl lg:text-7xl">
-            Track Every<br />
+            Track Every
+            <br />
             <span className="break-words text-amber-400">Roller Coaster</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
@@ -73,7 +69,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Feature cards */}
       <main className="mx-auto max-w-6xl px-6 py-14">
         <div className="grid gap-5 sm:grid-cols-3">
           <FeatureCard
@@ -95,23 +90,63 @@ export default function Home() {
             href="/stats"
           />
         </div>
-        <AdsenseAd
-          slot={HOME_AD_SLOT_PRIMARY}
-          format="horizontal"
-          fullWidthResponsive
-          className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
-        />
-        <p className="mt-8 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+
+        <section className="mt-12">
+          <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A roller coaster tracker built for real trips</h2>
+          <div className="mt-4 max-w-3xl space-y-4 text-base leading-relaxed text-slate-600">
+            <p>
+              CoasterTrak helps enthusiasts keep a durable record of every credit — from local park day trips to
+              multi-park holidays abroad. Instead of juggling notes and photos, you log rides in one place, then
+              revisit totals, park coverage, and milestones whenever you want.
+            </p>
+            <p>
+              Start on the map to browse parks and coasters, star the rides you still need, and create a free account
+              when you are ready to save progress across devices. Friends features let you compare credits and share
+              achievements with the people you ride with.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-12">
+          <h2 className="text-2xl font-semibold text-slate-900">How it works</h2>
+          <ol className="mt-5 grid gap-4 sm:grid-cols-3">
+            <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">Step 1</p>
+              <h3 className="mt-2 font-semibold text-slate-900">Explore the map</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Search parks and coasters worldwide, filter what matters for your trip, and open ride details before
+                you go.
+              </p>
+            </li>
+            <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">Step 2</p>
+              <h3 className="mt-2 font-semibold text-slate-900">Log and wishlist</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Mark coasters you have ridden and save the ones still on your bucket list so the next itinerary is
+                easier to plan.
+              </p>
+            </li>
+            <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">Step 3</p>
+              <h3 className="mt-2 font-semibold text-slate-900">Watch stats grow</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Check your ride count, unlock achievements, and see how your history stacks up with friends over time.
+              </p>
+            </li>
+          </ol>
+        </section>
+
+        <p className="mt-10 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Data quality note: Coaster and park data is sourced from third-party datasets and community-maintained
-          sources. Some entries may be incomplete, outdated, or occasionally inaccurate.
+          sources. Some entries may be incomplete, outdated, or occasionally inaccurate. Always confirm details with
+          the park before you travel.
         </p>
 
         <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Build your coaster journey, then share it</h2>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            CoasterTrak helps riders track roller coaster credits, compare stats, and discover parks worldwide.
-            Create an account to save your progress, keep your wishlist in one place, and revisit your profile after
-            every trip.
+            Create an account to keep ride history, wishlists, and friend comparisons in sync. New to coaster
+            tracking? Read the guide for a fuller walkthrough of credits, map browsing, and stats.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
@@ -120,14 +155,16 @@ export default function Home() {
             >
               Explore the coaster tracker guide
             </Link>
+            <Link
+              href="/about"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              About CoasterTrak
+            </Link>
           </div>
         </section>
-        <AdsenseAd
-          slot={HOME_AD_SLOT_SECONDARY}
-          format="rectangle"
-          className="mt-8 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
-        />
       </main>
+      <SiteFooter />
     </div>
   );
 }
