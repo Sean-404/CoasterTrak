@@ -25,7 +25,7 @@
     "bad-words": "^4.0.0",
     "cheerio": "^1.2.0",
     "leaflet": "^1.9.4",
-    "next": "^16.2.2",
+    "next": "^16.2.12",
     "papaparse": "^5.5.3",
     "react": "^19.2.5",
     "react-dom": "^19.0.0",
@@ -40,10 +40,21 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "^16.2.3",
-    "postcss": "^8.5.9",
+    "eslint-config-next": "^16.2.12",
+    "postcss": "^8.5.25",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^6"
+  },
+  "overrides": {
+    "@babel/core": "^8.0.1",
+    "brace-expansion": "^5.0.9",
+    "esbuild": "^0.28.1",
+    "js-yaml": "^4.3.0",
+    "minimatch": "^10.2.6",
+    "postcss": "^8.5.25",
+    "sharp": "^0.35.3",
+    "undici": "^7.28.0",
+    "ws": "^8.21.1"
   }
 }
