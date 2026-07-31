@@ -47,9 +47,14 @@ export const metadata: Metadata = {
   category: "travel",
   manifest: "/site.webmanifest",
   icons: {
-    icon: [{ url: "/icon", type: "image/png" }],
-    shortcut: [{ url: "/icon", type: "image/png" }],
-    apple: [{ url: "/apple-icon", type: "image/png" }],
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/coastertrak-logo.png", sizes: "384x384", type: "image/png" },
+    ],
+    shortcut: [{ url: "/favicon.ico" }],
+    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
   },
   openGraph: {
     title: "CoasterTrak",
