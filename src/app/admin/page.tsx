@@ -9,13 +9,28 @@ import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 type AdminUserRow = {
   user_id: string;
+  email: string | null;
   display_name: string | null;
   country_code: string | null;
   avatar_key: string | null;
   banned_at: string | null;
   ban_reason: string | null;
+  auth_banned: boolean;
+  has_profile: boolean;
+  created_at: string | null;
+  last_sign_in_at: string | null;
   updated_at: string | null;
 };
+
+function formatWhen(value: string | null): string {
+  if (!value) return "—";
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return "—";
+  return new Date(ms).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
 
 async function getAccessToken(): Promise<string | null> {
   const supabase = getSupabaseBrowserClient();
@@ -127,6 +142,8 @@ export default function AdminPage() {
                 display_name: null,
                 banned_at: new Date().toISOString(),
                 ban_reason: reason.trim() || null,
+                auth_banned: true,
+                has_profile: true,
               }
             : row,
         ),
@@ -148,7 +165,9 @@ export default function AdminPage() {
       await adminFetch(`/api/admin/users/${userId}/unban`, { method: "POST" });
       setResults((rows) =>
         rows.map((row) =>
-          row.user_id === userId ? { ...row, banned_at: null, ban_reason: null } : row,
+          row.user_id === userId
+            ? { ...row, banned_at: null, ban_reason: null, auth_banned: false }
+            : row,
         ),
       );
       setMessage("User unbanned.");
@@ -183,7 +202,7 @@ export default function AdminPage() {
           <div className="mt-6 space-y-5">
             <form onSubmit={submitSearch} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Search by display name
+                Search by name or email
               </label>
               <div className="mt-2 flex gap-2">
                 <input
@@ -216,21 +235,31 @@ export default function AdminPage() {
             {results.length > 0 ? (
               <ul className="space-y-3">
                 {results.map((user) => {
-                  const banned = Boolean(user.banned_at);
+                  const banned = Boolean(user.banned_at) || user.auth_banned;
                   return (
                     <li
                       key={user.user_id}
                       className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-start gap-3">
-                        <ProfileAvatar avatarKey={user.avatar_key} name={user.display_name} size="md" />
+                        <ProfileAvatar avatarKey={user.avatar_key} name={user.display_name || user.email} size="md" />
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-slate-900">
                             {user.display_name?.trim() || "(no display name)"}
                           </p>
+                          <p className="mt-0.5 break-all text-sm text-slate-700">
+                            {user.email?.trim() || "(no email)"}
+                          </p>
                           <p className="mt-0.5 break-all text-xs text-slate-500">{user.user_id}</p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {banned ? `Banned${user.ban_reason ? ` · ${user.ban_reason}` : ""}` : "Active"}
+                            {banned
+                              ? `Banned${user.ban_reason ? ` · ${user.ban_reason}` : ""}`
+                              : "Active"}
+                            {!user.has_profile ? " · No profile row" : ""}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Signed up {formatWhen(user.created_at)} · Last sign-in{" "}
+                            {formatWhen(user.last_sign_in_at)}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <button

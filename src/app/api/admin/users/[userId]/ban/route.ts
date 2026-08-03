@@ -27,14 +27,15 @@ export async function POST(request: Request, context: RouteContext) {
     reason = null;
   }
 
-  const { error: profileError } = await ctx.service
-    .from("profiles")
-    .update({
+  const { error: profileError } = await ctx.service.from("profiles").upsert(
+    {
+      user_id: userId,
       banned_at: new Date().toISOString(),
       ban_reason: reason,
       display_name: null,
-    })
-    .eq("user_id", userId);
+    },
+    { onConflict: "user_id" },
+  );
 
   if (profileError) {
     return NextResponse.json({ error: "Could not update ban on profile." }, { status: 500 });
