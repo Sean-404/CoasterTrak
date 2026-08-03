@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
@@ -54,30 +54,42 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    void getSupabaseUserSafe().then((user) => {
-      setAllowed(isAdminUser(user));
-      setLoading(false);
-    });
-  }, []);
-
-  async function submitSearch(event: FormEvent) {
-    event.preventDefault();
+  const loadUsers = useCallback(async (search: string) => {
     setError("");
     setMessage("");
     setSearching(true);
     try {
-      const payload = await adminFetch(`/api/admin/users?q=${encodeURIComponent(query.trim())}`);
+      const trimmed = search.trim();
+      const path = trimmed
+        ? `/api/admin/users?q=${encodeURIComponent(trimmed)}`
+        : "/api/admin/users";
+      const payload = await adminFetch(path);
       setResults(payload.users ?? []);
       if (!(payload.users ?? []).length) {
-        setMessage("No matching users.");
+        setMessage(trimmed ? "No matching users." : "No users found.");
       }
     } catch (err) {
       setResults([]);
-      setError(err instanceof Error ? err.message : "Search failed.");
+      setError(err instanceof Error ? err.message : "Could not load users.");
     } finally {
       setSearching(false);
     }
+  }, []);
+
+  useEffect(() => {
+    void getSupabaseUserSafe().then((user) => {
+      const isAdmin = isAdminUser(user);
+      setAllowed(isAdmin);
+      setLoading(false);
+      if (isAdmin) {
+        void loadUsers("");
+      }
+    });
+  }, [loadUsers]);
+
+  async function submitSearch(event: FormEvent) {
+    event.preventDefault();
+    await loadUsers(query);
   }
 
   async function clearName(userId: string) {
@@ -147,6 +159,8 @@ export default function AdminPage() {
     }
   }
 
+  const filtered = Boolean(query.trim());
+
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
@@ -176,21 +190,28 @@ export default function AdminPage() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="At least 2 characters"
+                  placeholder="Leave empty to show all"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
                 />
                 <button
                   type="submit"
-                  disabled={searching || query.trim().length < 2}
+                  disabled={searching}
                   className="min-w-28 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
                 >
-                  {searching ? "Searching…" : "Search"}
+                  {searching ? "Loading…" : filtered ? "Search" : "Show all"}
                 </button>
               </div>
             </form>
 
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
             {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+
+            {!searching && results.length > 0 ? (
+              <p className="text-xs text-slate-500">
+                {results.length} user{results.length === 1 ? "" : "s"}
+                {filtered ? " matching" : ""}
+              </p>
+            ) : null}
 
             {results.length > 0 ? (
               <ul className="space-y-3">
@@ -246,6 +267,8 @@ export default function AdminPage() {
                   );
                 })}
               </ul>
+            ) : searching ? (
+              <p className="text-sm text-slate-500">Loading users…</p>
             ) : null}
           </div>
         )}
