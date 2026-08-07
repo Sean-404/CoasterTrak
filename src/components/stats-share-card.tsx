@@ -82,7 +82,6 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
             objectFit: "cover",
             objectPosition: "center 35%",
           }}
-          crossOrigin="anonymous"
         />
 
         <div
@@ -134,8 +133,9 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
                   borderRadius: 11,
                   objectFit: "cover",
                   boxShadow: "0 6px 20px rgba(0,0,0,0.4)",
+                  background: "#0f172a",
+                  flexShrink: 0,
                 }}
-                crossOrigin="anonymous"
               />
               <p
                 className={bungee.className}

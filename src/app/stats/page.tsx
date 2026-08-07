@@ -1020,76 +1020,6 @@ function StatsPageContent() {
             </div>
           )}
 
-          {/* Unlocked achievements (own + friends) */}
-          {(loading ||
-            unlockedAchievements.length > 0 ||
-            uniqueRides.length > 0 ||
-            friendCount > 0) && (
-            <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-                <div>
-                  <h2 className="font-semibold text-slate-900">
-                    {isOwnStatsView ? "My achievements" : "Unlocked achievements"}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {loading
-                      ? "Loading…"
-                      : `${unlockedAchievements.length} / ${ACHIEVEMENT_COUNT} unlocked`}
-                    {!isOwnStatsView ? " · Locked progress stays private" : null}
-                  </p>
-                </div>
-                {isOwnStatsView ? (
-                  <Link
-                    href="/achievements"
-                    className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
-                  >
-                    View all →
-                  </Link>
-                ) : null}
-              </div>
-              {loading ? (
-                <p className="text-sm text-slate-400">&mdash;</p>
-              ) : unlockedAchievements.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  {isOwnStatsView
-                    ? "No achievements unlocked yet. Log rides to start earning badges."
-                    : "No unlocked achievements to show yet."}
-                </p>
-              ) : (
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {unlockedAchievements.map((a) => (
-                    <li
-                      key={a.id}
-                      className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{a.title}</p>
-                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{a.description}</p>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${achievementRarityPillClass(a.rarity)}`}
-                        >
-                          {achievementRarityLabel(a.rarity)}
-                        </span>
-                      </div>
-                      {a.unlockedAt ? (
-                        <p className="mt-1.5 text-[11px] text-slate-400">
-                          Unlocked{" "}
-                          {new Date(a.unlockedAt).toLocaleDateString(undefined, {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
               {/* Equal gaps on mobile; two-column on desktop with rides spanning the left */}
               <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
             {/* Rides ridden */}
@@ -1248,6 +1178,89 @@ function StatsPageContent() {
                 )}
               </section>
               </div>
+
+          {/* Own stats: count snippet → full list lives on /achievements.
+              Friends: show unlocked badges only (no other place to see them). */}
+          {isOwnStatsView ? (
+            (loading || uniqueRides.length > 0 || friendCount > 0) && (
+              <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-semibold text-slate-900">Achievements</h2>
+                    <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
+                      {loading ? (
+                        <span className="text-slate-300">&mdash;</span>
+                      ) : (
+                        <>
+                          {unlockedAchievements.length}
+                          <span className="text-lg font-semibold text-slate-400">
+                            {" "}
+                            / {ACHIEVEMENT_COUNT}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">unlocked</p>
+                  </div>
+                  <Link
+                    href="/achievements"
+                    className="rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
+                  >
+                    View all
+                  </Link>
+                </div>
+              </section>
+            )
+          ) : (
+            (loading || unlockedAchievements.length > 0 || uniqueRides.length > 0) && (
+              <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <div className="mb-3">
+                  <h2 className="font-semibold text-slate-900">Unlocked achievements</h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {loading
+                      ? "Loading…"
+                      : `${unlockedAchievements.length} / ${ACHIEVEMENT_COUNT} unlocked · Locked progress stays private`}
+                  </p>
+                </div>
+                {loading ? (
+                  <p className="text-sm text-slate-400">&mdash;</p>
+                ) : unlockedAchievements.length === 0 ? (
+                  <p className="text-sm text-slate-500">No unlocked achievements to show yet.</p>
+                ) : (
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {unlockedAchievements.map((a) => (
+                      <li
+                        key={a.id}
+                        className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">{a.title}</p>
+                            <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{a.description}</p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${achievementRarityPillClass(a.rarity)}`}
+                          >
+                            {achievementRarityLabel(a.rarity)}
+                          </span>
+                        </div>
+                        {a.unlockedAt ? (
+                          <p className="mt-1.5 text-[11px] text-slate-400">
+                            Unlocked{" "}
+                            {new Date(a.unlockedAt).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )
+          )}
             </>
           )}
         </AuthGate>
