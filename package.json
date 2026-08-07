@@ -24,6 +24,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "bad-words": "^4.0.0",
     "cheerio": "^1.2.0",
+    "html-to-image": "^1.11.13",
     "leaflet": "^1.9.4",
     "next": "^16.2.12",
     "papaparse": "^5.5.3",

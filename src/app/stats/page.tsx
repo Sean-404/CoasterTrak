@@ -8,6 +8,8 @@ import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { RiddenRideSheet } from "@/components/ridden-ride-sheet";
 import { SiteHeader } from "@/components/site-header";
 import { StarRating } from "@/components/star-rating";
+import { StatsShareControls } from "@/components/stats-share-controls";
+import type { StatsShareCardProps } from "@/components/stats-share-card";
 import {
   ACHIEVEMENT_COUNT,
   achievementRarityLabel,
@@ -775,6 +777,62 @@ function StatsPageContent() {
     }
   }
 
+  const shareCardProps = useMemo<StatsShareCardProps>(() => {
+    const records = [
+      personalRecords.tallest
+        ? {
+            label: "Tallest",
+            value: fmtHeight(personalRecords.tallest.value, units) ?? `${personalRecords.tallest.value} ft`,
+            detail: cleanCoasterName(personalRecords.tallest.name),
+          }
+        : null,
+      personalRecords.fastest
+        ? {
+            label: "Fastest",
+            value: fmtSpeed(personalRecords.fastest.value, units) ?? `${personalRecords.fastest.value} mph`,
+            detail: cleanCoasterName(personalRecords.fastest.name),
+          }
+        : null,
+      personalRecords.longest
+        ? {
+            label: "Longest",
+            value: fmtLength(personalRecords.longest.value, units) ?? `${personalRecords.longest.value} ft`,
+            detail: cleanCoasterName(personalRecords.longest.name),
+          }
+        : null,
+      personalRecords.mostInversions
+        ? {
+            label: "Most inversions",
+            value: String(personalRecords.mostInversions.value),
+            detail: cleanCoasterName(personalRecords.mostInversions.name),
+          }
+        : null,
+    ].filter((row): row is NonNullable<typeof row> => row != null);
+
+    return {
+      displayName: shareDisplayName?.trim() || "My stats",
+      coasters: filteredUniqueRides.length,
+      parks: parksVisited,
+      countries: countriesVisited,
+      achievementsUnlocked: unlockedAchievements.length,
+      achievementsTotal: ACHIEVEMENT_COUNT,
+      records,
+      filterNote: includeFamilyRides ? "Including family rides" : "Thrill rides focus",
+    };
+  }, [
+    countriesVisited,
+    filteredUniqueRides.length,
+    includeFamilyRides,
+    parksVisited,
+    personalRecords.fastest,
+    personalRecords.longest,
+    personalRecords.mostInversions,
+    personalRecords.tallest,
+    shareDisplayName,
+    units,
+    unlockedAchievements.length,
+  ]);
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -802,12 +860,19 @@ function StatsPageContent() {
               )}
             </div>
             {!loading && isOwnStatsView && filteredUniqueRides.length > 0 && (
-              <button
-                onClick={() => void copyStatsSummary()}
-                className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                Copy my stats
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <StatsShareControls
+                  card={shareCardProps}
+                  onFeedback={setShareFeedback}
+                />
+                <button
+                  type="button"
+                  onClick={() => void copyStatsSummary()}
+                  className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Copy text
+                </button>
+              </div>
             )}
           </div>
           {shareFeedback && (

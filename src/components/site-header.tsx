@@ -54,7 +54,7 @@ export function SiteHeader() {
         Wishlist
       </Link>
       <Link href="/stats" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Stats
+        My Stats
       </Link>
       <Link href="/friends" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Friends
