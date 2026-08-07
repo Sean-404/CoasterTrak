@@ -111,6 +111,8 @@ export function normalizeCoasterDedupKey(raw: string): string {
   s = s.replace(/\bth13teen\b/gi, "thirteen");
   // Energylandia spelling drift between Fast Pass feed and park labels
   s = s.replace(/\btofiffee\b/gi, "toffifee");
+  // Universal marketing prefix on VelociCoaster
+  s = s.replace(/^jurassic\s+world\s+/i, "");
   s = s.replace(/\s*\(roller coaster\)\s*/gi, " ");
   s = s.replace(/\s*\(coaster\)\s*/gi, " ");
   s = s.replace(/\s*\(steel\)\s*/gi, " ");
@@ -127,6 +129,7 @@ function normalizeCoasterAliasKey(raw: string): string {
   s = s.replace(/[™®©]/g, "");
   s = s.replace(/^the\s+/i, "").trim();
   s = s.replace(/\bth13teen\b/gi, "thirteen");
+  s = s.replace(/^jurassic\s+world\s+/i, "");
   s = s.replace(/\s+/g, " ").trim();
   return s.replace(/[^a-z0-9]/g, "");
 }

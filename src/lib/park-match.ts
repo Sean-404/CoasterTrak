@@ -13,8 +13,14 @@ function normalizeParkNameForMatch(name: string): string {
     .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[''`]/g, "")
+    // Queue-Times-style "Islands Of Adventure At Universal Orlando" → Islands of Adventure
+    .replace(/\bat\s+universal(?:\s+orlando)?\b/gi, "")
     .replace(/\b(theme|amusement|family|water)\s+park\b/gi, "")
     .replace(/\bresort\b/gi, "")
+    // "Universal's Islands of Adventure" / "Universal Studios Florida" brand prefix
+    .replace(/\buniversals?\b/gi, "")
+    // "Disney's Hollywood Studios" / "Disney Magic Kingdom" brand prefix noise
+    .replace(/\bdisneys?\b/gi, "")
     .replace(/\s+/g, " ")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")

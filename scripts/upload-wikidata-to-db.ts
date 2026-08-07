@@ -15,7 +15,10 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { arg, runMain } from "./lib/cli";
 import { createServiceRoleClient } from "./lib/supabase-service";
-import { sanitizeCoasterImageUrl } from "../src/lib/coaster-known-fixes";
+import {
+  sanitizeCoasterImageUrl,
+  shouldSkipWikidataCoasterId,
+} from "../src/lib/coaster-known-fixes";
 import { normalizeCoasterDedupKey } from "../src/lib/coaster-dedup";
 import { reconcileCountryWithCoords } from "../src/lib/geo-country";
 import { haversineKm } from "../src/lib/geo";
@@ -826,6 +829,7 @@ async function main() {
   const updates: CoasterUpdate[] = [];
   const unmatched: WikidataCoasterRow[] = [];
   for (const wd of wdRows) {
+    if (shouldSkipWikidataCoasterId(wd.wikidataId)) continue;
     let candidates = lookupCandidates(index, wd);
     if (!candidates?.length && wd.wikidataId) {
       const byId = byWikidataId.get(wd.wikidataId);
@@ -991,6 +995,7 @@ async function main() {
 
   const inserts: CoasterInsert[] = [];
   for (const wd of unmatched) {
+    if (shouldSkipWikidataCoasterId(wd.wikidataId)) continue;
     const allowWaterParkMatch = isLikelyWaterParkName(wd.parkLabel ?? "");
     const hasCoords = wd.latitude != null && wd.longitude != null;
     // Skip unhelpful placeholder labels ("Q12345"), but still allow coordinate-only rows

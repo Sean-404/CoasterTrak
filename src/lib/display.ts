@@ -6,7 +6,11 @@ import { canonicalCountryLabel, unjamGeoLabel } from "@/lib/geo-country";
  *      "Corkscrew (Alton Towers)"    → "Corkscrew"
  */
 export function cleanCoasterName(name: string): string {
-  return name.replace(/\s*\([^)]+\)\s*$/, "").trim();
+  return name
+    .replace(/\s*\([^)]+\)\s*$/, "")
+    .replace(/[™®©]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** "Park name · Country" when country is known — disambiguates Disney/Universal and other chains. */

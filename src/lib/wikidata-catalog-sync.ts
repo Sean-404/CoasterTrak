@@ -1,8 +1,13 @@
-import { sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
+import {
+  sanitizeCoasterImageUrl,
+  shouldSkipWikidataCoasterId,
+} from "@/lib/coaster-known-fixes";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   findNearestParkForCoords,
   findParkMatchByNameAndLocation,
+  isLikelyWaterParkName,
+  parkNamesMatch,
   type ParkForMatch,
 } from "@/lib/park-match";
 import { finishSyncRun, startSyncRun } from "@/lib/sync-run";
@@ -27,6 +32,38 @@ async function loadWikidataRows(): Promise<WikidataCoasterRow[]> {
 
 function parkGroupKey(parkName: string, country: string | null | undefined): string {
   return `${parkName.trim().toLowerCase()}|${(country ?? "").trim().toLowerCase()}`;
+}
+
+/** Multi-install / mislabeled Wikidata items → preferred on-park name for Orlando catalog. */
+const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
+  Q3073731: "Universal's Islands of Adventure", // Flight of the Hippogriff
+  Q21051432: "Universal Studios Florida", // Revenge of the Mummy (Orlando layout)
+};
+
+/** US mainland longitudes are west; some feeds store the absolute value. */
+function normalizeSyncParkLongitude(
+  lat: number,
+  lng: number,
+  country: string | null | undefined,
+): number {
+  const c = (country ?? "").toLowerCase();
+  const us =
+    c.includes("united states") || c === "usa" || c === "us" || c.endsWith(", us");
+  if (us && lat > 24 && lat < 50 && lng > 65 && lng < 130) {
+    return -Math.abs(lng);
+  }
+  return lng;
+}
+
+function findParkIdByPreferredName(
+  parkRows: ParkForSync[],
+  preferredName: string,
+): number | null {
+  const want = preferredName.trim().toLowerCase();
+  const exact = parkRows.find((p) => p.name.trim().toLowerCase() === want);
+  if (exact) return exact.id;
+  const fuzzy = parkRows.find((p) => parkNamesMatch(p.name, preferredName));
+  return fuzzy?.id ?? null;
 }
 
 function unknownParkExternalIdForRow(wd: WikidataCoasterRow): string | null {
@@ -211,6 +248,8 @@ export async function syncCatalogFromWikidata() {
       );
       const parkName = groupRows[0]!.parkLabel!.trim();
       const parkQid = majorityParkWikidataId(groupRows);
+      const syncLng = normalizeSyncParkLongitude(centroid.lat, centroid.lng, country);
+      const syncCentroid = { lat: centroid.lat, lng: syncLng };
 
       let parkId = parkIdByKey.get(gKey);
       if (!parkId && parkQid) {
@@ -222,8 +261,8 @@ export async function syncCatalogFromWikidata() {
         const linked = findParkMatchByNameAndLocation(
           parkRows,
           parkName,
-          centroid.lat,
-          centroid.lng,
+          syncCentroid.lat,
+          syncCentroid.lng,
           32,
         );
         if (linked) {
@@ -238,8 +277,8 @@ export async function syncCatalogFromWikidata() {
           .insert({
             name: parkName,
             country,
-            latitude: centroid.lat,
-            longitude: centroid.lng,
+            latitude: syncCentroid.lat,
+            longitude: syncCentroid.lng,
             external_source: "wikidata",
             external_id: parkQid,
             last_synced_at: new Date().toISOString(),
@@ -253,8 +292,8 @@ export async function syncCatalogFromWikidata() {
           id: parkId,
           name: parkName,
           country,
-          latitude: centroid.lat,
-          longitude: centroid.lng,
+          latitude: syncCentroid.lat,
+          longitude: syncCentroid.lng,
           external_source: "wikidata",
           external_id: parkQid,
         });
@@ -266,8 +305,8 @@ export async function syncCatalogFromWikidata() {
           .from("parks")
           .update({
             country,
-            latitude: centroid.lat,
-            longitude: centroid.lng,
+            latitude: syncCentroid.lat,
+            longitude: syncCentroid.lng,
             external_source: "wikidata",
             ...(parkQid ? { external_id: parkQid } : {}),
             last_synced_at: new Date().toISOString(),
@@ -276,8 +315,8 @@ export async function syncCatalogFromWikidata() {
         if (updateRes.error) throw updateRes.error;
         if (row) {
           row.country = country;
-          row.latitude = centroid.lat;
-          row.longitude = centroid.lng;
+          row.latitude = syncCentroid.lat;
+          row.longitude = syncCentroid.lng;
           row.external_source = "wikidata";
           if (parkQid) row.external_id = parkQid;
         }
@@ -286,7 +325,13 @@ export async function syncCatalogFromWikidata() {
       }
 
       for (const wd of groupRows) {
-        coasterBatch.push(coasterUpsertPayload(wd, parkId));
+        if (shouldSkipWikidataCoasterId(wd.wikidataId)) continue;
+        const overrideName = COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID[wd.wikidataId.trim().toUpperCase()];
+        const overrideParkId = overrideName
+          ? findParkIdByPreferredName(parkRows, overrideName)
+          : null;
+        const targetParkId = overrideParkId ?? parkId;
+        coasterBatch.push(coasterUpsertPayload(wd, targetParkId));
         if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
       }
     }
@@ -301,10 +346,23 @@ export async function syncCatalogFromWikidata() {
         Number.isFinite(r.longitude),
     );
     for (const wd of missingParkLabel) {
+      if (shouldSkipWikidataCoasterId(wd.wikidataId)) continue;
+      const overrideName = COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID[wd.wikidataId.trim().toUpperCase()];
+      const overrideParkId = overrideName
+        ? findParkIdByPreferredName(parkRows, overrideName)
+        : null;
+      if (overrideParkId) {
+        coasterBatch.push(coasterUpsertPayload(wd, overrideParkId));
+        if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
+        continue;
+      }
+
+      const snapLng = normalizeSyncParkLongitude(wd.latitude!, wd.longitude!, wd.countryLabel);
+      const landParks = parkRows.filter((p) => !isLikelyWaterParkName(p.name));
       const linked = findNearestParkForCoords(
-        parkRows,
+        landParks,
         wd.latitude!,
-        wd.longitude!,
+        snapLng,
         4,
         wd.countryLabel,
       );
@@ -330,7 +388,7 @@ export async function syncCatalogFromWikidata() {
             name: unknownName,
             country: unknownCountry,
             latitude: wd.latitude!,
-            longitude: wd.longitude!,
+            longitude: snapLng,
             external_source: "wikidata_unknown_park",
             external_id: unknownExt,
             last_synced_at: new Date().toISOString(),
@@ -345,7 +403,7 @@ export async function syncCatalogFromWikidata() {
           name: unknownName,
           country: unknownCountry,
           latitude: wd.latitude!,
-          longitude: wd.longitude!,
+          longitude: snapLng,
           external_source: "wikidata_unknown_park",
           external_id: unknownExt,
         });

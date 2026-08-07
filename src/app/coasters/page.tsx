@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
+import { CatalogSearchForm } from "@/components/catalog-search-form";
 import { listCoastersForIndex } from "@/lib/catalog-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
@@ -24,8 +26,19 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function CoastersIndexPage() {
-  const coasters = await listCoastersForIndex(600);
+type PageProps = {
+  searchParams: Promise<{ q?: string | string[] }>;
+};
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] ?? "";
+  return value ?? "";
+}
+
+export default async function CoastersIndexPage({ searchParams }: PageProps) {
+  const query = firstParam((await searchParams).q).trim();
+  const coasters = await listCoastersForIndex(600, query || undefined);
+  const searching = query.length > 0;
 
   return (
     <CatalogPageShell breadcrumb={[{ href: "/coasters", label: "Coasters" }]}>
@@ -34,22 +47,56 @@ export default async function CoastersIndexPage() {
         Roller coasters
       </h1>
       <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">
-        A sample of {coasters.length.toLocaleString()} rides from the CoasterTrak catalog (A–Z). Open a coaster for
-        stats and park links, browse{" "}
-        <Link href="/parks" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
-          parks
-        </Link>
-        , or explore everything on the{" "}
-        <Link href="/map" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
-          interactive map
-        </Link>
-        .
+        {searching ? (
+          <>
+            {coasters.length.toLocaleString()} result{coasters.length === 1 ? "" : "s"} for{" "}
+            <span className="font-semibold text-slate-900">&ldquo;{query}&rdquo;</span>. Open a coaster for
+            stats and park links, or browse{" "}
+            <Link href="/parks" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+              parks
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            A sample of {coasters.length.toLocaleString()} rides from the CoasterTrak catalog (A–Z). Use search
+            to find any ride, browse{" "}
+            <Link href="/parks" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+              parks
+            </Link>
+            , or explore everything on the{" "}
+            <Link href="/map" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+              interactive map
+            </Link>
+            .
+          </>
+        )}
       </p>
 
+      <Suspense fallback={<div className="mt-6 h-11 animate-pulse rounded-lg bg-slate-200/80" />}>
+        <CatalogSearchForm
+          label="Search roller coasters"
+          placeholder="Search by coaster or park name…"
+          initialQuery={query}
+        />
+      </Suspense>
+
       {coasters.length === 0 ? (
-        <p className="mt-8 text-sm text-slate-500">No coasters in the catalog yet.</p>
+        <p className="mt-8 text-sm text-slate-500">
+          {searching ? (
+            <>
+              No coasters match &ldquo;{query}&rdquo;. Try another spelling, or browse the{" "}
+              <Link href="/parks" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+                parks catalog
+              </Link>
+              .
+            </>
+          ) : (
+            "No coasters in the catalog yet."
+          )}
+        </p>
       ) : (
-        <ul className="mt-8 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <ul className="mt-6 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {coasters.map((coaster) => {
             const name = cleanCoasterName(coaster.name);
             const park = coaster.parks;

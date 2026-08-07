@@ -1,5 +1,5 @@
 /**
- * Rough country hints from coordinates when CSV/Queue-Times country is missing or wrong.
+ * Rough country hints from coordinates when a catalog country is missing or wrong.
  * Used by catalog sync and map UI so pins in India are not labeled China, etc.
  */
 

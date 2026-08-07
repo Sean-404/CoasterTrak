@@ -261,7 +261,7 @@ const ParkMap = dynamic(() => import("@/components/park-map").then((m) => m.Park
   loading: () => <MapAreaSkeleton />,
 });
 
-/** Queue-Times once shipped Epic Universe with +81°E instead of -81°W; fix display until DB sync overwrites. */
+/** Some US park feeds historically stored absolute longitude (e.g. Epic +81°E); normalize for map display. */
 function fixUsParkLongitude(p: Park): Park {
   const lat = p.latitude ?? 0;
   const lng = p.longitude ?? 0;
@@ -637,6 +637,19 @@ function hasSharedDistinctiveParkToken(a: string, b: string): boolean {
   return false;
 }
 
+function preferParkDisplayName(current: string, candidate: string): string {
+  const score = (name: string) => {
+    let s = 0;
+    if (/\bat\s+universal\b/i.test(name)) s -= 3;
+    if (/[™®©]/.test(name)) s -= 2;
+    if (/,/.test(name)) s -= 2;
+    // Prefer moderately short resort names over marketing dumps.
+    s -= Math.max(0, name.length - 40) * 0.05;
+    return s;
+  };
+  return score(candidate) > score(current) ? candidate : current;
+}
+
 function MapPageContent() {
   const searchParams = useSearchParams();
   const deepLinkedView = useMemo<ViewMode | null>(() => {
@@ -751,9 +764,7 @@ function MapPageContent() {
 
     function mergeInto(base: Park, duplicate: Park) {
       idRemap.set(duplicate.id, base.id);
-      if (duplicate.name.length > base.name.length) {
-        base.name = duplicate.name;
-      }
+      base.name = preferParkDisplayName(base.name, duplicate.name);
       base.latitude = duplicate.latitude ?? base.latitude;
       base.longitude = duplicate.longitude ?? base.longitude;
       const lat = base.latitude ?? null;

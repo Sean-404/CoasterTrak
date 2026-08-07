@@ -777,5 +777,11 @@ export function parseDurationSecondsFromText(s: string): number | null {
 }
 
 export function normalizeNameKey(name: string): string {
-  return cleanCoasterName(name).toLowerCase().replace(/\s+/g, " ").trim();
+  return cleanCoasterName(name)
+    .toLowerCase()
+    // Normalize Unicode dashes/minus to ASCII hyphen so CSV/Wikidata/DB keys match.
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/[''`´]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }

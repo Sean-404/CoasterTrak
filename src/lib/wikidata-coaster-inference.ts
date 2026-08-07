@@ -55,7 +55,7 @@ export function inferCoasterType(
 
   const mfr = (manufacturer ?? "").toLowerCase().trim();
   if (!mfr) return undefined;
-  // Common abbreviation for Great Coasters International (Queue-Times / hand edits).
+  // Common abbreviation for Great Coasters International (catalog imports / hand edits).
   if (mfr === "gci" || mfr.startsWith("gci ") || mfr.endsWith(" gci") || mfr.includes(" gci ")) {
     return "Wood";
   }
@@ -66,7 +66,7 @@ export function inferCoasterType(
 
 /**
  * Prefer stored `coaster_type` unless it is missing or "Unknown" — then infer from manufacturer.
- * Queue-Times sync often leaves "Unknown" even when manufacturer is filled from Wikidata later.
+ * Older catalog imports often leave "Unknown" even when manufacturer is filled from Wikidata later.
  */
 export function effectiveCoasterType(
   coasterType: string | null | undefined,
@@ -86,7 +86,7 @@ export function effectiveCoasterType(
     if (inferred) return inferred;
   }
 
-  // Queue-Times imports often use "Other" as a catch-all even when manufacturer
+  // Older imports often use "Other" as a catch-all even when manufacturer
   // clearly implies a concrete type (e.g. RMC -> Hybrid).
   if (t && t !== "Unknown" && t !== "Other") return t;
   return inferCoasterType(undefined, manufacturer) ?? "Unknown";
