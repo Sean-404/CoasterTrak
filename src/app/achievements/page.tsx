@@ -5,7 +5,10 @@ import { AuthGate } from "@/components/auth-gate";
 import { SiteHeader } from "@/components/site-header";
 import {
   ACHIEVEMENT_COUNT,
+  achievementRarityAccentClass,
+  achievementRarityCardClass,
   achievementRarityLabel,
+  achievementRarityPillClass,
   type AchievementEval,
   type AchievementListSort,
   type AchievementMetrics,
@@ -308,14 +311,18 @@ export default function AchievementsPage() {
                 <li
                   key={a.id}
                   className={`rounded-xl border p-5 shadow-sm ${
-                    a.unlocked ? "border-amber-200 bg-amber-50/60" : "border-slate-200 bg-white"
+                    a.unlocked
+                      ? achievementRarityCardClass(a.rarity)
+                      : "border-slate-200 bg-white"
                   }`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         {a.unlocked ? (
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 text-slate-900">
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${achievementRarityAccentClass(a.rarity)}`}
+                          >
                             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                               <path
                                 fillRule="evenodd"
@@ -349,11 +356,17 @@ export default function AchievementsPage() {
                       </div>
                       <p className="mt-1.5 text-sm text-slate-600">{a.description}</p>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1 text-right">
-                      <span className="text-xs text-slate-500">{achievementRarityLabel(a.rarity)}</span>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5 text-right">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${achievementRarityPillClass(a.rarity)}`}
+                      >
+                        {achievementRarityLabel(a.rarity)}
+                      </span>
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                          a.unlocked ? "bg-amber-200 text-slate-900" : "bg-slate-100 text-slate-600"
+                          a.unlocked
+                            ? achievementRarityAccentClass(a.rarity)
+                            : "bg-slate-100 text-slate-600"
                         }`}
                       >
                         {a.unlocked ? "Unlocked" : "Locked"}

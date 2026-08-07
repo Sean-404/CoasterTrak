@@ -840,6 +840,42 @@ export function achievementRarityPillClass(r: AchievementRarity): string {
   }
 }
 
+/** Full card surface once unlocked — matches rarity at a glance. */
+export function achievementRarityCardClass(r: AchievementRarity): string {
+  switch (r) {
+    case "common":
+      return "border-slate-200 bg-slate-50";
+    case "uncommon":
+      return "border-emerald-200 bg-emerald-50/80";
+    case "rare":
+      return "border-sky-300 bg-sky-50/90";
+    case "epic":
+      return "border-violet-300 bg-violet-50";
+    case "legendary":
+      return "border-amber-400 bg-amber-50 ring-1 ring-amber-400/30";
+    default:
+      return "border-slate-200 bg-slate-50";
+  }
+}
+
+/** Checkmark / status chip fill for unlocked rows. */
+export function achievementRarityAccentClass(r: AchievementRarity): string {
+  switch (r) {
+    case "common":
+      return "bg-slate-400 text-white";
+    case "uncommon":
+      return "bg-emerald-500 text-white";
+    case "rare":
+      return "bg-sky-500 text-white";
+    case "epic":
+      return "bg-violet-500 text-white";
+    case "legendary":
+      return "bg-amber-400 text-slate-900";
+    default:
+      return "bg-slate-400 text-white";
+  }
+}
+
 function unlockTimestampsByAchievementId(chronological: AchievementRide[]): Map<string, string> {
   const first = new Map<string, string>();
   for (let i = 1; i <= chronological.length; i++) {

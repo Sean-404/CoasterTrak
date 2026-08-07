@@ -12,6 +12,7 @@ import { StatsShareControls } from "@/components/stats-share-controls";
 import type { StatsShareCardProps } from "@/components/stats-share-card";
 import {
   ACHIEVEMENT_COUNT,
+  achievementRarityCardClass,
   achievementRarityLabel,
   achievementRarityPillClass,
   evaluateAchievementsWithUnlockTimes,
@@ -1231,7 +1232,7 @@ function StatsPageContent() {
                     {unlockedAchievements.map((a) => (
                       <li
                         key={a.id}
-                        className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5"
+                        className={`rounded-lg border px-3 py-2.5 ${achievementRarityCardClass(a.rarity)}`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
