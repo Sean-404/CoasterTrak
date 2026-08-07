@@ -4,20 +4,30 @@ import { coasterSlug, parkSlug } from "@/lib/slug";
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
+/** Stable within the UTC week so deploys don't fake mass catalog updates. */
+function weekStartUtc(date = new Date()): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay();
+  const diff = (day + 6) % 7; // Monday = 0
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
+  const catalogStamp = weekStartUtc();
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { path: "/", priority: 1, changeFrequency: "daily" as const },
     { path: "/coaster-tracker", priority: 0.9, changeFrequency: "weekly" as const },
     { path: "/map", priority: 0.9, changeFrequency: "daily" as const },
     { path: "/parks", priority: 0.85, changeFrequency: "daily" as const },
+    { path: "/coasters", priority: 0.85, changeFrequency: "daily" as const },
     { path: "/about", priority: 0.7, changeFrequency: "monthly" as const },
     { path: "/privacy", priority: 0.3, changeFrequency: "yearly" as const },
     { path: "/terms", priority: 0.3, changeFrequency: "yearly" as const },
   ].map((route) => ({
     url: `${BASE_URL}${route.path}`,
-    lastModified: now,
+    lastModified: catalogStamp,
     changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
@@ -26,14 +36,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const parkRoutes: MetadataRoute.Sitemap = parks.map((park) => ({
     url: `${BASE_URL}/parks/${parkSlug(park.name, park.id)}`,
-    lastModified: now,
+    lastModified: catalogStamp,
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));
 
   const coasterRoutes: MetadataRoute.Sitemap = coasters.map((coaster) => ({
     url: `${BASE_URL}/coasters/${coasterSlug(coaster.name, coaster.id)}`,
-    lastModified: now,
+    lastModified: catalogStamp,
     changeFrequency: "weekly" as const,
     priority: 0.7,
   }));

@@ -27,7 +27,7 @@ SELECT ?item ?itemLabel ?coord ?countryLabel ?parkLabel ?manufacturerLabel
   ?clsLabel
   ?lengthM ?speedMs ?heightM ?durationS
   ?opening ?retirement ?demolished ?rcdbId ?enwiki ?image
-  ?park ?parkParent
+  ?park ?parkParent ?parkParentLabel
 WHERE {
   ?item wdt:P31 ?cls .
   ?cls wdt:P279* wd:Q204832 .
@@ -314,9 +314,12 @@ function bindingsToRow(
   const parentParkLabel = bindingLiteral(b.parkParentLabel) ?? null;
   const resolvedParkLabel = parentParkLabel ?? immediateParkLabel;
   const parkWikidataId = (() => {
+    // Prefer the amusement/theme-park parent Q-id when P361 pointed at a themed land.
+    const parentUri = bindingUri(b.parkParent);
     const parkUri = bindingUri(b.park);
-    if (!parkUri) return null;
-    const q = parseUriToQid(parkUri);
+    const uri = parentUri ?? parkUri;
+    if (!uri) return null;
+    const q = parseUriToQid(uri);
     return q.startsWith("Q") ? q : null;
   })();
 
@@ -416,14 +419,11 @@ function retryAfterToMs(retryAfter: string | null): number | null {
   return Math.max(0, asDateMs - Date.now());
 }
 
-async function fetchWikidataSparqlPage(
+async function fetchWikidataSparqlQuery(
   query: string,
-  offset: number,
-  limit: number,
   retries = 3,
+  contextLabel = "query",
 ): Promise<SparqlJsonResponse> {
-  const q = `${query.trim()}\nORDER BY ?item\nLIMIT ${limit}\nOFFSET ${offset}\n`;
-
   for (let attempt = 0; attempt <= retries; attempt++) {
     let res: Response;
     try {
@@ -434,17 +434,17 @@ async function fetchWikidataSparqlPage(
           "Content-Type": "application/sparql-query",
           "User-Agent": WIKIDATA_USER_AGENT,
         },
-        body: q,
+        body: query,
       });
     } catch (err) {
       if (attempt === retries) {
         throw new Error(
-          `Wikidata SPARQL network error after ${retries + 1} attempts: ${String(err)}`,
+          `Wikidata SPARQL network error after ${retries + 1} attempts (${contextLabel}): ${String(err)}`,
         );
       }
       const delay = Math.min(4_000 * 2 ** attempt, 60_000);
       console.error(
-        `  Wikidata network error on offset ${offset}, retry ${attempt + 1}/${retries} in ${delay / 1000}s…`,
+        `  Wikidata network error on ${contextLabel}, retry ${attempt + 1}/${retries} in ${delay / 1000}s…`,
       );
       await new Promise((r) => setTimeout(r, delay));
       continue;
@@ -472,12 +472,116 @@ async function fetchWikidataSparqlPage(
           : Math.min(2_500 * 2 ** attempt, 25_000);
     const delay = Math.max(baseDelay, retryAfterMs ?? 0);
     console.error(
-      `  Wikidata ${res.status} on offset ${offset}, retry ${attempt + 1}/${retries} in ${Math.round(delay / 1000)}s…`,
+      `  Wikidata ${res.status} on ${contextLabel}, retry ${attempt + 1}/${retries} in ${Math.round(delay / 1000)}s…`,
     );
     await new Promise((r) => setTimeout(r, delay));
   }
 
   throw new Error("Unreachable");
+}
+
+async function fetchWikidataSparqlPage(
+  query: string,
+  offset: number,
+  limit: number,
+  retries = 3,
+): Promise<SparqlJsonResponse> {
+  const q = `${query.trim()}\nORDER BY ?item\nLIMIT ${limit}\nOFFSET ${offset}\n`;
+  return fetchWikidataSparqlQuery(q, retries, `offset ${offset}`);
+}
+
+/**
+ * Fill length/speed/height/duration for rows missing those fields via batched
+ * VALUES queries. Used after a lite SPARQL fallback (which drops quantity paths).
+ */
+export async function enrichMissingQuantities(
+  rows: WikidataCoasterRow[],
+  options?: { batchSize?: number; delayMs?: number },
+): Promise<WikidataCoasterRow[]> {
+  const batchSize = options?.batchSize ?? 80;
+  const delayMs = options?.delayMs ?? 1500;
+  const needs = rows.filter(
+    (r) =>
+      r.lengthM == null ||
+      r.speedMs == null ||
+      r.heightM == null ||
+      r.durationS == null,
+  );
+  if (needs.length === 0) return rows;
+
+  const byId = new Map(rows.map((r) => [r.wikidataId, { ...r }]));
+  console.error(
+    `  Quantity backfill: ${needs.length}/${rows.length} rows missing stats (batch ${batchSize})…`,
+  );
+
+  for (let i = 0; i < needs.length; i += batchSize) {
+    const batch = needs.slice(i, i + batchSize);
+    const values = batch
+      .map((r) => `wd:${r.wikidataId.trim().toUpperCase()}`)
+      .filter((v) => /^wd:Q\d+$/i.test(v))
+      .join(" ");
+    if (!values) continue;
+
+    const query = `
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+
+SELECT ?item ?lengthM ?speedMs ?heightM ?durationS WHERE {
+  VALUES ?item { ${values} }
+  OPTIONAL { ?item p:P2043/psn:P2043/wikibase:quantityAmount ?lengthM . }
+  OPTIONAL { ?item p:P2052/psn:P2052/wikibase:quantityAmount ?speedMs . }
+  OPTIONAL { ?item p:P2048/psn:P2048/wikibase:quantityAmount ?heightM . }
+  OPTIONAL { ?item p:P2047/psn:P2047/wikibase:quantityAmount ?durationS . }
+}
+`.trim();
+
+    try {
+      const json = await fetchWikidataSparqlQuery(
+        query,
+        3,
+        `quantity batch ${Math.floor(i / batchSize) + 1}`,
+      );
+      for (const b of json.results?.bindings ?? []) {
+        const itemUri = bindingUri(b.item);
+        if (!itemUri) continue;
+        const qid = parseUriToQid(itemUri);
+        const prev = byId.get(qid);
+        if (!prev) continue;
+
+        const lengthM = prev.lengthM ?? bindingNumber(b.lengthM);
+        const speedMs = prev.speedMs ?? bindingNumber(b.speedMs);
+        const heightM = prev.heightM ?? bindingNumber(b.heightM);
+        const durationS = prev.durationS ?? bindingNumber(b.durationS);
+        byId.set(qid, {
+          ...prev,
+          lengthM,
+          speedMs,
+          heightM,
+          durationS,
+          speedMph:
+            prev.speedMph ??
+            (speedMs != null ? speedMs * 2.23693629 : null),
+          lengthFt:
+            prev.lengthFt ??
+            (lengthM != null ? lengthM * 3.28084 : null),
+          heightFt:
+            prev.heightFt ??
+            (heightM != null ? heightM * 3.28084 : null),
+        });
+      }
+    } catch (err) {
+      console.error(
+        `  Quantity backfill batch failed (${i}-${i + batch.length}): ${String(err)}`,
+      );
+    }
+
+    if (delayMs > 0 && i + batchSize < needs.length) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+
+  return rows.map((r) => byId.get(r.wikidataId) ?? r);
 }
 
 export async function fetchAllRollerCoasters(options?: {
@@ -487,12 +591,15 @@ export async function fetchAllRollerCoasters(options?: {
   delayMs?: number;
   allowLiteFallback?: boolean;
   onLiteFallback?: () => void;
+  /** When true (default), backfill length/speed/height/duration after a lite fallback. */
+  enrichQuantitiesAfterLite?: boolean;
 }): Promise<WikidataCoasterRow[]> {
   /** Smaller pages avoid WDQS 504s on heavy OPTIONALs; override via options. */
   const pageSize = options?.pageSize ?? 2000;
   const maxRows = options?.maxRows ?? Infinity;
   const delayMs = options?.delayMs ?? 2000;
   const allowLiteFallback = options?.allowLiteFallback ?? true;
+  const enrichQuantitiesAfterLite = options?.enrichQuantitiesAfterLite ?? true;
 
   const out: WikidataCoasterRow[] = [];
   let currentPageSize = pageSize;
@@ -502,6 +609,7 @@ export async function fetchAllRollerCoasters(options?: {
   let hardTransientRetries = 0;
   const maxHardTransientRetries = 8;
   let offset = 0;
+  let usedLiteFallback = false;
 
   for (;;) {
     let json: SparqlJsonResponse;
@@ -535,6 +643,7 @@ export async function fetchAllRollerCoasters(options?: {
             "WDQS stayed unstable at minimum page size for full/core queries and --no-lite-fallback is set. Retry later for full-query completeness.",
           );
         }
+        usedLiteFallback = true;
         options?.onLiteFallback?.();
         queryMode = "lite";
         activeQuery = ROLLER_COASTER_SPARQL_LITE;
@@ -591,10 +700,18 @@ export async function fetchAllRollerCoasters(options?: {
     if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
   }
 
-  const unique = mergeRowsByItem(out);
+  let unique = mergeRowsByItem(out);
   if (maxRows < Infinity && unique.length > maxRows) {
-    return unique.slice(0, maxRows);
+    unique = unique.slice(0, maxRows);
   }
+
+  if (usedLiteFallback && enrichQuantitiesAfterLite) {
+    console.error(
+      "  Lite SPARQL fallback was used (stats may be sparse); running quantity backfill…",
+    );
+    unique = await enrichMissingQuantities(unique);
+  }
+
   return unique;
 }
 

@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { NextResponse } from "next/server";
 import { sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import { parkNamesMatch } from "@/lib/park-match";
+import { loadWikidataCatalogRows } from "@/lib/wikidata-catalog-source";
 import { normalizeNameKey } from "@/lib/wikidata-coasters";
 
 export const runtime = "nodejs";
@@ -21,6 +20,9 @@ type RequestItem = {
   parkName?: string | null;
 };
 
+const CATALOG_CACHE_TTL_MS = 60 * 60 * 1000;
+
+let cachedAt = 0;
 let cachedRows: CatalogRow[] | null = null;
 let cachedByQid: Map<string, CatalogRow> | null = null;
 let cachedByName: Map<string, CatalogRow[]> | null = null;
@@ -30,15 +32,28 @@ async function loadCatalog(): Promise<{
   byQid: Map<string, CatalogRow>;
   byName: Map<string, CatalogRow[]>;
 }> {
-  if (cachedRows && cachedByQid && cachedByName) {
+  const now = Date.now();
+  if (
+    cachedRows &&
+    cachedByQid &&
+    cachedByName &&
+    now - cachedAt < CATALOG_CACHE_TTL_MS
+  ) {
     return { rows: cachedRows, byQid: cachedByQid, byName: cachedByName };
   }
 
-  const path = join(process.cwd(), "data", "wikidata_coasters.json");
-  const raw = await readFile(path, "utf8");
-  const parsed = JSON.parse(raw) as CatalogRow[];
+  // Prefer WIKIDATA_COASTERS_URL (Supabase Storage) over the committed/local snapshot
+  // so production image hints stay fresh after monthly refresh jobs.
+  const parsed = await loadWikidataCatalogRows({ revalidateSeconds: 3600 });
+  const rows: CatalogRow[] = parsed
+    .filter((row) => Boolean(row?.label))
+    .map((row) => ({
+      wikidataId: row.wikidataId,
+      label: row.label,
+      parkLabel: row.parkLabel,
+      imageUrl: row.imageUrl,
+    }));
 
-  const rows = parsed.filter((row) => Boolean(row?.label));
   const byQid = new Map<string, CatalogRow>();
   const byName = new Map<string, CatalogRow[]>();
 
@@ -56,6 +71,7 @@ async function loadCatalog(): Promise<{
   cachedRows = rows;
   cachedByQid = byQid;
   cachedByName = byName;
+  cachedAt = now;
   return { rows, byQid, byName };
 }
 

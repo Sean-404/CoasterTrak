@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { CatalogPageShell, StatGrid } from "@/components/catalog-page-shell";
-import { getCoasterById } from "@/lib/catalog-server";
+import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/lib/catalog-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed } from "@/lib/units";
@@ -14,6 +14,11 @@ export const dynamicParams = true;
 type PageProps = {
   params: Promise<{ slug: string }>;
 };
+
+export async function generateStaticParams() {
+  const coasters = await listCoastersForSitemap();
+  return coasters.map((coaster) => ({ slug: coasterSlug(coaster.name, coaster.id) }));
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -33,17 +38,24 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   ]
     .filter(Boolean)
     .join(" ");
+  const canonical = `/coasters/${coasterSlug(coaster.name, coaster.id)}`;
 
   return {
     title,
     description,
-    alternates: { canonical: `/coasters/${coasterSlug(coaster.name, coaster.id)}` },
+    alternates: { canonical },
     openGraph: {
       title: `${title} | CoasterTrak`,
       description,
-      url: `/coasters/${coasterSlug(coaster.name, coaster.id)}`,
+      url: canonical,
       type: "article",
       ...(coaster.image_url ? { images: [{ url: coaster.image_url }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | CoasterTrak`,
+      description,
+      ...(coaster.image_url ? { images: [coaster.image_url] } : {}),
     },
   };
 }
@@ -65,6 +77,9 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   const park = coaster.parks;
   const parkLabel = formatParkLabel(park?.name, park?.country);
   const units = "imperial" as const;
+  const siblings = park
+    ? (await getCoastersForPark(park.id)).filter((row) => row.id !== coaster.id).slice(0, 12)
+    : [];
 
   const stats = [
     coaster.coaster_type ? { label: "Type", value: coaster.coaster_type } : null,
@@ -79,10 +94,12 @@ export default async function CoasterDetailPage({ params }: PageProps) {
     coaster.closing_year ? { label: "Closed", value: String(coaster.closing_year) } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "TouristAttraction",
     name,
+    url: `${siteUrl}/coasters/${canonicalSlug}`,
     description: `${name}${parkLabel ? ` at ${parkLabel}` : ""} — roller coaster tracked on CoasterTrak.`,
     ...(coaster.image_url ? { image: coaster.image_url } : {}),
     ...(park
@@ -90,6 +107,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
           containedInPlace: {
             "@type": "AmusementPark",
             name: park.name,
+            url: `${siteUrl}/parks/${parkSlug(park.name, park.id)}`,
             address: park.country ? { "@type": "PostalAddress", addressCountry: park.country } : undefined,
           },
         }
@@ -99,10 +117,10 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   return (
     <CatalogPageShell
       breadcrumb={[
-        { href: "/map", label: "Map" },
+        { href: "/parks", label: "Parks" },
         ...(park
           ? [{ href: `/parks/${parkSlug(park.name, park.id)}`, label: park.name }]
-          : []),
+          : [{ href: "/coasters", label: "Coasters" }]),
         { href: `/coasters/${canonicalSlug}`, label: name },
       ]}
     >
@@ -167,6 +185,41 @@ export default async function CoasterDetailPage({ params }: PageProps) {
           How tracking works
         </Link>
       </div>
+
+      {siblings.length > 0 && park ? (
+        <section className="mt-10">
+          <h2 className="text-xl font-semibold text-slate-900">More coasters at {park.name}</h2>
+          <ul className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {siblings.map((sibling) => {
+              const siblingName = cleanCoasterName(sibling.name);
+              return (
+                <li key={sibling.id}>
+                  <Link
+                    href={`/coasters/${coasterSlug(sibling.name, sibling.id)}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-900">{siblingName}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {[sibling.coaster_type, sibling.status].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-amber-700">View →</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-3 text-sm text-slate-500">
+            <Link
+              href={`/parks/${parkSlug(park.name, park.id)}`}
+              className="font-semibold text-amber-700 underline-offset-2 hover:underline"
+            >
+              See all rides at {park.name}
+            </Link>
+          </p>
+        </section>
+      ) : null}
 
       <p className="mt-8 text-xs leading-relaxed text-slate-500">
         Catalog details may be incomplete or outdated. Always confirm ride status and restrictions with the park

@@ -4,6 +4,9 @@
  *
  * Usage:
  *   npx tsx scripts/fetch-wikidata-coasters.ts [--out data/wikidata_coasters.json] [--max 5000] [--enrich] [--enrich-extra] [--enrich-limit 50] [--no-lite-fallback]
+ *
+ * If WDQS forces a lite fallback, length/speed/height/duration are backfilled via
+ * batched VALUES queries. Validation fails on usedLiteFallback unless --allow-lite-meta.
  */
 
 import { writeFile } from "node:fs/promises";

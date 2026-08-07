@@ -44,6 +44,12 @@ export function SiteHeader() {
       <Link href="/map" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Map
       </Link>
+      <Link href="/parks" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
+        Parks
+      </Link>
+      <Link href="/coasters" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
+        Coasters
+      </Link>
       <Link href="/wishlist" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Wishlist
       </Link>

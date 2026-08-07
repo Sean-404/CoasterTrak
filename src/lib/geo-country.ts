@@ -19,17 +19,57 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   return null;
 }
 
-function normalizeStoredCountry(raw: string): string {
-  const withSpaces = raw
-    // Split jammed "GeorgiaUnited States" / "SouthKorea" tokens.
+/**
+ * Split camelCase jams from legacy CSV Location fields, e.g.
+ * "GeorgiaUnited States" → "Georgia United States",
+ * "Orlando, FloridaKissimmee, Florida" → "Orlando, Florida Kissimmee, Florida".
+ */
+export function unjamGeoLabel(raw: string | null | undefined): string {
+  return (raw ?? "")
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Legacy CSV sometimes stored multi-city Location blobs as park names
+ * ("Orlando, FloridaKissimmee, FloridaFayetteville, GeorgiaUnited States").
+ */
+export function isJammedMultiLocationParkName(name: string | null | undefined): boolean {
+  const raw = (name ?? "").trim();
+  if (!raw) return false;
+  if (!/[a-z][A-Z]/.test(raw)) return false;
+  const unjammed = unjamGeoLabel(raw).toLowerCase();
+  const placeHits = (
+    unjammed.match(
+      /\b(florida|california|georgia|texas|ohio|carolina|york|jersey|united states|u\.?s\.?a?\.?)\b/g,
+    ) ?? []
+  ).length;
+  return placeHits >= 2 || (raw.includes(",") && placeHits >= 1);
+}
+
+/** Canonical display labels for common country aliases (U.S. → United States, etc.). */
+export function canonicalCountryLabel(country: string | null | undefined): string {
+  return normalizeStoredCountry(country ?? "");
+}
+
+function normalizeStoredCountry(raw: string): string {
+  const withSpaces = unjamGeoLabel(raw);
   if (!withSpaces) return "";
 
   const compact = withSpaces.toLowerCase().replace(/[^a-z]/g, "");
-  if (compact.includes("unitedstates")) return "United States";
-  if (compact.includes("unitedkingdom")) return "United Kingdom";
+  // "U.S." / "U.S.A." / "USA" / "US" → United States
+  if (
+    compact.includes("unitedstates") ||
+    compact === "us" ||
+    compact === "usa" ||
+    compact === "unitedstatesofamerica"
+  ) {
+    return "United States";
+  }
+  if (compact.includes("unitedkingdom") || compact === "uk" || compact === "greatbritain") {
+    return "United Kingdom";
+  }
   if (compact.includes("southkorea")) return "South Korea";
   if (compact.includes("northkorea")) return "North Korea";
   return withSpaces;

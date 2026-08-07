@@ -69,6 +69,20 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
       setIsNearViewport(true);
       return;
     }
+
+    // Nested overflow containers (e.g. stats ride list) won't reliably intersect
+    // the viewport root — observe against the nearest scroll parent instead.
+    let root: Element | null = node.parentElement;
+    while (root && root !== document.body) {
+      const style = window.getComputedStyle(root);
+      const overflowY = style.overflowY;
+      if (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") {
+        break;
+      }
+      root = root.parentElement;
+    }
+    if (root === document.body) root = null;
+
     let cancelled = false;
     const observer = new window.IntersectionObserver(
       (entries) => {
@@ -77,7 +91,7 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
           observer.disconnect();
         }
       },
-      { rootMargin: "240px 0px" },
+      { root, rootMargin: "240px 0px" },
     );
     observer.observe(node);
     return () => {
@@ -106,10 +120,14 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
   useEffect(() => {
     if (!previewOpen) return;
     const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreviewOpen(false);
+      if (event.key !== "Escape") return;
+      // Close the lightbox before any parent sheet/dialog Escape handlers.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setPreviewOpen(false);
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
   }, [previewOpen]);
 
   const triggerPreview = () => {
@@ -142,6 +160,25 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
     triggerPreview();
   };
 
+  const imageElement = safeUrl ? (
+    <img
+      src={safeUrl}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onLoad={() => {
+        IMAGE_STATUS_CACHE.set(safeUrl, "loaded");
+        setImageStatus("loaded");
+      }}
+      onError={() => {
+        IMAGE_STATUS_CACHE.set(safeUrl, "error");
+        setImageStatus("error");
+      }}
+      className="h-full w-full object-cover"
+    />
+  ) : null;
+
   return (
     <>
       {showImage && allowPreview ? (
@@ -155,25 +192,19 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
           aria-label={`Open image for ${trimmed || "coaster"}`}
           className={`${sizeClassName} shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-slate-200 bg-slate-100 transition hover:brightness-95 active:scale-[0.98] active:brightness-90`}
         >
-          <img
-            src={imageUrl ?? undefined}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerPolicy="no-referrer"
-            onLoad={() => {
-              if (!safeUrl) return;
-              IMAGE_STATUS_CACHE.set(safeUrl, "loaded");
-              setImageStatus("loaded");
-            }}
-            onError={() => {
-              if (!safeUrl) return;
-              IMAGE_STATUS_CACHE.set(safeUrl, "error");
-              setImageStatus("error");
-            }}
-            className="h-full w-full object-cover"
-          />
+          {imageElement}
         </button>
+      ) : showImage ? (
+        // Non-interactive thumbnails (e.g. list rows inside buttons) still need to render the image.
+        <div
+          ref={(node) => {
+            containerRef.current = node;
+          }}
+          className={`${sizeClassName} shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100`}
+          aria-hidden
+        >
+          {imageElement}
+        </div>
       ) : showUnavailableFallback ? (
         <div
           ref={(node) => {
@@ -187,26 +218,7 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
           title={`${trimmed || "Coaster"} image unavailable`}
           aria-hidden
         >
-          {showImage ? (
-            <img
-              src={imageUrl ?? undefined}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              referrerPolicy="no-referrer"
-              onLoad={() => {
-                if (!safeUrl) return;
-                IMAGE_STATUS_CACHE.set(safeUrl, "loaded");
-                setImageStatus("loaded");
-              }}
-              onError={() => {
-                if (!safeUrl) return;
-                IMAGE_STATUS_CACHE.set(safeUrl, "error");
-                setImageStatus("error");
-              }}
-              className="h-full w-full object-cover"
-            />
-          ) : (
+          {showMissingLabel ? (
             <div className="flex h-full w-full items-center justify-center">
               <div className="flex flex-col items-center justify-center gap-1 px-1 text-center">
                 <img
@@ -223,7 +235,7 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
                 </span>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       ) : (
         <div
@@ -240,16 +252,17 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
         safeUrl &&
         createPortal(
           <div
-            className="fixed inset-0 z-[4000] flex items-center justify-center bg-black/80 p-4"
+            className="fixed inset-0 z-[6000] flex items-center justify-center bg-black/80 p-4"
             role="dialog"
             aria-modal="true"
+            aria-label={trimmed ? `Image of ${trimmed}` : "Coaster image"}
             onClick={(event) => {
               if (event.target === event.currentTarget) setPreviewOpen(false);
             }}
           >
             <button
               type="button"
-              className="absolute right-4 top-4 min-h-10 min-w-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-white active:scale-95"
+              className="absolute right-4 top-4 z-10 min-h-10 min-w-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-white active:scale-95"
               onClick={() => setPreviewOpen(false)}
             >
               Close

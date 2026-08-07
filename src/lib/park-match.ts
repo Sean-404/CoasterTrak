@@ -4,17 +4,113 @@
 
 import type { Coaster, Park } from "@/types/domain";
 import { haversineKm } from "@/lib/geo";
+import { isJammedMultiLocationParkName, unjamGeoLabel } from "@/lib/geo-country";
 
-/** Lowercase, strip noise words, collapse punctuation for comparison. */
+/** Lowercase, strip noise words / accents, collapse punctuation for comparison. */
 function normalizeParkNameForMatch(name: string): string {
-  return name
+  return unjamGeoLabel(name)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
     .replace(/[''`]/g, "")
     .replace(/\b(theme|amusement|family|water)\s+park\b/gi, "")
+    .replace(/\bresort\b/gi, "")
     .replace(/\s+/g, " ")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** Placeholder / junk park labels that should not appear in the public catalog. */
+export function isLikelyPlaceholderParkName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  if (n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc") return true;
+  return isJammedMultiLocationParkName(name);
+}
+
+/** Wikidata fallback rows when no park label was available. */
+export function isUnknownHistoricalParkName(name: string): boolean {
+  return /^unknown\s*\/\s*historical park/i.test(name.trim());
+}
+
+export function isCatalogHiddenParkName(name: string | null | undefined): boolean {
+  const parkName = (name ?? "").trim();
+  if (!parkName) return true;
+  return isLikelyPlaceholderParkName(parkName) || isUnknownHistoricalParkName(parkName);
+}
+
+export type ParkForMatch = {
+  id: number;
+  name: string;
+  country: string | null;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type CatalogParkCandidate = ParkForMatch & { rideCount?: number };
+
+/**
+ * Hide unknown/placeholder parks and collapse near-duplicate names
+ * (e.g. Europa Park / Europa-Park, Six Flags Mexico / México) for catalog lists.
+ * Prefers the row with more rides, then the longer display name.
+ */
+export function dedupeParksForCatalog<T extends CatalogParkCandidate>(parks: T[]): T[] {
+  const kept: T[] = [];
+  const absorbed = new Set<number>();
+
+  const ranked = [...parks]
+    .filter((p) => !isCatalogHiddenParkName(p.name))
+    .sort((a, b) => {
+      const rides = (b.rideCount ?? 0) - (a.rideCount ?? 0);
+      if (rides !== 0) return rides;
+      const len = b.name.length - a.name.length;
+      if (len !== 0) return len;
+      return a.id - b.id;
+    });
+
+  for (const park of ranked) {
+    if (absorbed.has(park.id)) continue;
+
+    let duplicateOf: T | null = null;
+    for (const existing of kept) {
+      if (!parkNamesMatch(existing.name, park.name)) continue;
+      if (!countriesCompatibleForParkMatch(existing.country, park.country)) continue;
+
+      const bothHaveCoords =
+        existing.latitude != null &&
+        existing.longitude != null &&
+        park.latitude != null &&
+        park.longitude != null &&
+        Number.isFinite(existing.latitude) &&
+        Number.isFinite(existing.longitude) &&
+        Number.isFinite(park.latitude) &&
+        Number.isFinite(park.longitude);
+
+      if (bothHaveCoords) {
+        const d = haversineKm(
+          existing.latitude!,
+          existing.longitude!,
+          park.latitude!,
+          park.longitude!,
+        );
+        // Exact-ish names can drift between geocoders; fuzzy names stay tighter.
+        const sameNorm =
+          normalizeParkNameForMatch(existing.name) === normalizeParkNameForMatch(park.name);
+        if (d > (sameNorm ? 200 : 40)) continue;
+      }
+
+      duplicateOf = existing;
+      break;
+    }
+
+    if (duplicateOf) {
+      absorbed.add(park.id);
+      continue;
+    }
+    kept.push(park);
+  }
+
+  return kept.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const COUNTRY_ALIASES: Record<string, string> = {
@@ -95,14 +191,6 @@ export function parkNamesMatch(a: string, b: string): boolean {
   return minSize >= 2 && overlap >= minSize * 0.6;
 }
 
-export type ParkForMatch = {
-  id: number;
-  name: string;
-  country: string | null;
-  latitude: number | null;
-  longitude: number | null;
-};
-
 /**
  * Heuristic water-park detector used to avoid attaching roller-coaster rows to
  * nearby aquatic venues when Wikidata lacks explicit park linkage.
@@ -156,8 +244,9 @@ export function findParkMatchByNameAndLocation(
 
 /** "Town, Region, Country" labels from Wikidata centroid fallbacks — not real park names. */
 function isLikelyReverseGeocodeParkName(name: string): boolean {
-  const parts = name
-    .trim()
+  if (isJammedMultiLocationParkName(name)) return true;
+
+  const parts = unjamGeoLabel(name)
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean);
@@ -186,7 +275,7 @@ function isLikelyReverseGeocodeParkName(name: string): boolean {
 
 /** First word of the place segment before the first comma, e.g. "Alton" from "Alton, Staffs, England". */
 function firstPlaceTokenFromGeocodeLabel(name: string): string {
-  const beforeComma = name.split(",")[0]?.trim().toLowerCase() ?? "";
+  const beforeComma = unjamGeoLabel(name).split(",")[0]?.trim().toLowerCase() ?? "";
   const alpha = beforeComma.replace(/[^a-z0-9\s]/gi, " ").trim();
   return alpha.split(/\s+/).filter(Boolean)[0] ?? "";
 }
@@ -204,9 +293,8 @@ function distanceBetweenParksKm(a: Park, b: Park): number {
 }
 
 /**
- * Merge reverse-geocode park rows into a nearby real theme park (same area, name contains
- * place token). Removes the extra map pin and lets coasters keyed to the centroid row show
- * under the resort (e.g. Wicker Man → Alton Towers).
+ * Merge reverse-geocode / jammed-location park rows into a nearby real theme park.
+ * Removes the extra map pin and lets coasters keyed to the junk row show under the resort.
  */
 export function absorbReverseGeocodeParks(parks: Park[]): {
   parks: Park[];
@@ -219,8 +307,9 @@ export function absorbReverseGeocodeParks(parks: Park[]): {
     if (idRemap.has(geocode.id)) continue;
     if (!isLikelyReverseGeocodeParkName(geocode.name)) continue;
 
+    const jammed = isJammedMultiLocationParkName(geocode.name);
     const token = firstPlaceTokenFromGeocodeLabel(geocode.name);
-    if (token.length < 4) continue;
+    if (!jammed && token.length < 4) continue;
 
     let best: Park | null = null;
     let bestD = Infinity;
@@ -230,11 +319,15 @@ export function absorbReverseGeocodeParks(parks: Park[]): {
       if (idRemap.has(candidate.id)) continue;
       if (isLikelyReverseGeocodeParkName(candidate.name)) continue;
 
-      const cn = candidate.name.toLowerCase();
-      if (!cn.includes(token)) continue;
-
       const d = distanceBetweenParksKm(geocode, candidate);
-      if (d > 22 || d >= bestD) continue;
+      const maxKm = jammed ? 35 : 22;
+      if (d > maxKm || d >= bestD) continue;
+
+      if (!jammed) {
+        const cn = candidate.name.toLowerCase();
+        if (!cn.includes(token)) continue;
+      }
+
       best = candidate;
       bestD = d;
     }

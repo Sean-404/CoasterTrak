@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
-import { getSupabaseAnonServerClient } from "@/lib/catalog-server";
+import { listCatalogParks } from "@/lib/catalog-server";
 import { formatParkLabel } from "@/lib/display";
 import { parkSlug } from "@/lib/slug";
 import type { Park } from "@/types/domain";
@@ -24,28 +24,8 @@ export const metadata: Metadata = {
   },
 };
 
-async function listAllParks(): Promise<Park[]> {
-  const supabase = getSupabaseAnonServerClient();
-  if (!supabase) return [];
-  const pageSize = 1000;
-  const rows: Park[] = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from("parks")
-      .select("id,name,country,latitude,longitude")
-      .order("name", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (error || !data?.length) break;
-    rows.push(...(data as Park[]));
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-  return rows;
-}
-
 export default async function ParksIndexPage() {
-  const parks = await listAllParks();
+  const parks = await listCatalogParks();
   const byCountry = new Map<string, Park[]>();
   for (const park of parks) {
     const country = (park.country || "Unknown").trim() || "Unknown";

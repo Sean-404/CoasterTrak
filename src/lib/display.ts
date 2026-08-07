@@ -1,3 +1,5 @@
+import { canonicalCountryLabel, unjamGeoLabel } from "@/lib/geo-country";
+
 /**
  * Strip Wikipedia disambiguation suffixes from coaster names for cleaner display.
  * e.g. "Wicker Man (roller coaster)" → "Wicker Man"
@@ -12,8 +14,8 @@ export function formatParkLabel(
   name: string | null | undefined,
   country: string | null | undefined,
 ): string {
-  const n = (name ?? "").trim();
-  const c = (country ?? "").trim();
+  const n = unjamGeoLabel(name);
+  const c = canonicalCountryLabel(country) || unjamGeoLabel(country);
   if (!n && !c) return "";
   if (!c) return n;
   if (!n) return c;

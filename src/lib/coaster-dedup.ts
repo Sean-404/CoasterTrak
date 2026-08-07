@@ -16,12 +16,56 @@ function stripQueueVariantPhrases(s: string): string {
   t = t.replace(/\s*[-–—]\s*standby(\s+only)?\s*$/i, "").trim();
   t = t.replace(/\s*[-–—]\s*lightning\s+lane\s*$/i, "").trim();
   t = t.replace(/\s*[-–—]\s*rider\s+switch\s*$/i, "").trim();
+  // Energylandia / Polish ops feeds: "Kol Licznik", bare "Licznik", truncated "Licz"
   t = t.replace(/\s+\bkol\s+licznik\b\s*$/i, "").trim();
   t = t.replace(/\s+\blicznik\b\s*$/i, "").trim();
+  t = t.replace(/\s+\blicz\b\s*$/i, "").trim();
+  t = t.replace(/\s+\b(zew|wew)\b\s*$/i, "").trim();
   t = t.replace(/\s+\brc\b\s*$/i, "").trim();
   t = t.replace(/\s+starring\s+.+$/i, "").trim();
   t = t.replace(/\s+at\s+.+$/i, "").trim();
+  // Leading queue lane numbers: "17 Teatr…"
+  t = t.replace(/^\d{1,3}\s+/, "").trim();
   return t;
+}
+
+/** True when the stored label is a Fast Pass / single-rider / counter variant. */
+export function isQueueLineOrCounterName(raw: string): boolean {
+  const n = cleanCoasterName(raw).toLowerCase();
+  if (!n) return false;
+  if (/^(?:fast\s*pass|fastpass)\b/.test(n)) return true;
+  if (/\bsingle\s+rider\b/.test(n)) return true;
+  if (/\b(?:lightning\s+lane|rider\s+switch|standby)\b/.test(n)) return true;
+  if (/\blicznik\b/.test(n) || /\blicz\b\s*$/.test(n)) return true;
+  if (/\b(zew|wew)\b/.test(n) && /\b(teatr|egipt|kol)\b/.test(n)) return true;
+  return false;
+}
+
+/**
+ * Ops-feed counters / lane meters that are not rides (even after stripping Fast Pass).
+ * e.g. "17 Teatr Coloseo Zew Licznik", "22 Egipt Wew Licznik".
+ */
+export function isOpsCounterOnlyName(raw: string): boolean {
+  const n = cleanCoasterName(raw).toLowerCase();
+  if (!n) return true;
+  if (/\blicznik\b/.test(n) || /\blicz\b\s*$/.test(n)) {
+    const core = stripQueueVariantPhrases(n)
+      .replace(/\b(zew|wew|kol|teatr|egipt)\b/g, " ")
+      .replace(/\d+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    // Nothing left but venue/ops words → counter row, not a coaster.
+    if (core.length < 3) return true;
+    if (/^(teatr|egipt)\b/.test(stripQueueVariantPhrases(n))) return true;
+  }
+  return false;
+}
+
+/** Strip Fast Pass / Licznik clutter for display when that row is the only surviving twin. */
+export function cleanQueueVariantCoasterName(raw: string): string {
+  const cleaned = cleanCoasterName(raw);
+  const stripped = stripQueueVariantPhrases(cleaned).replace(/\s+/g, " ").trim();
+  return stripped || cleaned;
 }
 
 /** Strip generic marketing/type suffixes so aliases collapse (e.g. "Blue Fire Megacoaster"). */
@@ -65,6 +109,8 @@ export function normalizeCoasterDedupKey(raw: string): string {
   s = s.replace(/^the\s+/i, "").trim();
   // Stylized marketing spellings → canonical word form before stripping punctuation
   s = s.replace(/\bth13teen\b/gi, "thirteen");
+  // Energylandia spelling drift between Fast Pass feed and park labels
+  s = s.replace(/\btofiffee\b/gi, "toffifee");
   s = s.replace(/\s*\(roller coaster\)\s*/gi, " ");
   s = s.replace(/\s*\(coaster\)\s*/gi, " ");
   s = s.replace(/\s*\(steel\)\s*/gi, " ");
@@ -106,6 +152,7 @@ function isLikelyNonRideEventName(raw: string): boolean {
 export function isLikelyCoasterEntry(c: Coaster, parkName?: string | null): boolean {
   if (isPlaceholderCoasterName(c.name)) return false;
   if (isLikelyNonRideEventName(c.name)) return false;
+  if (isOpsCounterOnlyName(c.name)) return false;
   if (c.inversions != null || c.speed_mph != null || c.height_ft != null || c.length_ft != null) return true;
   if (isLikelySmallFamilyCoaster(c, parkName)) return true;
   const t = effectiveCoasterType(c.coaster_type, c.manufacturer).toLowerCase();
@@ -120,9 +167,24 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
   const statsCount = (c: Coaster) =>
     [c.length_ft, c.speed_mph, c.height_ft, c.duration_s, c.inversions].filter((v) => v != null).length;
 
+  // Always prefer the on-park ride name over Fast Pass / Licznik twins.
+  const aQueue = isQueueLineOrCounterName(a.name);
+  const bQueue = isQueueLineOrCounterName(b.name);
+  if (aQueue !== bQueue) return aQueue ? b : a;
+
   const sa = statsCount(a);
   const sb = statsCount(b);
   if (sa !== sb) return sa >= sb ? a : b;
+
+  const knownType = (c: Coaster) => {
+    const t = (c.coaster_type ?? "").trim().toLowerCase();
+    return Boolean(t) && t !== "unknown";
+  };
+  if (knownType(a) !== knownType(b)) return knownType(a) ? a : b;
+
+  const aWd = Boolean(a.wikidata_id?.trim());
+  const bWd = Boolean(b.wikidata_id?.trim());
+  if (aWd !== bWd) return aWd ? a : b;
 
   const aHasImage = Boolean(a.image_url);
   const bHasImage = Boolean(b.image_url);
@@ -131,9 +193,80 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
   const singleRider = (n: string) => /\bsingle\s+rider\b/i.test(n);
   if (singleRider(a.name) !== singleRider(b.name)) return singleRider(a.name) ? b : a;
 
+  // Prefer title case over ALL-CAPS marketing dumps
+  const shouty = (n: string) => {
+    const letters = n.replace(/[^a-zA-Z]/g, "");
+    return letters.length >= 4 && letters === letters.toUpperCase();
+  };
+  if (shouty(a.name) !== shouty(b.name)) return shouty(a.name) ? b : a;
+
   // Prefer shorter display name (usually the on-park name vs long Wikipedia title)
   if (a.name.length !== b.name.length) return a.name.length <= b.name.length ? a : b;
   return a.id <= b.id ? a : b;
+}
+
+/**
+ * Collapse same-park name variants for catalog pages
+ * (e.g. "The Big One" vs sparse "Big One", Fast Pass / Licznik twins).
+ */
+export function dedupeCoastersForCatalog<T extends Coaster>(coasters: T[]): T[] {
+  const winnerById = new Map<number, T>();
+  const keyToWinnerId = new Map<string, number>();
+
+  for (const coaster of coasters) {
+    if (isOpsCounterOnlyName(coaster.name)) continue;
+
+    const keys = coasterDedupLookupKeys(coaster);
+    let matchedId: number | undefined;
+    for (const key of keys) {
+      const id = keyToWinnerId.get(key);
+      if (id != null) {
+        matchedId = id;
+        break;
+      }
+    }
+
+    if (matchedId == null) {
+      winnerById.set(coaster.id, coaster);
+      for (const key of keys) keyToWinnerId.set(key, coaster.id);
+      continue;
+    }
+
+    const current = winnerById.get(matchedId)!;
+    const preferred = preferCoasterForDedup(current, coaster) as T;
+    if (preferred.id !== current.id) {
+      winnerById.delete(current.id);
+      winnerById.set(preferred.id, preferred);
+    } else {
+      winnerById.set(current.id, preferred);
+    }
+
+    for (const key of [...coasterDedupLookupKeys(current), ...keys]) {
+      keyToWinnerId.set(key, preferred.id);
+    }
+  }
+
+  const seen = new Set<number>();
+  const out: T[] = [];
+  for (const coaster of coasters) {
+    if (isOpsCounterOnlyName(coaster.name)) continue;
+    let winnerId: number | undefined;
+    for (const key of coasterDedupLookupKeys(coaster)) {
+      winnerId = keyToWinnerId.get(key);
+      if (winnerId != null) break;
+    }
+    if (winnerId == null || seen.has(winnerId)) continue;
+    const winner = winnerById.get(winnerId);
+    if (!winner) continue;
+    seen.add(winnerId);
+    // If the only surviving row is still a Fast Pass / Licznik label, show the base name.
+    if (isQueueLineOrCounterName(winner.name)) {
+      out.push({ ...winner, name: cleanQueueVariantCoasterName(winner.name) });
+    } else {
+      out.push(winner);
+    }
+  }
+  return out;
 }
 
 /** Heuristic for optional “hide small rides” — conservative to avoid hiding major coasters. */

@@ -5,6 +5,8 @@ import { AuthErrorHandler } from "@/components/auth-error-handler";
 import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { listFeaturedParks } from "@/lib/catalog-server";
+import { parkSlug } from "@/lib/slug";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
@@ -13,25 +15,22 @@ export const metadata: Metadata = {
     absolute: "CoasterTrak — Track every roller coaster you ride",
   },
   description:
-    "Track every roller coaster you ride. Explore parks on a world map, build your wishlist, and compare stats with friends.",
+    "Track every roller coaster you ride. Explore parks on a world map, browse the coaster catalog, and compare stats with friends.",
   alternates: {
     canonical: "/",
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  const featuredParks = await listFeaturedParks(6);
+
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "CoasterTrak",
     url: SITE_URL,
     description:
-      "Track every roller coaster you ride. Explore parks on a map, build your wishlist, and compare stats.",
-    potentialAction: {
-      "@type": "SearchAction",
-      target: `${SITE_URL}/map?search={search_term_string}`,
-      "query-input": "required name=search_term_string",
-    },
+      "Track every roller coaster you ride. Explore parks on a map, browse the catalog, and compare stats.",
   };
 
   const organizationJsonLd = {
@@ -75,7 +74,7 @@ export default function Home() {
             <span className="break-words text-amber-400">Roller Coaster</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
-            Explore parks worldwide on an interactive map, build your bucket list, and track your coaster stats.
+            Explore parks worldwide on an interactive map, browse the catalog, and track your coaster stats.
           </p>
           <HomeHeroCtas />
         </div>
@@ -90,18 +89,57 @@ export default function Home() {
             href="/map"
           />
           <FeatureCard
-            icon={<WishlistIcon />}
-            title="Wishlist"
-            description="Save the rides you want to do and check them off one by one as you conquer them."
-            href="/wishlist"
+            icon={<ParksIcon />}
+            title="Parks"
+            description="Browse theme parks by country, open park pages, and jump into each ride list."
+            href="/parks"
           />
           <FeatureCard
-            icon={<StatsIcon />}
-            title="Stats"
-            description="See how many coasters you've ridden, track your history, and measure your progress."
-            href="/stats"
+            icon={<GuideIcon />}
+            title="Coaster guide"
+            description="Learn how credits, wishlists, and stats work before you start logging rides."
+            href="/coaster-tracker"
           />
         </div>
+
+        {featuredParks.length > 0 ? (
+          <section className="mt-12">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Featured parks</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
+                  Popular parks with big ride catalogs — Disney, Universal, Six Flags, Alton Towers, and more.
+                </p>
+              </div>
+              <Link
+                href="/parks"
+                className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
+              >
+                Browse all parks →
+              </Link>
+            </div>
+            <ul className="mt-6 grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+              {featuredParks.map((park) => (
+                <li key={park.id}>
+                  <Link
+                    href={`/parks/${parkSlug(park.name, park.id)}`}
+                    className="block rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-amber-300 hover:shadow-md sm:py-4"
+                  >
+                    <p className="font-semibold text-slate-900">{park.name}</p>
+                    <p className="mt-1 text-sm text-slate-500">{park.country}</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-sm text-slate-500">
+              Looking for a specific ride?{" "}
+              <Link href="/coasters" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+                Browse coasters
+              </Link>
+              .
+            </p>
+          </section>
+        ) : null}
 
         <section className="mt-12">
           <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A roller coaster tracker built for real trips</h2>
@@ -112,9 +150,9 @@ export default function Home() {
               revisit totals, park coverage, and milestones whenever you want.
             </p>
             <p>
-              Start on the map to browse parks and coasters, star the rides you still need, and create a free account
-              when you are ready to save progress across devices. Friends features let you compare credits and share
-              achievements with the people you ride with.
+              Start on the map or park catalog to browse coasters, star the rides you still need, and create a free
+              account when you are ready to save progress across devices. Friends features let you compare credits
+              and share achievements with the people you ride with.
             </p>
           </div>
         </section>
@@ -124,10 +162,10 @@ export default function Home() {
           <ol className="mt-5 grid gap-4 sm:grid-cols-3">
             <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">Step 1</p>
-              <h3 className="mt-2 font-semibold text-slate-900">Explore the map</h3>
+              <h3 className="mt-2 font-semibold text-slate-900">Explore parks and coasters</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                Search parks and coasters worldwide, filter what matters for your trip, and open ride details before
-                you go.
+                Search the map or browse catalog pages, filter what matters for your trip, and open ride details
+                before you go.
               </p>
             </li>
             <li className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -142,7 +180,7 @@ export default function Home() {
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">Step 3</p>
               <h3 className="mt-2 font-semibold text-slate-900">Watch stats grow</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                Check your ride count, unlock achievements, and see how your history stacks up with friends over time.
+                Check your ride count, rate the rides you&apos;ve done, unlock achievements, and compare with friends.
               </p>
             </li>
           </ol>
@@ -172,6 +210,12 @@ export default function Home() {
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
             >
               Browse parks
+            </Link>
+            <Link
+              href="/coasters"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              Browse coasters
             </Link>
             <Link
               href="/about"
@@ -222,20 +266,21 @@ function MapIcon() {
   );
 }
 
-function WishlistIcon() {
+function ParksIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      <path d="M3 21h18" />
+      <path d="M5 21V7l7-4 7 4v14" />
+      <path d="M9 21v-6h6v6" />
     </svg>
   );
 }
 
-function StatsIcon() {
+function GuideIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
   );
 }

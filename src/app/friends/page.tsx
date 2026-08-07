@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
+import { unjamGeoLabel } from "@/lib/geo-country";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 type FriendshipStatus = "pending" | "accepted" | "declined" | "blocked";
@@ -111,8 +112,8 @@ function countryNameFromCode(code: string | null | undefined): string {
 
 function parkLabel(park: ParkRow | null | undefined): string {
   if (!park) return "Not set";
-  const n = (park.name ?? "").trim();
-  const c = (park.country ?? "").trim();
+  const n = unjamGeoLabel(park.name);
+  const c = unjamGeoLabel(park.country);
   if (n && c) return `${n} · ${c}`;
   return n || c || "Not set";
 }
@@ -791,6 +792,22 @@ export default function FriendsPage() {
                                     {profileLabel(other, otherId)}
                                   </Link>
                                   <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                                  <p className="mt-1 text-xs text-slate-600 break-words">
+                                    <span className="font-medium text-slate-700">Fav ride:</span>{" "}
+                                    {coasterLabel(
+                                      other?.favorite_ride_id != null
+                                        ? coastersById[other.favorite_ride_id]
+                                        : null,
+                                    )}
+                                  </p>
+                                  <p className="text-xs text-slate-600 break-words">
+                                    <span className="font-medium text-slate-700">Fav park:</span>{" "}
+                                    {parkLabel(
+                                      other?.favorite_park_id != null
+                                        ? parksById[other.favorite_park_id]
+                                        : null,
+                                    )}
+                                  </p>
                                 </div>
                               </div>
                               <div className="flex w-full gap-2 sm:w-auto">

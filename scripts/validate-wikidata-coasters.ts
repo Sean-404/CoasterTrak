@@ -3,7 +3,8 @@
  *
  * Fails on:
  * - Duplicate wikidataId rows
- * - Suspicious incident/disaster article titles being used as ride titles
+ * - Suspicious incident/disaster article titles being used as ride titles (with --strict-incidents)
+ * - Fetch metadata marking usedLiteFallback (unless --allow-lite-meta)
  *
  * Usage:
  *   npx tsx scripts/validate-wikidata-coasters.ts
@@ -12,7 +13,7 @@
 
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { arg, runMain } from "./lib/cli";
+import { arg, hasFlag, runMain } from "./lib/cli";
 import type { WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 
 const INCIDENT_TITLE_RE =
@@ -33,10 +34,28 @@ type IncidentIssue = {
   enwikiTitle: string;
 };
 
+type FetchMeta = {
+  generatedAt?: string;
+  rowCount?: number;
+  usedLiteFallback?: boolean | null;
+  allowLiteFallback?: boolean;
+};
+
 async function main() {
   const inPath = resolve(arg("--in") ?? "data/wikidata_coasters.json");
-  const strictIncidents = process.argv.includes("--strict-incidents");
+  const metaPath = /\.json$/i.test(inPath)
+    ? inPath.replace(/\.json$/i, ".meta.json")
+    : `${inPath}.meta.json`;
+  const strictIncidents = hasFlag("--strict-incidents");
+  const allowLiteMeta = hasFlag("--allow-lite-meta");
   const rows = JSON.parse(await readFile(inPath, "utf8")) as WikidataCoasterRow[];
+
+  let fetchMeta: FetchMeta | null = null;
+  try {
+    fetchMeta = JSON.parse(await readFile(metaPath, "utf8")) as FetchMeta;
+  } catch {
+    fetchMeta = null;
+  }
 
   const byQid = new Map<string, WikidataCoasterRow[]>();
   const incidentIssues: IncidentIssue[] = [];
@@ -71,13 +90,30 @@ async function main() {
     });
   }
 
-  const hasErrors = duplicateIssues.length > 0 || (strictIncidents && incidentIssues.length > 0);
+  const usedLiteFallback = fetchMeta?.usedLiteFallback === true;
+  const liteMetaBlocked = usedLiteFallback && !allowLiteMeta;
+
+  const missingStats = rows.filter(
+    (r) =>
+      r.lengthM == null &&
+      r.speedMs == null &&
+      r.heightM == null &&
+      r.durationS == null,
+  ).length;
+
+  const hasErrors =
+    duplicateIssues.length > 0 ||
+    (strictIncidents && incidentIssues.length > 0) ||
+    liteMetaBlocked;
 
   const summary = {
     file: inPath,
+    metaFile: fetchMeta ? metaPath : null,
     totalRows: rows.length,
     duplicateQids: duplicateIssues.length,
     suspiciousIncidentTitles: incidentIssues.length,
+    usedLiteFallback: fetchMeta?.usedLiteFallback ?? null,
+    rowsMissingAllQuantities: missingStats,
   };
 
   console.error(JSON.stringify(summary, null, 2));
@@ -98,6 +134,18 @@ async function main() {
     }
   }
 
+  if (usedLiteFallback) {
+    console.error(
+      "\nLite SPARQL fallback was used for this snapshot (stats may be incomplete).",
+    );
+    if (liteMetaBlocked) {
+      console.error(
+        "Failing validation so a thin catalog is not uploaded. Re-run fetch when WDQS is healthy,",
+      );
+      console.error("or pass --allow-lite-meta to override (not recommended for production).");
+    }
+  }
+
   if (hasErrors) {
     process.exit(1);
   }
@@ -106,4 +154,3 @@ async function main() {
 }
 
 runMain(main);
-

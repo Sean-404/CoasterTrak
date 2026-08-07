@@ -5,7 +5,8 @@ import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { createPortal, flushSync } from "react-dom";
-import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap } from "react-leaflet";
+import Link from "next/link";
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
@@ -16,6 +17,7 @@ import {
 import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { coasterSlug, parkSlug } from "@/lib/slug";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { CoasterActions } from "./coaster-actions";
@@ -82,7 +84,10 @@ function MapController({
     map.flyTo([selectedPark.latitude, selectedPark.longitude], targetZoom, {
       duration: 1,
     });
-    markerByParkId.current.get(selectedPark.id)?.openPopup();
+    // Park-only focus opens the rides popup; a specific ride uses the offset pin instead.
+    if (!tightFocus) {
+      markerByParkId.current.get(selectedPark.id)?.openPopup();
+    }
     return () => {
       try {
         map.stop();
@@ -111,6 +116,34 @@ function MapController({
   return null;
 }
 
+/** Click empty map / Escape to leave a focused ride or park. */
+function MapClearSelection({
+  enabled,
+  onClear,
+}: {
+  enabled: boolean;
+  onClear?: () => void;
+}) {
+  useMapEvents({
+    click() {
+      if (enabled) onClear?.();
+    },
+  });
+
+  useEffect(() => {
+    if (!enabled || !onClear) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      onClear();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [enabled, onClear]);
+
+  return null;
+}
+
 type Props = {
   parks: Park[];
   coasters: Coaster[];
@@ -121,6 +154,8 @@ type Props = {
   /** Park row for the selected coaster (full catalog), used when markers are filtered out. */
   focusPark?: Park | null;
   onCoasterSelect?: (coasterId: number) => void;
+  /** Clear ride/park focus so the user can browse the wider map again. */
+  onClearSelection?: () => void;
 };
 
 type PreviewState = {
@@ -182,9 +217,24 @@ function ParkPopupContent({
 
   return (
     <div className="w-64">
-      <h3 className="font-bold text-slate-900">{park.name}</h3>
+      <h3 className="font-bold text-slate-900">
+        <Link
+          href={`/parks/${parkSlug(park.name, park.id)}`}
+          className="hover:text-amber-800 hover:underline"
+        >
+          {park.name}
+        </Link>
+      </h3>
       <p className="text-xs text-slate-400">
         {reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null)}
+      </p>
+      <p className="mt-1">
+        <Link
+          href={`/parks/${parkSlug(park.name, park.id)}`}
+          className="text-[11px] font-semibold text-amber-700 hover:underline"
+        >
+          Park page →
+        </Link>
       </p>
 
       {rideGroups.length > 5 && (
@@ -262,7 +312,15 @@ function ParkPopupContent({
                   {stats.length > 0 && (
                     <p className="mt-1 text-[10px] text-slate-400">{stats.join(" · ")}</p>
                   )}
-                  <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Link
+                      href={`/coasters/${coasterSlug(coaster.name, coaster.id)}`}
+                      className="text-[11px] font-semibold text-amber-700 hover:underline"
+                    >
+                      Details
+                    </Link>
+                    <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -282,6 +340,7 @@ export function ParkMap({
   selectedParkId = null,
   focusPark = null,
   onCoasterSelect,
+  onClearSelection,
 }: Props) {
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const markerByParkId = useRef<Map<number, L.Marker>>(new Map());
@@ -292,6 +351,7 @@ export function ParkMap({
   }, [parks, selectedParkId]);
 
   const flyTargetPark = focusPark ?? selectedPark;
+  const hasFocus = selectedCoasterId != null || selectedParkId != null;
 
   const selectedCoaster = useMemo(() => {
     if (selectedCoasterId == null) return null;
@@ -307,7 +367,7 @@ export function ParkMap({
       flyTargetPark.longitude,
       selectedCoaster.id,
     );
-    return { position, title };
+    return { position, title, parkName: flyTargetPark.name };
   }, [selectedCoaster, flyTargetPark]);
 
   useEffect(() => {
@@ -338,6 +398,10 @@ export function ParkMap({
           selectedPark={flyTargetPark}
           markerByParkId={markerByParkId}
           tightFocus={selectedCoasterId != null}
+        />
+        <MapClearSelection
+          enabled={hasFocus && preview == null}
+          onClear={onClearSelection}
         />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -387,13 +451,33 @@ export function ParkMap({
             icon={selectedRideIcon}
             zIndexOffset={2500}
             interactive
+            eventHandlers={{
+              click: (event) => {
+                L.DomEvent.stopPropagation(event);
+              },
+            }}
           >
-            <Tooltip permanent direction="top" offset={[0, -10]} opacity={1}>
-              <div className="max-w-[11rem] text-center leading-tight">
+            <Tooltip permanent direction="top" offset={[0, -10]} opacity={1} interactive>
+              <div className="max-w-[12rem] text-center leading-tight">
                 <div className="text-xs font-semibold text-slate-900">{selectedRidePin.title}</div>
-                <div className="mt-0.5 text-[10px] font-normal text-slate-600">
-                  Offset from park pin for visibility (no ride GPS in data yet)
-                </div>
+                {selectedRidePin.parkName ? (
+                  <div className="mt-0.5 text-[10px] font-normal text-slate-600">
+                    {selectedRidePin.parkName}
+                  </div>
+                ) : null}
+                {onClearSelection ? (
+                  <button
+                    type="button"
+                    className="mt-1 text-[10px] font-semibold text-amber-700 underline-offset-2 hover:underline"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onClearSelection();
+                    }}
+                  >
+                    Show full map
+                  </button>
+                ) : null}
               </div>
             </Tooltip>
           </Marker>

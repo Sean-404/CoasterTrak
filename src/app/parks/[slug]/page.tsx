@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { getCoastersForPark, getParkById, listParksForSitemap } from "@/lib/catalog-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
+import { canonicalCountryLabel } from "@/lib/geo-country";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
@@ -29,16 +30,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const label = formatParkLabel(park.name, park.country) || park.name;
   const description = `Explore roller coasters at ${label}. Browse the ride list, open the park on the CoasterTrak map, and track your credits.`;
+  const canonical = `/parks/${parkSlug(park.name, park.id)}`;
 
   return {
     title: `${park.name} roller coasters`,
     description,
-    alternates: { canonical: `/parks/${parkSlug(park.name, park.id)}` },
+    alternates: { canonical },
     openGraph: {
       title: `${park.name} roller coasters | CoasterTrak`,
       description,
-      url: `/parks/${parkSlug(park.name, park.id)}`,
+      url: canonical,
       type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: `${park.name} roller coasters | CoasterTrak`,
+      description,
     },
   };
 }
@@ -77,7 +84,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
   return (
     <CatalogPageShell
       breadcrumb={[
-        { href: "/map", label: "Map" },
+        { href: "/parks", label: "Parks" },
         { href: `/parks/${canonicalSlug}`, label: park.name },
       ]}
     >
@@ -85,7 +92,11 @@ export default async function ParkDetailPage({ params }: PageProps) {
 
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Theme park</p>
       <h1 className="font-bungee mt-2 text-4xl leading-tight text-slate-900 sm:text-5xl">{park.name}</h1>
-      {park.country ? <p className="mt-3 text-base text-slate-600">{park.country}</p> : null}
+      {park.country ? (
+        <p className="mt-3 text-base text-slate-600">
+          {canonicalCountryLabel(park.country) || park.country}
+        </p>
+      ) : null}
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">
         {label} has {coasters.length} roller coaster{coasters.length === 1 ? "" : "s"} in the CoasterTrak catalog.

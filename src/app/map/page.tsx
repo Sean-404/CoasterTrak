@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { CoasterActions } from "@/components/coaster-actions";
@@ -14,7 +15,9 @@ import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import {
   absorbReverseGeocodeParks,
+  isLikelyPlaceholderParkName,
   isLikelyWaterParkName,
+  isUnknownHistoricalParkName,
   parkNamesMatch,
   snapOrphanCoastersToDisplayParks,
 } from "@/lib/park-match";
@@ -24,6 +27,7 @@ import { UnitsToggle } from "@/components/units-toggle";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
+import { coasterSlug, parkSlug } from "@/lib/slug";
 import {
   isLikelyCoasterEntry,
   isPlaceholderCoasterName,
@@ -485,14 +489,6 @@ async function hydrateMissingMapImagesFromLocalCatalog(
   }
 }
 
-function isLikelyPlaceholderParkName(name: string): boolean {
-  const n = name.trim().toLowerCase();
-  return n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc";
-}
-
-function isUnknownHistoricalParkName(name: string): boolean {
-  return /^unknown\s*\/\s*historical park/i.test(name.trim());
-}
 
 function displayCountryForPark(park: Park | null | undefined): string {
   if (!park) return "Unknown";
@@ -1148,13 +1144,19 @@ function MapPageContent() {
     const canonicalParkId =
       deepLinkedParkId != null ? (deduplicatedParks.idRemap.get(deepLinkedParkId) ?? deepLinkedParkId) : null;
 
-    setViewMode(deepLinkedView ?? (canonicalParkId != null ? "list" : "map"));
+    // Ride deep-links open the map (pin focus). Park-only links still open the list.
+    setViewMode(
+      deepLinkedView ??
+        (deepLinkedCoasterId != null ? "map" : canonicalParkId != null ? "list" : "map"),
+    );
 
     if (deepLinkedCoasterId != null) {
       const matchedCoaster = coasters.find((coaster) => coaster.id === deepLinkedCoasterId);
       if (!matchedCoaster) return;
+      const remappedParkId =
+        deduplicatedParks.idRemap.get(matchedCoaster.park_id) ?? matchedCoaster.park_id;
       setSelectedCoasterId(matchedCoaster.id);
-      setFocusedParkId(matchedCoaster.park_id);
+      setFocusedParkId(remappedParkId);
       return;
     }
 
@@ -1165,6 +1167,11 @@ function MapPageContent() {
       setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
     }
   }, [coasters, deduplicatedParks, deepLinkedCoasterId, deepLinkedParkId, deepLinkedView]);
+
+  const clearMapSelection = useCallback(() => {
+    setSelectedCoasterId(null);
+    setFocusedParkId(null);
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -1329,6 +1336,7 @@ function MapPageContent() {
             selectedParkId={activeParkId}
             focusPark={focusParkForMap}
             onCoasterSelect={setSelectedCoasterId}
+            onClearSelection={clearMapSelection}
           />
         ) : null}
         {!catalogLoading && viewMode === "list" ? (
@@ -1392,21 +1400,41 @@ function MapPageContent() {
                                 <div className="flex flex-wrap items-start justify-between gap-2">
                                   <div className="min-w-0">
                                     <h2 className="truncate text-base font-semibold text-slate-900">
-                                      {cleanCoasterName(coaster.name)}
+                                      <Link
+                                        href={`/coasters/${coasterSlug(coaster.name, coaster.id)}`}
+                                        className="hover:text-amber-800 hover:underline"
+                                      >
+                                        {cleanCoasterName(coaster.name)}
+                                      </Link>
                                     </h2>
-                                    <p className="text-sm text-slate-500">{parkName}</p>
+                                    <p className="text-sm text-slate-500">
+                                      <Link
+                                        href={`/parks/${parkSlug(parkName, coaster.park_id)}`}
+                                        className="hover:text-amber-800 hover:underline"
+                                      >
+                                        {parkName}
+                                      </Link>
+                                    </p>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setFocusedParkId(coaster.park_id);
-                                      setSelectedCoasterId(null);
-                                      setViewMode("map");
-                                    }}
-                                    className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50"
-                                  >
-                                    Show on map
-                                  </button>
+                                  <div className="flex shrink-0 flex-wrap gap-2">
+                                    <Link
+                                      href={`/coasters/${coasterSlug(coaster.name, coaster.id)}`}
+                                      className="rounded border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 hover:border-amber-400 hover:bg-amber-100"
+                                    >
+                                      Details
+                                    </Link>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setFocusedParkId(coaster.park_id);
+                                        setSelectedCoasterId(null);
+                                        setViewMode("map");
+                                      }}
+                                      className="rounded border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+                                    >
+                                      Show on map
+                                    </button>
+                                  </div>
                                 </div>
                                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                                   {rideType !== "Unknown" && (
