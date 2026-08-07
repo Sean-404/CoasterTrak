@@ -45,7 +45,7 @@
     "postcss": "^8.5.25",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^6"
+    "typescript": "^7"
   },
   "overrides": {
     "@babel/core": "^8.0.1",
