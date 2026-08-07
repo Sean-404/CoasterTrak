@@ -12,7 +12,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "CoasterTrak — Track every roller coaster you ride",
+    absolute: "CoasterTrak",
   },
   description:
     "Track every roller coaster you ride. Explore parks on a world map, browse the coaster catalog, and compare stats with friends.",

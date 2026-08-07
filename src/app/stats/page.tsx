@@ -8,8 +8,16 @@ import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { RiddenRideSheet } from "@/components/ridden-ride-sheet";
 import { SiteHeader } from "@/components/site-header";
 import { StarRating } from "@/components/star-rating";
+import {
+  ACHIEVEMENT_COUNT,
+  achievementRarityLabel,
+  achievementRarityPillClass,
+  evaluateAchievementsWithUnlockTimes,
+  filterAndSortAchievements,
+  type AchievementRide,
+} from "@/lib/achievements";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
-import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
+import { isThrillCoaster, normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
@@ -17,7 +25,6 @@ import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
-import { isThrillCoaster } from "@/lib/coaster-dedup";
 
 type RideCoaster = {
   id?: number;
@@ -277,6 +284,7 @@ function StatsPageContent() {
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
   const [favoriteRideLabel, setFavoriteRideLabel] = useState("Not set");
   const [favoriteParkLabel, setFavoriteParkLabel] = useState("Not set");
+  const [friendCount, setFriendCount] = useState(0);
   const rideListRef = useRef<HTMLUListElement | null>(null);
   const rideListRafRef = useRef<number | null>(null);
   const { units, setUnits } = useUnits();
@@ -292,6 +300,7 @@ function StatsPageContent() {
     setShareDisplayName(null);
     setFavoriteRideLabel("Not set");
     setFavoriteParkLabel("Not set");
+    setFriendCount(0);
 
     void getSupabaseUserSafe().then(async (user) => {
       if (!user) { setLoading(false); return; }
@@ -316,7 +325,7 @@ function StatsPageContent() {
         }
       }
 
-      const [profileRes, ridesRes] = await Promise.all([
+      const [profileRes, ridesRes, friendCountRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("display_name, favorite_ride_id, favorite_park_id")
@@ -328,12 +337,14 @@ function StatsPageContent() {
             "coaster_id, rating, ridden_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
           )
           .eq("user_id", targetUserId),
+        supabase.rpc("accepted_friend_count", { target: targetUserId }),
       ]);
 
       if (ridesRes.error) {
         setFetchError(true);
       }
 
+      setFriendCount(typeof friendCountRes.data === "number" ? friendCountRes.data : 0);
       const rows = (ridesRes.data ?? []) as unknown as RideRow[];
       const mapped = rows.map((r) => ({
         ...r,
@@ -392,6 +403,37 @@ function StatsPageContent() {
       return true;
     });
   }, [rides]);
+
+  /** Same rules as /achievements: every logged credit counts (including family rides). */
+  const unlockedAchievements = useMemo(() => {
+    const achievementRides: AchievementRide[] = uniqueRides.map((r) => ({
+      coaster_id: r.coaster_id,
+      ridden_at: r.ridden_at ?? null,
+      coasters: r.coasters
+        ? {
+            park_id: r.coasters.park_id ?? 0,
+            name: r.coasters.name,
+            wikidata_id: r.coasters.wikidata_id ?? null,
+            coaster_type: r.coasters.coaster_type,
+            manufacturer: r.coasters.manufacturer ?? null,
+            length_ft: r.coasters.length_ft ?? null,
+            speed_mph: r.coasters.speed_mph ?? null,
+            height_ft: r.coasters.height_ft ?? null,
+            inversions: r.coasters.inversions ?? null,
+            duration_s: r.coasters.duration_s ?? null,
+            parks: r.coasters.parks ?? null,
+          }
+        : null,
+    }));
+    return filterAndSortAchievements(
+      evaluateAchievementsWithUnlockTimes(achievementRides, {
+        friendCount,
+        friendAcceptedAt: [],
+      }),
+      "unlocked",
+      "rarity-desc",
+    );
+  }, [uniqueRides, friendCount]);
 
   const filteredUniqueRides = useMemo(() => {
     if (includeFamilyRides) return uniqueRides;
@@ -741,7 +783,7 @@ function StatsPageContent() {
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
-                {isOwnStatsView ? "Your stats" : `${shareDisplayName ?? "Friend"}'s stats`}
+                {isOwnStatsView ? "My stats" : `${shareDisplayName ?? "Friend"}'s stats`}
               </h1>
               {!isOwnStatsView && (
                 <p className="mt-1 text-sm text-slate-500">Viewing a friend profile from your accepted friends list.</p>
@@ -911,6 +953,76 @@ function StatsPageContent() {
                 ))}
               </div>
             </div>
+          )}
+
+          {/* Unlocked achievements (own + friends) */}
+          {(loading ||
+            unlockedAchievements.length > 0 ||
+            uniqueRides.length > 0 ||
+            friendCount > 0) && (
+            <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+                <div>
+                  <h2 className="font-semibold text-slate-900">
+                    {isOwnStatsView ? "My achievements" : "Unlocked achievements"}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {loading
+                      ? "Loading…"
+                      : `${unlockedAchievements.length} / ${ACHIEVEMENT_COUNT} unlocked`}
+                    {!isOwnStatsView ? " · Locked progress stays private" : null}
+                  </p>
+                </div>
+                {isOwnStatsView ? (
+                  <Link
+                    href="/achievements"
+                    className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
+                  >
+                    View all →
+                  </Link>
+                ) : null}
+              </div>
+              {loading ? (
+                <p className="text-sm text-slate-400">&mdash;</p>
+              ) : unlockedAchievements.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  {isOwnStatsView
+                    ? "No achievements unlocked yet. Log rides to start earning badges."
+                    : "No unlocked achievements to show yet."}
+                </p>
+              ) : (
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {unlockedAchievements.map((a) => (
+                    <li
+                      key={a.id}
+                      className="rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{a.title}</p>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-600">{a.description}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${achievementRarityPillClass(a.rarity)}`}
+                        >
+                          {achievementRarityLabel(a.rarity)}
+                        </span>
+                      </div>
+                      {a.unlockedAt ? (
+                        <p className="mt-1.5 text-[11px] text-slate-400">
+                          Unlocked{" "}
+                          {new Date(a.unlockedAt).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           )}
 
               {/* Equal gaps on mobile; two-column on desktop with rides spanning the left */}

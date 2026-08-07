@@ -769,7 +769,9 @@ export default function FriendsPage() {
                 <p className="mt-1 text-xs text-slate-500">
                   Comparison includes all logged rides, including kiddie/family rides.
                 </p>
-                <p className="mt-1 text-xs text-slate-500">Click a friend's name to open their full stats page.</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Click a friend&apos;s name to open their stats and unlocked achievements.
+                </p>
                 {acceptedFriends.length === 0 ? (
                   <p className="mt-2 text-sm text-slate-500">No friends yet. Send your first request above.</p>
                 ) : (
