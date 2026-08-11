@@ -43,6 +43,12 @@ jobs:
       - name: Validate catalog snapshot and write quality report
         run: npm run data:validate-wikidata -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --min-rows 800
 
+      - name: Gated publish to Supabase
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run data:publish-catalog -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --fail-on-duplicates --min-rows 800 --apply
+
       - name: Upload pipeline artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -53,21 +59,10 @@ jobs:
             data/wikidata_coasters.json
             data/wikidata_coasters.meta.json
             data/processed/wikidata/**/meta.json
+            data/published/wikidata/**/*
             data/reports/wikidata/**/*
             data/reports/wikidata/**/catalog-analysis.json
             data/reports/wikidata/**/catalog-analysis.md
-
-      - name: Upload catalog JSON to Supabase Storage
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/upload-wikidata-to-storage.ts
-
-      - name: Upload enriched data to Supabase
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/upload-wikidata-to-db.ts
 
       # Fill gaps Wikidata did not provide, using {{Infobox roller coaster}} wikitext via MediaWiki API.
       - name: Backfill missing stats from Wikipedia infoboxes

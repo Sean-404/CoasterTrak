@@ -1,5 +1,7 @@
 /** Shared types for the in-repo CoasterTrak Data pipeline. */
 
+import type { ThemeParksMatchReport } from "@/lib/data-platform/themeparks-match";
+
 export type RawIngestMeta = {
   generatedAt: string;
   source: string;
@@ -74,4 +76,50 @@ export type QualityValidateResult = {
   report: QualityReport;
   reportDir: string;
   passed: boolean;
+};
+
+export type DedupeAnalysisSummary = {
+  errors: number;
+  warnings: number;
+  info: number;
+  duplicateGroups: number;
+  proximatePairs: number;
+  conflictFindings: number;
+};
+
+export type DedupeAnalysisReport = {
+  generatedAt: string;
+  totalRows: number;
+  parksWithLabel: number;
+  summary: DedupeAnalysisSummary;
+  findings: QualityFinding[];
+};
+
+export type CatalogAnalysisReport = {
+  generatedAt: string;
+  sourceRunId: string;
+  sourcePath: string;
+  dedupe: DedupeAnalysisReport;
+  themeparks: ThemeParksMatchReport | null;
+  passed: boolean;
+};
+
+export type PublishGateSummary = {
+  validatePassed: boolean;
+  dedupeErrors: number;
+  duplicateGroups: number;
+  knownFixesApplied: number;
+  fieldOverridesApplied: number;
+  rowCount: number;
+};
+
+export type PublishGateResult = {
+  passed: boolean;
+  applied: boolean;
+  runId: string;
+  sourcePath: string;
+  publishedPath: string;
+  metaPath: string;
+  gateReportPath: string;
+  summary: PublishGateSummary;
 };

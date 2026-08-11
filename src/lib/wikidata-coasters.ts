@@ -225,10 +225,10 @@ function bindingNumber(b: SparqlJsonBinding | undefined): number | null {
 /** Wikidata time: +1990-03-17T00:00:00Z (or year-precision +1990-00-00...) */
 export function parseWikidataTime(s: string | undefined): string | null {
   if (!s) return null;
-  const full = /^([+-]?\d{4}-\d{2}-\d{2})/.exec(s);
-  if (full) return full[1].replace(/^\+/, "");
   const yonly = /^([+-]?\d{4})-00-00/.exec(s);
   if (yonly) return `${yonly[1].replace(/^\+/, "")}-01-01`;
+  const full = /^([+-]?\d{4}-\d{2}-\d{2})/.exec(s);
+  if (full) return full[1].replace(/^\+/, "");
   return null;
 }
 

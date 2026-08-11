@@ -120,4 +120,18 @@ Lives under `src/lib/coastertrak-data/` (not a separate repo). Phases 2–3 do *
 - `npm run data:validate-wikidata` — checks dupes, lite fallback, stat outliers, sparse coverage; writes `data/reports/wikidata/{runId}/quality-report.json` + `.md`
 - CI fails on errors or if row count &lt; 800 (`--min-rows`); use `--strict-incidents` or `--fail-on-warnings` for stricter gates
 
-Existing catalog sync endpoints are unchanged until a later gated publish phase.
+**Phase 5 — dedupe, conflicts + ThemeParks snapshot verify**
+- `npm run data:analyze-catalog` — duplicate name groups, stat/status conflicts, proximate similar rides; optional ThemeParks.wiki cross-check on the snapshot (`--skip-themeparks` for offline-only)
+- Writes `catalog-analysis.json`, `dedupe-report.json`, `themeparks-snapshot-report.json` under `data/reports/wikidata/{runId}/`
+- CI runs after Wikipedia enrich with `--fail-on-duplicates`
+
+**Phase 6 — unit tests**
+- `npm test` — Vitest coverage for normalize, validate, dedupe/conflicts, field overrides, and path helpers
+- GitHub Action `.github/workflows/ci.yml` runs typecheck + tests on push/PR
+
+**Phase 7 — gated publish**
+- `npm run data:publish-catalog` — dry-run by default: validates + dedupe gates, applies known fixes + DB field overrides, writes `data/published/wikidata/{runId}/`
+- `npm run data:publish-catalog -- --apply` — uploads gated snapshot to Supabase Storage + DB (requires `.env.local`)
+- Monthly CI runs `--apply` only after validate + analyze pass
+
+Existing catalog sync endpoints are unchanged; they read the Storage URL populated by gated publish.

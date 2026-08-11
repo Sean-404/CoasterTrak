@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "wikidata:fetch": "tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 200 --no-lite-fallback",
     "wikidata:reenrich": "tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000",
     "wikidata:validate": "tsx scripts/validate-wikidata-coasters.ts",
@@ -22,7 +24,9 @@
     "data:ingest-wikidata": "tsx scripts/data/ingest-wikidata.ts",
     "data:normalize-wikidata": "tsx scripts/data/normalize-wikidata.ts",
     "data:publish-processed": "tsx scripts/data/publish-processed-snapshot.ts",
-    "data:validate-wikidata": "tsx scripts/data/validate-wikidata.ts"
+    "data:validate-wikidata": "tsx scripts/data/validate-wikidata.ts",
+    "data:analyze-catalog": "tsx scripts/data/analyze-catalog.ts",
+    "data:publish-catalog": "tsx scripts/data/publish-catalog.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
@@ -51,7 +55,8 @@
     "postcss": "^8.5.25",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^6"
+    "typescript": "^6",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "@babel/core": "^8.0.1",
