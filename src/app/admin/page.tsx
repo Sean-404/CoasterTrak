@@ -186,7 +186,15 @@ export default function AdminPage() {
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Trusted operators only. Clear rude names or ban accounts.
+          Trusted operators only. Clear rude names, ban accounts, or review catalog data.
+        </p>
+        <p className="mt-3">
+          <Link
+            href="/admin/data"
+            className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
+          >
+            Data review queue →
+          </Link>
         </p>
 
         {loading ? (

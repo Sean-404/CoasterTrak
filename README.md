@@ -90,3 +90,30 @@ If a ride shows up but has empty stats: the row may not have matched a Wikidata 
 **Wikipedia infobox fallback (optional):** For rows that already have `wikidata_id` but still lack some numbers, you can backfill from the English **`{{Infobox roller coaster}}`** via the MediaWiki API (wikitext, not HTML scraping):
 
 - `npm run wikipedia:backfill` — runs `scripts/wikipedia-infobox-backfill.ts` (uses `data/wikidata_coasters.json` to map `wikidata_id` → English article title). Only fills **null** columns; respects Wikimedia rate limits with a delay between requests. Use `--dry-run` to preview.
+
+### CoasterTrak Data — ThemeParks.wiki verification
+
+Compare the live catalog against [ThemeParks.wiki](https://api.themeparks.wiki/) (existence / naming — not stats):
+
+- `npm run data:match-themeparks` — auto-matches **all** catalog parks by name + cached DB links; writes `data/themeparks-match-report.json`
+- `npm run data:match-themeparks -- --write-db` — persists links, findings, and review queue
+- Admin review: `/admin/data` — save aliases or rename coasters (stored in DB, not code)
+- Migrations: `20260811122151_*`, `20260811122641_*`, `20260811123330_*`
+- Aliases: `data_coaster_name_aliases` · field overrides: `data_coaster_field_overrides`
+
+### CoasterTrak Data — pipeline (in-repo)
+
+Lives under `src/lib/coastertrak-data/` (not a separate repo). Phases 2–3 do **not** write to production DB.
+
+**Phase 2 — raw ingest**
+- `npm run data:ingest-wikidata` — immutable SPARQL bindings → `data/raw/wikidata/{runId}/` (`meta.json` + `pages/*.json`)
+
+**Phase 3 — normalize**
+- `npm run data:normalize-wikidata` — reads latest raw run (or `--from-run {runId}`) → `data/processed/wikidata/{runId}/` (`coasters.json` + `meta.json`)
+- Dedupes bindings, derives imperial stats, skips blocked Q-ids; auto-runs quantity backfill when raw ingest used lite fallback (`--no-backfill-quantities` to skip)
+
+**Publish + CI**
+- `npm run data:publish-processed` — copies processed snapshot → `data/wikidata_coasters.json` (for validate / upload / sync)
+- GitHub Action `.github/workflows/refresh-wikidata.yml` runs monthly: **ingest → normalize → publish → Wikipedia enrich → validate → Supabase upload**
+
+Existing catalog sync endpoints are unchanged until a later gated publish phase.

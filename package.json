@@ -17,7 +17,11 @@
     "wikidata:upload-storage": "tsx --env-file=.env.local scripts/upload-wikidata-to-storage.ts",
     "wikipedia:backfill": "tsx --env-file=.env.local scripts/wikipedia-infobox-backfill.ts",
     "stats:backfill": "tsx --env-file=.env.local scripts/backfill-coaster-stats.ts",
-    "status:normalize": "tsx scripts/normalize-coaster-statuses.ts"
+    "status:normalize": "tsx scripts/normalize-coaster-statuses.ts",
+    "data:match-themeparks": "tsx --env-file=.env.local scripts/match-themeparks-wiki.ts",
+    "data:ingest-wikidata": "tsx scripts/data/ingest-wikidata.ts",
+    "data:normalize-wikidata": "tsx scripts/data/normalize-wikidata.ts",
+    "data:publish-processed": "tsx scripts/data/publish-processed-snapshot.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

@@ -138,15 +138,36 @@ WHERE {
 }
 `;
 
-type SparqlJsonBinding = {
+export type WikidataSparqlBindingValue = {
   type: "uri" | "literal" | "bnode";
   value: string;
   datatype?: string;
   "xml:lang"?: string;
 };
 
+/** One SPARQL result row as returned by Wikidata WDQS (before app normalisation). */
+export type WikidataSparqlBinding = Record<string, WikidataSparqlBindingValue>;
+
+type SparqlJsonBinding = WikidataSparqlBindingValue;
+
 type SparqlJsonResponse = {
-  results: { bindings: Record<string, SparqlJsonBinding>[] };
+  results: { bindings: WikidataSparqlBinding[] };
+};
+
+export type WikidataQueryMode = "full" | "core" | "lite";
+
+export type WikidataRawSparqlPage = {
+  offset: number;
+  pageSize: number;
+  queryMode: WikidataQueryMode;
+  bindings: WikidataSparqlBinding[];
+};
+
+export type WikidataRawFetchSummary = {
+  pages: WikidataRawSparqlPage[];
+  queryMode: WikidataQueryMode;
+  usedLiteFallback: boolean;
+  totalBindings: number;
 };
 
 export function parseWktPoint(wkt: string | undefined): {
@@ -204,9 +225,9 @@ function bindingNumber(b: SparqlJsonBinding | undefined): number | null {
 /** Wikidata time: +1990-03-17T00:00:00Z (or year-precision +1990-00-00...) */
 export function parseWikidataTime(s: string | undefined): string | null {
   if (!s) return null;
-  const full = /^([+-]\d{4}-\d{2}-\d{2})/.exec(s);
+  const full = /^([+-]?\d{4}-\d{2}-\d{2})/.exec(s);
   if (full) return full[1].replace(/^\+/, "");
-  const yonly = /^([+-]\d{4})-00-00/.exec(s);
+  const yonly = /^([+-]?\d{4})-00-00/.exec(s);
   if (yonly) return `${yonly[1].replace(/^\+/, "")}-01-01`;
   return null;
 }
@@ -388,6 +409,29 @@ export function mergeRowsByItem(rows: WikidataCoasterRow[]): WikidataCoasterRow[
     map.set(r.wikidataId, mergeTwoRows(prev, r));
   }
   return [...map.values()];
+}
+
+/** Ensure derived imperial stats are populated from metric base fields. */
+export function deriveWikidataCoasterStats(row: WikidataCoasterRow): WikidataCoasterRow {
+  const speedMph =
+    row.speedMph ?? (row.speedMs != null ? row.speedMs * 2.23693629 : null);
+  const lengthFt =
+    row.lengthFt ?? (row.lengthM != null ? row.lengthM * 3.28084 : null);
+  const heightFt =
+    row.heightFt ?? (row.heightM != null ? row.heightM * 3.28084 : null);
+  return { ...row, speedMph, lengthFt, heightFt };
+}
+
+/** Convert immutable WDQS bindings into deduped coaster rows (no DB / known-fix layer). */
+export function normalizeWikidataBindings(
+  bindings: WikidataSparqlBinding[],
+): WikidataCoasterRow[] {
+  const rows: WikidataCoasterRow[] = [];
+  for (const b of bindings) {
+    const row = bindingsToRow(b);
+    if (row) rows.push(row);
+  }
+  return mergeRowsByItem(rows).map(deriveWikidataCoasterStats);
 }
 
 /** WDQS allows a longer server-side cap via query string (ms); anonymous limit may still apply. */
@@ -584,32 +628,34 @@ SELECT ?item ?lengthM ?speedMs ?heightM ?durationS WHERE {
   return rows.map((r) => byId.get(r.wikidataId) ?? r);
 }
 
-export async function fetchAllRollerCoasters(options?: {
+type RollerCoasterPageIterateOptions = {
   pageSize?: number;
   maxRows?: number;
-  onPage?: (page: WikidataCoasterRow[], offset: number) => void | Promise<void>;
   delayMs?: number;
   allowLiteFallback?: boolean;
   onLiteFallback?: () => void;
-  /** When true (default), backfill length/speed/height/duration after a lite fallback. */
-  enrichQuantitiesAfterLite?: boolean;
-}): Promise<WikidataCoasterRow[]> {
-  /** Smaller pages avoid WDQS 504s on heavy OPTIONALs; override via options. */
+  onOffset?: (offset: number) => void;
+};
+
+async function* iterateRollerCoasterSparqlPages(
+  options?: RollerCoasterPageIterateOptions,
+): AsyncGenerator<
+  WikidataRawSparqlPage,
+  { queryMode: WikidataQueryMode; usedLiteFallback: boolean }
+> {
   const pageSize = options?.pageSize ?? 2000;
   const maxRows = options?.maxRows ?? Infinity;
   const delayMs = options?.delayMs ?? 2000;
   const allowLiteFallback = options?.allowLiteFallback ?? true;
-  const enrichQuantitiesAfterLite = options?.enrichQuantitiesAfterLite ?? true;
 
-  const out: WikidataCoasterRow[] = [];
   let currentPageSize = pageSize;
-  type QueryMode = "full" | "core" | "lite";
-  let queryMode: QueryMode = "full";
+  let queryMode: WikidataQueryMode = "full";
   let activeQuery = ROLLER_COASTER_SPARQL;
   let hardTransientRetries = 0;
   const maxHardTransientRetries = 8;
   let offset = 0;
   let usedLiteFallback = false;
+  const uniqueIds = new Set<string>();
 
   for (;;) {
     let json: SparqlJsonResponse;
@@ -632,6 +678,7 @@ export async function fetchAllRollerCoasters(options?: {
           currentPageSize = Math.max(MIN_WDQS_PAGE_SIZE, Math.floor(pageSize / 2));
           hardTransientRetries = 0;
           offset = 0;
+          uniqueIds.clear();
           console.error(
             "  WDQS unstable on full query at minimum page size; switching to core SPARQL query (keeps numeric stats) and restarting pagination...",
           );
@@ -650,6 +697,7 @@ export async function fetchAllRollerCoasters(options?: {
         currentPageSize = MIN_WDQS_PAGE_SIZE;
         hardTransientRetries = 0;
         offset = 0;
+        uniqueIds.clear();
         console.error(
           "  WDQS still unstable on core query; switching to lite SPARQL query and restarting pagination...",
         );
@@ -678,9 +726,84 @@ export async function fetchAllRollerCoasters(options?: {
       await new Promise((r) => setTimeout(r, 4_000));
       continue;
     }
+
     const bindings = json.results?.bindings ?? [];
     if (bindings.length === 0) break;
 
+    options?.onOffset?.(offset);
+    yield {
+      offset,
+      pageSize: currentPageSize,
+      queryMode,
+      bindings,
+    };
+
+    for (const b of bindings) {
+      const itemUri = bindingUri(b.item);
+      if (itemUri) uniqueIds.add(parseUriToQid(itemUri));
+    }
+
+    if (uniqueIds.size >= maxRows) break;
+    if (bindings.length < currentPageSize) break;
+    offset += currentPageSize;
+    if (currentPageSize < pageSize && queryMode !== "lite") {
+      currentPageSize = Math.min(pageSize, currentPageSize * 2);
+    }
+    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+  }
+
+  return { queryMode, usedLiteFallback };
+}
+
+/** Fetch immutable WDQS bindings (one file per page in the data pipeline). */
+export async function fetchAllRollerCoasterRawPages(options?: {
+  pageSize?: number;
+  maxRows?: number;
+  delayMs?: number;
+  allowLiteFallback?: boolean;
+  onLiteFallback?: () => void;
+  onPage?: (page: WikidataRawSparqlPage) => void | Promise<void>;
+  /** Called when pagination restarts after a full→core or core→lite query fallback. */
+  onPaginationRestart?: () => void | Promise<void>;
+}): Promise<WikidataRawFetchSummary> {
+  const pages: WikidataRawSparqlPage[] = [];
+  const gen = iterateRollerCoasterSparqlPages(options);
+  let step = await gen.next();
+  while (!step.done) {
+    const page = step.value;
+    // Fallback modes restart at offset 0; drop pages from the failed query mode.
+    if (pages.length > 0 && page.offset === 0) {
+      pages.length = 0;
+      await options?.onPaginationRestart?.();
+    }
+    pages.push(page);
+    if (options?.onPage) await options.onPage(page);
+    step = await gen.next();
+  }
+
+  const { queryMode, usedLiteFallback } = step.value;
+  const totalBindings = pages.reduce((n, p) => n + p.bindings.length, 0);
+  return { pages, queryMode, usedLiteFallback, totalBindings };
+}
+
+export async function fetchAllRollerCoasters(options?: {
+  pageSize?: number;
+  maxRows?: number;
+  onPage?: (page: WikidataCoasterRow[], offset: number) => void | Promise<void>;
+  delayMs?: number;
+  allowLiteFallback?: boolean;
+  onLiteFallback?: () => void;
+  /** When true (default), backfill length/speed/height/duration after a lite fallback. */
+  enrichQuantitiesAfterLite?: boolean;
+}): Promise<WikidataCoasterRow[]> {
+  const maxRows = options?.maxRows ?? Infinity;
+  const enrichQuantitiesAfterLite = options?.enrichQuantitiesAfterLite ?? true;
+
+  const out: WikidataCoasterRow[] = [];
+  const gen = iterateRollerCoasterSparqlPages(options);
+  let step = await gen.next();
+  while (!step.done) {
+    const { bindings, offset } = step.value;
     const pageRows: WikidataCoasterRow[] = [];
     for (const b of bindings) {
       const row = bindingsToRow(b);
@@ -689,16 +812,10 @@ export async function fetchAllRollerCoasters(options?: {
     const merged = mergeRowsByItem(pageRows);
     out.push(...merged);
     if (options?.onPage) await options.onPage(merged, offset);
-
-    const uniqueSoFar = mergeRowsByItem(out);
-    if (uniqueSoFar.length >= maxRows) break;
-    if (bindings.length < currentPageSize) break;
-    offset += currentPageSize;
-    if (currentPageSize < pageSize && queryMode !== "lite") {
-      currentPageSize = Math.min(pageSize, currentPageSize * 2);
-    }
-    if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+    step = await gen.next();
   }
+
+  const { usedLiteFallback } = step.value;
 
   let unique = mergeRowsByItem(out);
   if (maxRows < Infinity && unique.length > maxRows) {

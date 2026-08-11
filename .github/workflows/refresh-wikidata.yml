@@ -25,11 +25,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Fetch & enrich coaster data from Wikidata + Wikipedia
-        run: npx tsx scripts/fetch-wikidata-coasters.ts --enrich --enrich-limit 1000 --no-lite-fallback
+      - name: Ingest raw Wikidata bindings (CoasterTrak Data)
+        run: npm run data:ingest-wikidata -- --page-size 200 --no-lite-fallback
 
-      - name: Validate fetched Wikidata dataset
+      - name: Normalize processed snapshot
+        run: npm run data:normalize-wikidata -- --latest
+
+      - name: Publish processed snapshot for legacy upload path
+        run: npm run data:publish-processed
+
+      - name: Enrich from Wikipedia infoboxes
+        run: npx tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000
+
+      - name: Validate catalog snapshot
         run: npm run wikidata:validate
+
+      - name: Upload pipeline artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coastertrak-data-snapshot
+          retention-days: 14
+          path: |
+            data/wikidata_coasters.json
+            data/wikidata_coasters.meta.json
+            data/processed/wikidata/**/meta.json
 
       - name: Upload catalog JSON to Supabase Storage
         env:
@@ -44,7 +64,6 @@ jobs:
         run: npx tsx scripts/upload-wikidata-to-db.ts
 
       # Fill gaps Wikidata did not provide, using {{Infobox roller coaster}} wikitext via MediaWiki API.
-      # --limit caps API calls per run (politeness + job time); re-runs monthly chew through backlog.
       - name: Backfill missing stats from Wikipedia infoboxes
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

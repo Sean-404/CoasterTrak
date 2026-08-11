@@ -43,9 +43,47 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   >
 > = {
   // Blackpool — rebranded from Zipper Dipper; park signage & enwiki use "Blue Flyer"
-  Q885702: { name: "Blue Flyer" },
+  Q885702: { name: "Blue Flyer", status: "Operating" },
   // Blackpool classic wood out-and-back; inversions must stay 0 (bad imports sometimes confuse with train count)
   Q265733: { inversions: 0 },
+  // DCA rethemes
+  Q1026847: { name: "Incredicoaster", status: "Operating" },
+  Q3327600: { name: "Goofy's Sky School", status: "Operating" },
+  Q16665502: { name: "Goofy's Sky School", status: "Operating" },
+  // Cedar Point rethemes
+  Q1189847: { name: "Top Thrill 2", status: "Operating" },
+  Q1476401: { name: "Rougarou", status: "Operating" },
+  Q112689934: { name: "Mantis", status: "Defunct" },
+  Q1787446: { name: "Steel Vengeance", status: "Operating" },
+  Q60845759: { name: "Mean Streak", status: "Defunct" },
+  // Animal Kingdom / Hollywood Studios
+  Q1341067: {
+    name: "Expedition Everest - Legend of the Forbidden Mountain",
+    status: "Operating",
+  },
+  Q139394198: {
+    name: "Rock 'n' Roller Coaster Starring The Muppets",
+    status: "Operating",
+  },
+  // Europa-Park
+  Q477897: { name: "Blue Fire", status: "Operating" },
+  Q14475699: { name: "Arthur", status: "Operating" },
+  Q443680: { name: "WODAN - Timburcoaster", status: "Operating" },
+  Q63196746: { name: "Eurosat - CanCan Coaster", status: "Operating" },
+  Q323953: { name: "Alpine Express 'Enzian'", status: "Operating" },
+  Q121359119: { name: "Voltron Nevera powered by Rimac", status: "Operating" },
+  // Phantasialand
+  Q319747: { name: "Crazy Bats", status: "Operating" },
+  Q1497026: { name: "Gebirgsbahn", status: "Defunct" },
+  Q1542448: { name: "Grand-Canyon-Bahn", status: "Defunct" },
+  // Six Flags Magic Mountain
+  Q677477: { name: "Colossus", status: "Defunct" },
+  Q75099048: { name: "Twisted Colossus", status: "Operating" },
+  Q618766: { name: "Apocalypse", status: "Operating" },
+  Q674382: { name: "Scream", status: "Operating" },
+  Q25223509: { name: "Wicker Man", status: "Operating", height_ft: 66 },
+  // Alton Towers historical
+  Q3338910: { name: "Beast", status: "Defunct" },
   // Universal Orlando — multi-install Wikidata rows that lag on stats / park linkage
   Q3073731: {
     coaster_type: "Steel",
@@ -132,6 +170,23 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
     manufacturer: "Setpoint",
     inversions: 0,
     duration_s: 180,
+  },
+  californiascreamin: {
+    name: "Incredicoaster",
+    coaster_type: "Steel",
+    status: "Operating",
+  },
+  zipperdipper: {
+    name: "Blue Flyer",
+    status: "Operating",
+  },
+  topthrilldragster: {
+    name: "Top Thrill 2",
+    status: "Operating",
+  },
+  mulhollandmadness: {
+    name: "Goofy's Sky School",
+    status: "Operating",
   },
 };
 
