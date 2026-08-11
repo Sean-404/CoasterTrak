@@ -37,6 +37,9 @@ jobs:
       - name: Enrich from Wikipedia infoboxes
         run: npx tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000
 
+      - name: Analyze catalog (dedupe + ThemeParks snapshot verify)
+        run: npm run data:analyze-catalog -- --in data/wikidata_coasters.json --fail-on-duplicates --max-parks 170
+
       - name: Validate catalog snapshot and write quality report
         run: npm run data:validate-wikidata -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --min-rows 800
 
@@ -51,6 +54,8 @@ jobs:
             data/wikidata_coasters.meta.json
             data/processed/wikidata/**/meta.json
             data/reports/wikidata/**/*
+            data/reports/wikidata/**/catalog-analysis.json
+            data/reports/wikidata/**/catalog-analysis.md
 
       - name: Upload catalog JSON to Supabase Storage
         env:
