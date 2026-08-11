@@ -4,11 +4,18 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "About",
+  title: "About CoasterTrak",
   description:
     "Learn about CoasterTrak — a free roller coaster tracker for logging rides, exploring parks on a world map, and comparing coaster stats.",
   alternates: {
     canonical: "/about",
+  },
+  openGraph: {
+    title: "About CoasterTrak",
+    description:
+      "CoasterTrak is a free roller coaster tracker for logging credits, exploring parks, and comparing stats.",
+    url: "/about",
+    type: "website",
   },
 };
 
@@ -23,8 +30,8 @@ export default function AboutPage() {
         </h1>
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
-            CoasterTrak is a free web app for tracking roller coasters you have ridden, planning trips with a
-            worldwide park map, and keeping a wishlist of rides you still want to experience.
+            CoasterTrak is a free roller coaster tracker for logging rides you have done, planning trips with a
+            worldwide park map, and keeping a wishlist of credits you still want.
           </p>
           <p>
             Enthusiasts often spread ride history across notebooks, spreadsheets, and photo albums. CoasterTrak

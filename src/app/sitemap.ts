@@ -17,11 +17,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalogStamp = weekStartUtc();
 
   const staticRoutes: MetadataRoute.Sitemap = [
-    { path: "/", priority: 1, changeFrequency: "daily" as const },
-    { path: "/coaster-tracker", priority: 0.9, changeFrequency: "weekly" as const },
-    { path: "/map", priority: 0.9, changeFrequency: "daily" as const },
-    { path: "/parks", priority: 0.85, changeFrequency: "daily" as const },
-    { path: "/coasters", priority: 0.85, changeFrequency: "daily" as const },
+    { path: "/", priority: 1, changeFrequency: "weekly" as const },
+    { path: "/coaster-tracker", priority: 0.95, changeFrequency: "weekly" as const },
+    { path: "/map", priority: 0.9, changeFrequency: "weekly" as const },
+    { path: "/parks", priority: 0.85, changeFrequency: "weekly" as const },
+    { path: "/coasters", priority: 0.85, changeFrequency: "weekly" as const },
     { path: "/about", priority: 0.7, changeFrequency: "monthly" as const },
     { path: "/privacy", priority: 0.3, changeFrequency: "yearly" as const },
     { path: "/terms", priority: 0.3, changeFrequency: "yearly" as const },

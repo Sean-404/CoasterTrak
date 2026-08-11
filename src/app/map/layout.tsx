@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Coaster Map",
+  title: "World Coaster Map",
   description:
-    "Explore roller coasters around the world, filter by country and park, and plan your next rides with CoasterTrak.",
+    "Explore roller coasters around the world on the CoasterTrak map. Filter by country and park, open ride pages, and plan your next credits.",
   alternates: {
     canonical: "/map",
   },
   openGraph: {
-    title: "Coaster Map | CoasterTrak",
+    title: "World Coaster Map | CoasterTrak",
     description:
       "Explore roller coasters around the world on an interactive map and open park pages to browse rides.",
     url: "/map",

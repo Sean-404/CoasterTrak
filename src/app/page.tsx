@@ -12,12 +12,19 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "CoasterTrak",
+    absolute: "CoasterTrak | Free Roller Coaster Tracker",
   },
   description:
-    "Track every roller coaster you ride. Explore parks on a world map, browse the coaster catalog, and compare stats with friends.",
+    "CoasterTrak (coaster trak) is a free roller coaster tracker. Log ride credits, explore parks on a world map, browse the catalog, build a wishlist, and compare stats with friends.",
   alternates: {
     canonical: "/",
+  },
+  openGraph: {
+    title: "CoasterTrak | Free Roller Coaster Tracker",
+    description:
+      "Free roller coaster tracker to log credits, explore parks on a map, and compare stats with friends.",
+    url: "/",
+    type: "website",
   },
 };
 
@@ -28,17 +35,44 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "CoasterTrak",
+    alternateName: ["Coaster Trak", "coaster trak", "Coaster Tracker"],
     url: SITE_URL,
     description:
-      "Track every roller coaster you ride. Explore parks on a map, browse the catalog, and compare stats.",
+      "Free roller coaster tracker to log ride credits, explore parks on a map, build a wishlist, and compare stats.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/coasters?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
   };
 
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "CoasterTrak",
+    alternateName: ["Coaster Trak", "coaster trak"],
     url: SITE_URL,
     logo: `${SITE_URL}/coastertrak-logo.png`,
+  };
+
+  const softwareJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "CoasterTrak",
+    alternateName: ["Coaster Trak", "coaster trak", "Coaster Tracker"],
+    applicationCategory: "LifestyleApplication",
+    operatingSystem: "Web",
+    url: SITE_URL,
+    description:
+      "Free web app to track roller coaster credits, explore theme parks on a world map, manage a wishlist, and compare stats with friends.",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
   };
 
   return (
@@ -52,12 +86,16 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
       <SiteHeader />
 
       <section className="relative overflow-hidden bg-slate-950 pb-20 pt-16 text-white sm:pb-24 sm:pt-20">
         <Image
           src="/coaster-hero.png"
-          alt=""
+          alt="Roller coaster track against the sky — CoasterTrak roller coaster tracker"
           fill
           unoptimized
           className="object-cover object-center opacity-80"
@@ -65,16 +103,15 @@ export default async function Home() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/40 to-slate-950/10" />
         <div className="relative z-10 mx-auto max-w-6xl px-6">
-          <div className="inline-block rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-amber-400">
-            Your ride tracker
-          </div>
-          <h1 className="font-bungee mt-4 text-4xl leading-tight text-white sm:text-6xl lg:text-7xl">
-            Track Every
+          <p className="font-bungee text-2xl tracking-wide text-amber-400 sm:text-3xl">CoasterTrak</p>
+          <h1 className="font-bungee mt-3 text-4xl leading-tight text-white sm:text-6xl lg:text-7xl">
+            Free Roller
             <br />
-            <span className="break-words text-amber-400">Roller Coaster</span>
+            <span className="break-words text-amber-400">Coaster Tracker</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
-            Explore parks worldwide on an interactive map, browse the catalog, and track your coaster stats.
+            Log every credit, explore parks worldwide on an interactive map, browse the catalog, and watch your
+            coaster stats grow.
           </p>
           <HomeHeroCtas />
         </div>
@@ -145,9 +182,9 @@ export default async function Home() {
           <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A roller coaster tracker built for real trips</h2>
           <div className="mt-4 max-w-3xl space-y-4 text-base leading-relaxed text-slate-600">
             <p>
-              CoasterTrak helps enthusiasts keep a durable record of every credit — from local park day trips to
-              multi-park holidays abroad. Instead of juggling notes and photos, you log rides in one place, then
-              revisit totals, park coverage, and milestones whenever you want.
+              CoasterTrak is a free coaster tracker that helps enthusiasts keep a durable record of every credit —
+              from local park day trips to multi-park holidays abroad. Instead of juggling notes and photos, you log
+              rides in one place, then revisit totals, park coverage, and milestones whenever you want.
             </p>
             <p>
               Start on the map or park catalog to browse coasters, star the rides you still need, and create a free

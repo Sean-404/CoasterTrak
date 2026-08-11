@@ -26,22 +26,30 @@ const ADSENSE_CLIENT = "ca-pub-2576999274764112";
 
 export const metadata: Metadata = {
   title: {
-    default: "CoasterTrak",
+    default: "CoasterTrak | Free Roller Coaster Tracker",
     template: "%s | CoasterTrak",
   },
   description:
-    "Track every roller coaster you ride. Explore parks on a world map, build your wishlist, and compare stats with friends.",
+    "CoasterTrak is a free roller coaster tracker (coaster trak) to log ride credits, explore theme parks on a world map, build a wishlist, and compare coaster stats with friends.",
   metadataBase: new URL(SITE_URL),
   applicationName: "CoasterTrak",
   keywords: [
+    "CoasterTrak",
+    "coaster trak",
+    "coaster tracker",
     "roller coaster tracker",
-    "coaster stats",
+    "roller coaster credit tracker",
+    "coaster credits",
+    "theme park tracker",
     "coaster map",
     "coaster wishlist",
+    "coaster stats",
     "theme park rides",
-    "CoasterTrak",
   ],
   category: "travel",
+  authors: [{ name: "CoasterTrak", url: SITE_URL }],
+  creator: "CoasterTrak",
+  publisher: "CoasterTrak",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
@@ -54,9 +62,9 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
   },
   openGraph: {
-    title: "CoasterTrak",
+    title: "CoasterTrak | Free Roller Coaster Tracker",
     description:
-      "Track every roller coaster you ride. Explore parks on a map, build your wishlist, and compare stats.",
+      "Free roller coaster tracker to log credits, explore parks on a map, build a wishlist, and compare stats with friends.",
     siteName: "CoasterTrak",
     url: "/",
     type: "website",
@@ -66,16 +74,27 @@ export const metadata: Metadata = {
         url: "/coaster-hero.png",
         width: 1200,
         height: 630,
-        alt: "CoasterTrak hero image",
+        alt: "CoasterTrak — free roller coaster tracker",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "CoasterTrak",
+    title: "CoasterTrak | Free Roller Coaster Tracker",
     description:
-      "Track every roller coaster you ride. Explore parks on a map, build your wishlist, and compare stats.",
+      "Free roller coaster tracker to log credits, explore parks on a map, build a wishlist, and compare stats.",
     images: ["/coaster-hero.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || undefined,

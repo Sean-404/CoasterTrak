@@ -35,6 +35,20 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [
+      {
+        source: "/coaster-trak",
+        destination: "/coaster-tracker",
+        permanent: true,
+      },
+      {
+        source: "/coastertrak",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {

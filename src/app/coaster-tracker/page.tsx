@@ -6,9 +6,18 @@ import { SiteHeader } from "@/components/site-header";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export const metadata: Metadata = {
-  title: "Roller Coaster Tracker",
+  title: "Roller Coaster Tracker (Coaster Trak)",
   description:
-    "Use CoasterTrak as your roller coaster tracker to log rides, build a wishlist, explore parks on a world map, and compare coaster stats with friends.",
+    "CoasterTrak is a free roller coaster tracker — also known as coaster trak — to log ride credits, explore parks on a world map, build a wishlist, and compare coaster stats with friends.",
+  keywords: [
+    "roller coaster tracker",
+    "coaster tracker",
+    "coaster trak",
+    "CoasterTrak",
+    "coaster credits",
+    "theme park tracker",
+    "roller coaster credit log",
+  ],
   alternates: {
     canonical: "/coaster-tracker",
   },
@@ -21,17 +30,108 @@ export const metadata: Metadata = {
   },
 };
 
+const faqs = [
+  {
+    question: "Is CoasterTrak free?",
+    answer:
+      "Yes. Core tracking, map browsing, wishlists, and stats are free to use with a standard account.",
+  },
+  {
+    question: "Do I need an account to browse?",
+    answer:
+      "No. Anyone can explore the map and catalog. An account is required to save ride history, wishlists, and friend connections.",
+  },
+  {
+    question: "What is the difference between CoasterTrak and coaster trak?",
+    answer:
+      "They are the same product. CoasterTrak is the brand name; people often search for coaster trak or coaster tracker when looking for a free roller coaster credit log.",
+  },
+  {
+    question: "Where does the park data come from?",
+    answer:
+      "From third-party and community-maintained datasets. We aim for useful coverage, but entries can be wrong or outdated — verify important details with the park.",
+  },
+] as const;
+
 export default function CoasterTrackerLandingPage() {
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Roller coaster tracker",
+        item: `${SITE_URL}/coaster-tracker`,
+      },
+    ],
+  };
+
+  const howToJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: "How to track roller coasters with CoasterTrak",
+    description:
+      "Start using CoasterTrak as your free roller coaster tracker in three steps.",
+    step: [
+      {
+        "@type": "HowToStep",
+        name: "Explore parks and coasters",
+        text: "Open the world map or browse the parks and coasters catalog to find rides.",
+        url: `${SITE_URL}/map`,
+      },
+      {
+        "@type": "HowToStep",
+        name: "Create a free account",
+        text: "Sign up so you can save ride history, wishlists, and friend comparisons.",
+        url: `${SITE_URL}/login`,
+      },
+      {
+        "@type": "HowToStep",
+        name: "Log credits and watch stats grow",
+        text: "Mark coasters ridden, star wishlist rides, and review your totals anytime.",
+        url: `${SITE_URL}/stats`,
+      },
+    ],
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">CoasterTrak Guide</p>
-        <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">Your roller coaster tracker</h1>
+        <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">
+          Free roller coaster tracker
+        </h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
           CoasterTrak is a free roller coaster tracker for enthusiasts who want to log rides, discover new parks, and
-          watch their coaster credits grow over time. This guide explains how the main tools fit together so you can
-          get useful value on day one.
+          watch their coaster credits grow over time. If you searched for coaster trak or coaster tracker, you are in
+          the right place — this guide explains how the main tools fit together so you can get useful value on day one.
         </p>
 
         <section className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -92,6 +192,26 @@ export default function CoasterTrackerLandingPage() {
           </p>
         </section>
 
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Why use a dedicated coaster tracker?</h2>
+          <p>
+            Spreadsheets and notes apps work until the catalog grows. A dedicated roller coaster tracker like
+            CoasterTrak keeps park pages, ride stats, wishlists, and friend comparisons in one place — so planning a
+            trip and updating your credit count stay connected.
+          </p>
+          <p>
+            Browse the{" "}
+            <Link href="/parks" className="font-semibold text-amber-400 hover:text-amber-300">
+              parks catalog
+            </Link>{" "}
+            or{" "}
+            <Link href="/coasters" className="font-semibold text-amber-400 hover:text-amber-300">
+              coaster list
+            </Link>{" "}
+            anytime, then jump back to the map when you are ready to explore a region.
+          </p>
+        </section>
+
         <section className="mt-12 rounded-2xl border border-white/10 bg-slate-900/70 p-6">
           <h2 className="text-2xl font-semibold text-white">Why riders use CoasterTrak</h2>
           <ul className="mt-4 space-y-2 text-sm leading-relaxed text-slate-300">
@@ -125,26 +245,12 @@ export default function CoasterTrackerLandingPage() {
 
         <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
           <h2 className="text-2xl font-semibold text-white">Frequently asked questions</h2>
-          <div>
-            <h3 className="font-semibold text-white">Is CoasterTrak free?</h3>
-            <p className="mt-1">
-              Yes. Core tracking, map browsing, wishlists, and stats are free to use with a standard account.
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-white">Do I need an account to browse?</h3>
-            <p className="mt-1">
-              No. Anyone can explore the map. An account is required to save ride history, wishlists, and friend
-              connections.
-            </p>
-          </div>
-          <div>
-            <h3 className="font-semibold text-white">Where does the park data come from?</h3>
-            <p className="mt-1">
-              From third-party and community-maintained datasets. We aim for useful coverage, but entries can be wrong
-              or outdated — verify important details with the park.
-            </p>
-          </div>
+          {faqs.map((faq) => (
+            <div key={faq.question}>
+              <h3 className="font-semibold text-white">{faq.question}</h3>
+              <p className="mt-1">{faq.answer}</p>
+            </div>
+          ))}
         </section>
       </main>
       <SiteFooter variant="dark" />
