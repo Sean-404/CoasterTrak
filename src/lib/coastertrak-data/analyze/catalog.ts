@@ -39,9 +39,13 @@ export async function analyzeCatalogSnapshot(
     });
   }
 
-  const passed =
-    dedupe.summary.errors === 0 &&
-    !(options.failOnDuplicates && dedupe.summary.duplicateGroups > 0);
+  const hasHardDuplicate =
+    options.failOnDuplicates &&
+    dedupe.findings.some(
+      (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
+    );
+
+  const passed = dedupe.summary.errors === 0 && !hasHardDuplicate;
 
   const report: CatalogAnalysisReport = {
     generatedAt: new Date().toISOString(),

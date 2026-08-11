@@ -99,9 +99,36 @@ export function analyzeDedupeAndConflicts(
   for (const [groupKey, group] of byParkNameKey) {
     const qids = [...new Set(group.map((r) => r.wikidataId.toUpperCase()))];
     if (qids.length <= 1) continue;
+
+    const parkKey = groupKey.split("|")[0] ?? "";
+    // Missing park linkage collapses many unrelated rides that share common names
+    // (Boomerang, Cyclone, …) into one orphan bucket — report as coverage gap, not a hard fail.
+    if (parkKey.startsWith("orphan:")) {
+      findings.push({
+        severity: "info",
+        code: "orphan_name_collision",
+        message: `${qids.length} rows share a name but have no park label (cannot confirm same-park duplicate)`,
+        label: group[0]?.label,
+        details: {
+          groupKey,
+          wikidataIds: qids,
+          labels: [...new Set(group.map((r) => r.label))],
+        },
+      });
+      continue;
+    }
+
     duplicateGroups += 1;
+
+    const operating = group.filter((r) => r.status === "operating");
+    const defunct = group.filter((r) => r.status === "defunct");
+    // Multiple live items with the same name at one park is a hard conflict.
+    // Operating+defunct (or all unknown) is usually a rebrand / Wikidata twin → review warning.
+    const severity =
+      operating.length > 1 ? ("error" as const) : ("warning" as const);
+
     findings.push({
-      severity: "error",
+      severity,
       code: "duplicate_name_same_park",
       message: `${qids.length} Wikidata items share park+name key`,
       label: group[0]?.label,
@@ -109,11 +136,11 @@ export function analyzeDedupeAndConflicts(
         groupKey,
         wikidataIds: qids,
         labels: [...new Set(group.map((r) => r.label))],
+        operatingCount: operating.length,
+        defunctCount: defunct.length,
       },
     });
 
-    const operating = group.filter((r) => r.status === "operating");
-    const defunct = group.filter((r) => r.status === "defunct");
     if (operating.length > 0 && defunct.length > 0) {
       findings.push({
         severity: "warning",

@@ -4,7 +4,7 @@ import { analyzeDedupeAndConflicts } from "@/lib/coastertrak-data/analyze/dedupe
 import { makeRow } from "@/lib/coastertrak-data/test-helpers";
 
 describe("analyzeDedupeAndConflicts", () => {
-  it("flags different Q-ids sharing park+name", () => {
+  it("warns on operating+defunct same park+name (rebrand-like)", () => {
     const report = analyzeDedupeAndConflicts([
       makeRow({
         wikidataId: "Q1",
@@ -23,9 +23,60 @@ describe("analyzeDedupeAndConflicts", () => {
     ]);
 
     expect(report.summary.duplicateGroups).toBe(1);
-    expect(report.summary.errors).toBeGreaterThan(0);
-    expect(report.findings.some((f) => f.code === "duplicate_name_same_park")).toBe(true);
+    expect(report.summary.errors).toBe(0);
+    expect(
+      report.findings.some(
+        (f) => f.code === "duplicate_name_same_park" && f.severity === "warning",
+      ),
+    ).toBe(true);
     expect(report.findings.some((f) => f.code === "conflicting_status")).toBe(true);
+  });
+
+  it("errors when multiple operating items share park+name", () => {
+    const report = analyzeDedupeAndConflicts([
+      makeRow({
+        wikidataId: "Q1",
+        label: "Boomerang",
+        parkLabel: "Energylandia",
+        parkWikidataId: "Q23805582",
+        status: "operating",
+      }),
+      makeRow({
+        wikidataId: "Q2",
+        label: "Boomerang",
+        parkLabel: "Energylandia",
+        parkWikidataId: "Q23805582",
+        status: "operating",
+      }),
+    ]);
+
+    expect(report.summary.errors).toBeGreaterThan(0);
+    expect(
+      report.findings.some(
+        (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not hard-fail common names with no park label", () => {
+    const report = analyzeDedupeAndConflicts([
+      makeRow({
+        wikidataId: "Q10",
+        label: "Cyclone",
+        countryLabel: "United States",
+        status: "operating",
+      }),
+      makeRow({
+        wikidataId: "Q11",
+        label: "Cyclone",
+        countryLabel: "United States",
+        status: "operating",
+      }),
+    ]);
+
+    expect(report.summary.duplicateGroups).toBe(0);
+    expect(report.summary.errors).toBe(0);
+    expect(report.findings.some((f) => f.code === "orphan_name_collision")).toBe(true);
   });
 
   it("flags conflicting height stats in a duplicate group", () => {

@@ -111,9 +111,12 @@ export async function gateAndPublishCatalog(
 
   log("  running dedupe gate…");
   const dedupe = analyzeDedupeAndConflicts(rows);
-  const dedupePassed =
-    dedupe.summary.errors === 0 &&
-    !(options.failOnDuplicates && dedupe.summary.duplicateGroups > 0);
+  const hasHardDuplicate =
+    options.failOnDuplicates &&
+    dedupe.findings.some(
+      (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
+    );
+  const dedupePassed = dedupe.summary.errors === 0 && !hasHardDuplicate;
 
   const passed = validatePassed && dedupePassed;
   if (!passed) {
