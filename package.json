@@ -13,6 +13,7 @@
     "wikidata:inspect-park": "tsx scripts/inspect-wikidata-park.ts",
     "wikipedia:backfill": "tsx --env-file=.env.local scripts/wikipedia-infobox-backfill.ts",
     "wikipedia:backfill-images": "tsx --env-file=.env.local scripts/backfill-wikipedia-images.ts",
+    "wikipedia:backfill-summaries": "tsx --env-file=.env.local scripts/backfill-wikipedia-summaries.ts",
     "status:normalize": "tsx scripts/normalize-coaster-statuses.ts",
     "data:match-themeparks": "tsx --env-file=.env.local scripts/match-themeparks-wiki.ts",
     "data:ingest-wikidata": "tsx scripts/data/ingest-wikidata.ts",

@@ -19,7 +19,7 @@ import {
 import { formatParkLabel } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
-import { clampSummaryText, fetchWikipediaSummary } from "@/lib/wikipedia-summary";
+import { clampSummaryText, fetchWikipediaSummaryForPark } from "@/lib/wikipedia-summary";
 import { cleanCoasterName } from "@/lib/display";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const coasters = await getCoastersForPark(park.id);
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
-  const wikiSummary = await fetchWikipediaSummary(park.name);
+  const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
   const intro = wikiSummary?.extract
     ? clampSummaryText(wikiSummary.extract, 160)
     : buildParkEditorialIntro(park.name, countryLabel, coasters).slice(0, 160);
@@ -92,7 +92,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
 
   const coasters = await getCoastersForPark(park.id);
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
-  const wikiSummary = await fetchWikipediaSummary(park.name);
+  const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
   const intro = wikiSummary?.extract
     ? wikiSummary.extract
     : buildParkEditorialIntro(park.name, countryLabel, coasters);

@@ -92,18 +92,52 @@ export async function fetchWikipediaSummaryForCoaster(options: {
   if (!title && options.wikidataId?.trim()) {
     title = await fetchEnwikiTitleFromWikidata(options.wikidataId);
   }
-  if (!title) return null;
 
-  const live = await fetchWikipediaSummary(title);
-  if (options.storedSummary?.trim()) {
+  const stored = options.storedSummary?.trim() || null;
+  if (stored && title) {
     return {
-      title: options.storedEnwikiTitle?.trim() || options.enwikiTitle?.trim() || live?.title || title,
-      extract: options.storedSummary.trim(),
-      url: live?.url ?? `https://en.wikipedia.org/wiki/${encodeWikiTitle(title)}`,
-      imageUrl: live?.imageUrl ?? null,
+      title: options.storedEnwikiTitle?.trim() || options.enwikiTitle?.trim() || title,
+      extract: stored,
+      url: `https://en.wikipedia.org/wiki/${encodeWikiTitle(title)}`,
+      imageUrl: null,
     };
   }
-  return live;
+  if (stored && !title) {
+    return {
+      title: options.storedEnwikiTitle?.trim() || "Wikipedia",
+      extract: stored,
+      url: "https://en.wikipedia.org/",
+      imageUrl: null,
+    };
+  }
+
+  if (!title) return null;
+  return fetchWikipediaSummary(title);
+}
+
+/** Try common English Wikipedia title shapes for theme parks. */
+export async function fetchWikipediaSummaryForPark(
+  parkName: string,
+): Promise<WikipediaSummary | null> {
+  const name = parkName.trim();
+  if (!name) return null;
+
+  const candidates = [
+    name,
+    name.replace(/^Disney'?s\s+/i, ""),
+    `${name} (theme park)`,
+    `${name} (amusement park)`,
+  ];
+  // De-dupe while preserving order
+  const seen = new Set<string>();
+  for (const raw of candidates) {
+    const t = raw.trim();
+    if (!t || seen.has(t.toLowerCase())) continue;
+    seen.add(t.toLowerCase());
+    const hit = await fetchWikipediaSummary(t);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 /** Strip HTML and clamp length for meta / JSON-LD. */

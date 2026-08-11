@@ -6,7 +6,7 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { CoasterDetailActions } from "@/components/coaster-detail-actions";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
-import { isCoasterCatalogSubstantial } from "@/lib/catalog-content";
+import { isCoasterCatalogSubstantial, buildCoasterEditorialIntro } from "@/lib/catalog-content";
 import {
   buildCoasterMeasurementPills,
   buildCoasterMetaPills,
@@ -49,14 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = parkLabel ? `${name} at ${coaster.parks?.name}` : name;
   const description = wikiSummary
     ? clampSummaryText(wikiSummary.extract, 160)
-    : [
-        `${name} is a ${coaster.coaster_type || "roller coaster"}`,
-        parkLabel ? `at ${parkLabel}` : null,
-        coaster.status ? `(${coaster.status})` : null,
-        "Track it on CoasterTrak.",
-      ]
-        .filter(Boolean)
-        .join(" ");
+    : clampSummaryText(buildCoasterEditorialIntro(coaster, parkLabel || null), 160);
   const canonical = `/coasters/${coasterSlug(coaster.name, coaster.id)}`;
   const indexable = isCoasterCatalogSubstantial(coaster, wikiSummary?.extract ?? coaster.summary_text);
   const ogImage = coaster.image_url || wikiSummary?.imageUrl || null;
@@ -115,10 +108,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
   const bodyIntro =
-    wikiSummary?.extract ??
-    `${name} is a ${coaster.coaster_type || "roller coaster"}${parkLabel ? ` at ${parkLabel}` : ""}${
-      coaster.manufacturer ? `, built by ${coaster.manufacturer}` : ""
-    }${coaster.status ? `. Current catalog status: ${coaster.status}` : "."}`;
+    wikiSummary?.extract ?? buildCoasterEditorialIntro(coaster, parkLabel || null);
 
   const jsonLd = {
     "@context": "https://schema.org",

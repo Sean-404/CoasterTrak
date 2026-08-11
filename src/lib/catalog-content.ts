@@ -135,3 +135,52 @@ export function buildParkEditorialIntro(
 
   return parts.join(". ") + ".";
 }
+
+/** Unique editorial intro for coaster pages when no Wikipedia summary is available. */
+export function buildCoasterEditorialIntro(
+  coaster: Coaster,
+  parkLabel: string | null,
+): string {
+  const name = cleanCoasterName(coaster.name);
+  const typeRaw = (coaster.coaster_type || "").trim();
+  const typeLabel =
+    !typeRaw || typeRaw === "Unknown" || typeRaw === "Other"
+      ? "roller coaster"
+      : `${typeRaw.toLowerCase()} roller coaster`;
+
+  const parts: string[] = [];
+  let lead = `${name} is a ${typeLabel}`;
+  if (parkLabel) lead += ` at ${parkLabel}`;
+  if (coaster.manufacturer?.trim()) lead += `, built by ${coaster.manufacturer.trim()}`;
+  parts.push(lead);
+
+  const facts: string[] = [];
+  const height = fmtHeight(coaster.height_ft, IMPERIAL);
+  const speed = fmtSpeed(coaster.speed_mph, IMPERIAL);
+  if (height) facts.push(`${height} tall`);
+  if (speed) facts.push(`top speed around ${speed}`);
+  if (coaster.inversions != null) {
+    facts.push(
+      coaster.inversions === 0
+        ? "no inversions"
+        : `${coaster.inversions} inversion${coaster.inversions === 1 ? "" : "s"}`,
+    );
+  }
+  if (facts.length > 0) parts.push(`Catalog stats list it as ${facts.join(", ")}`);
+
+  if (coaster.status?.trim()) {
+    const status = coaster.status.trim();
+    if (isCoasterDefunct(coaster)) {
+      parts.push(
+        coaster.closing_year
+          ? `It is listed as defunct (closed around ${coaster.closing_year})`
+          : "It is listed as defunct or historical in the catalog",
+      );
+    } else if (status !== "Unknown") {
+      parts.push(`Current catalog status: ${status}`);
+    }
+  }
+
+  parts.push("Track it on CoasterTrak after you ride, or open it on the interactive map to plan a visit");
+  return parts.join(". ") + ".";
+}
