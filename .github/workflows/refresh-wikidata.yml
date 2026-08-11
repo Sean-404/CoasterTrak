@@ -72,4 +72,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run wikipedia:backfill-images -- --limit 1000 --delay-ms 250
+        run: npx tsx scripts/backfill-wikipedia-images.ts --limit 1000 --delay-ms 250
