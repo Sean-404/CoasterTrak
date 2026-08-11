@@ -1,4 +1,4 @@
-name: Refresh Wikidata Enrichment
+name: Refresh Wikidata Catalog
 
 on:
   schedule:
@@ -25,17 +25,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Ingest raw Wikidata bindings (CoasterTrak Data)
+      - name: Ingest raw Wikidata bindings
         run: npm run data:ingest-wikidata -- --page-size 200 --no-lite-fallback
 
       - name: Normalize processed snapshot
         run: npm run data:normalize-wikidata -- --latest
 
-      - name: Publish processed snapshot for legacy upload path
-        run: npm run data:publish-processed
+      - name: Materialize working catalog snapshot
+        run: npm run data:materialize-snapshot -- --latest
 
       - name: Enrich from Wikipedia infoboxes
-        run: npx tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000
+        run: npm run data:enrich-wikipedia -- --enrich-limit 1000
 
       - name: Analyze catalog (dedupe + ThemeParks snapshot verify)
         run: npm run data:analyze-catalog -- --in data/wikidata_coasters.json --fail-on-duplicates --max-parks 170
@@ -61,11 +61,8 @@ jobs:
             data/processed/wikidata/**/meta.json
             data/published/wikidata/**/*
             data/reports/wikidata/**/*
-            data/reports/wikidata/**/catalog-analysis.json
-            data/reports/wikidata/**/catalog-analysis.md
 
-      # Fill gaps Wikidata did not provide, using {{Infobox roller coaster}} wikitext via MediaWiki API.
-      - name: Backfill missing stats from Wikipedia infoboxes
+      - name: Backfill missing stats from Wikipedia infoboxes (DB)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

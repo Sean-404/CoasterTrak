@@ -22,9 +22,14 @@ CoasterTrak is an MVP rollercoaster tracking app with:
    - Catalog JSON bucket (for hosting `wikidata_coasters.json`): `supabase/migrations/003_catalog_storage_bucket.sql`
 5. Start app:
    - `npm run dev`
-6. Build the Wikidata catalog snapshot (large JSON; gitignored by default):
-   - `npm run wikidata:fetch` → writes `data/wikidata_coasters.json`
-7. Populate / refresh the Supabase catalog from that snapshot (optional, local testing):
+6. Build a catalog snapshot via CoasterTrak Data (gitignored by default):
+   - `npm run data:ingest-wikidata`
+   - `npm run data:normalize-wikidata -- --latest`
+   - `npm run data:materialize-snapshot -- --latest`
+7. Optionally enrich / publish locally:
+   - `npm run data:enrich-wikipedia -- --enrich-limit 200`
+   - `npm run data:publish-catalog -- --apply` (requires service role key)
+8. Or trigger a full park/coaster upsert from Storage / local JSON:
    - `curl -X POST "http://localhost:3000/api/sync/catalog" -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
 
 ## Key routes
@@ -50,21 +55,21 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 
 ## Automated catalog sync
 
-**Primary catalog (map pins, coaster rows):** loaded from a **Wikidata JSON snapshot** (`npm run wikidata:fetch` → `data/wikidata_coasters.json`). The server reads that file from the deployment root, or from **`WIKIDATA_COASTERS_URL`** if set (recommended for Vercel, since `data/wikidata_coasters.json` is gitignored). Optional override: **`WIKIDATA_COASTERS_PATH`** (absolute or repo-relative path).
+**Primary catalog (map pins, coaster rows):** built by the **CoasterTrak Data** pipeline and stored as `data/wikidata_coasters.json` (working snapshot). The server reads that file from the deployment root, or from **`WIKIDATA_COASTERS_URL`** if set (recommended for Vercel, since the JSON is gitignored). Optional override: **`WIKIDATA_COASTERS_PATH`**.
 
-**Supabase Storage (recommended):** apply `supabase/migrations/003_catalog_storage_bucket.sql` once, then after each `wikidata:fetch` run:
+**Supabase Storage (recommended):** apply `supabase/migrations/003_catalog_storage_bucket.sql` once. Monthly CI gated publish uploads the approved snapshot to the public `catalog` bucket.
 
-- `npm run wikidata:upload-storage` — uploads `data/wikidata_coasters.json` to the public `catalog` bucket and prints the public URL.
-
-Set **`WIKIDATA_COASTERS_URL`** to that URL in Vercel (and locally if you test remote sync). The monthly GitHub Action runs this upload automatically after fetching Wikidata.
+Set **`WIKIDATA_COASTERS_URL`** to that URL in Vercel (and locally if you test remote sync).
 
 Optional env overrides: **`WIKIDATA_STORAGE_BUCKET`** (default `catalog`), **`WIKIDATA_STORAGE_OBJECT`** (default `wikidata_coasters.json`), **`WIKIDATA_COASTERS_ALLOWED_HOSTS`** (comma-separated host allowlist for `WIKIDATA_COASTERS_URL`; by default your Supabase project host is allowed).
 
-**Alternatives:** GitHub Releases asset URL, or S3/R2, if you prefer not to use Storage.
+Avoid checking multi‑MB JSON into git; generate in CI and upload to Storage, then point `WIKIDATA_COASTERS_URL` at the stable URL.
 
-Avoid checking multi‑MB JSON into git; generate in CI and upload to Storage (or elsewhere), then point `WIKIDATA_COASTERS_URL` at the stable URL.
+The GitHub Action `.github/workflows/refresh-wikidata.yml` runs **monthly**:
 
-The GitHub Action `.github/workflows/refresh-wikidata.yml` runs **monthly**: it fetches and enriches Wikidata rows, uploads the JSON to Supabase Storage, then runs `upload-wikidata-to-db.ts` (field-level DB updates). For a **full** park/coaster upsert from the same dataset, Vercel’s weekly cron hits `/api/cron/sync-catalog` so `syncCatalogFromWikidata` re-reads `WIKIDATA_COASTERS_URL` and applies parks/coasters (you can still trigger `POST /api/sync/catalog` manually after a fresh snapshot).
+`ingest → normalize → materialize → Wikipedia enrich → analyze → validate → gated publish (--apply) → DB Wikipedia backfill`
+
+For a **full** park/coaster upsert from the same Storage URL, Vercel’s weekly cron hits `/api/cron/sync-catalog` so `syncCatalogFromWikidata` re-reads `WIKIDATA_COASTERS_URL`.
 
 Required env vars for server-side sync:
 - `SUPABASE_SERVICE_ROLE_KEY`
@@ -75,7 +80,7 @@ Security notes:
 - Sync endpoints (`/api/sync/catalog`, `/api/cron/sync-catalog`) require `Authorization: Bearer <SYNC_CRON_SECRET>` and are rate-limited.
 - Errors from sync endpoints are intentionally generic; see server logs for details.
 
-Run manually (local dev server, after `wikidata:fetch`):
+Run manually (local dev server, after materializing a snapshot):
 
 - `curl -X POST http://localhost:3000/api/sync/catalog -H "Authorization: Bearer <SYNC_CRON_SECRET>"`
 
@@ -83,13 +88,11 @@ Run manually (local dev server, after `wikidata:fetch`):
 
 ### Why some coasters have no length / height / speed
 
-CoasterTrak does **not** scrape Wikipedia pages. Stats come from **Wikidata** (structured data, SPARQL query → `data/wikidata_coasters.json`) and are written to your database when you run **`npx tsx scripts/upload-wikidata-to-db.ts`** (with `SUPABASE_SERVICE_ROLE_KEY`) or when CI runs that script after a fetch.
+Stats come from **Wikidata** (SPARQL → CoasterTrak Data pipeline) and optional Wikipedia enrich/backfill. Empty stats usually mean Wikidata has no quantity, the snapshot was never published, or enrich has not run yet.
 
-If a ride shows up but has empty stats: the row may not have matched a Wikidata item yet (name differences in the catalog), the snapshot was never uploaded to production, or the upload job has not been run since the coaster was added. Re-run `wikidata:fetch`, upload the JSON (or rely on `WIKIDATA_COASTERS_URL`), then run `upload-wikidata-to-db.ts` so name matching can attach `wikidata_id` and numeric fields.
+**Wikipedia infobox DB backfill (optional):** for rows that already have `wikidata_id` but still lack numbers:
 
-**Wikipedia infobox fallback (optional):** For rows that already have `wikidata_id` but still lack some numbers, you can backfill from the English **`{{Infobox roller coaster}}`** via the MediaWiki API (wikitext, not HTML scraping):
-
-- `npm run wikipedia:backfill` — runs `scripts/wikipedia-infobox-backfill.ts` (uses `data/wikidata_coasters.json` to map `wikidata_id` → English article title). Only fills **null** columns; respects Wikimedia rate limits with a delay between requests. Use `--dry-run` to preview.
+- `npm run wikipedia:backfill` — fills **null** columns only; use `--dry-run` to preview.
 
 ### CoasterTrak Data — ThemeParks.wiki verification
 
@@ -103,35 +106,32 @@ Compare the live catalog against [ThemeParks.wiki](https://api.themeparks.wiki/)
 
 ### CoasterTrak Data — pipeline (in-repo)
 
-Lives under `src/lib/coastertrak-data/` (not a separate repo). Phases 2–3 do **not** write to production DB.
+Lives under `src/lib/coastertrak-data/`.
 
-**Phase 2 — raw ingest**
-- `npm run data:ingest-wikidata` — immutable SPARQL bindings → `data/raw/wikidata/{runId}/` (`meta.json` + `pages/*.json`)
+```text
+data:ingest-wikidata
+        ↓
+data:normalize-wikidata
+        ↓
+data:materialize-snapshot   → data/wikidata_coasters.json
+        ↓
+data:enrich-wikipedia
+        ↓
+data:analyze-catalog
+data:validate-wikidata
+        ↓
+data:publish-catalog [--apply]
+```
 
-**Phase 3 — normalize**
-- `npm run data:normalize-wikidata` — reads latest raw run (or `--from-run {runId}`) → `data/processed/wikidata/{runId}/` (`coasters.json` + `meta.json`)
-- Dedupes bindings, derives imperial stats, skips blocked Q-ids; auto-runs quantity backfill when raw ingest used lite fallback (`--no-backfill-quantities` to skip)
+| Command | Purpose |
+|---------|---------|
+| `data:ingest-wikidata` | Immutable SPARQL bindings → `data/raw/wikidata/{runId}/` |
+| `data:normalize-wikidata` | Deduped rows → `data/processed/wikidata/{runId}/` |
+| `data:materialize-snapshot` | Copy processed → working `data/wikidata_coasters.json` |
+| `data:enrich-wikipedia` | Fill gaps from enwiki infobox HTML |
+| `data:validate-wikidata` | Quality report → `data/reports/wikidata/{runId}/` |
+| `data:analyze-catalog` | Dedupe/conflicts + ThemeParks snapshot verify |
+| `data:publish-catalog` | Dry-run by default; `--apply` uploads to Supabase |
+| `npm test` | Vitest unit tests (also in `.github/workflows/ci.yml`) |
 
-**Publish + CI**
-- `npm run data:publish-processed` — copies processed snapshot → `data/wikidata_coasters.json` (for validate / upload / sync)
-- GitHub Action `.github/workflows/refresh-wikidata.yml` runs monthly: **ingest → normalize → publish → Wikipedia enrich → validate → Supabase upload**
-
-**Phase 4 — validate + quality report**
-- `npm run data:validate-wikidata` — checks dupes, lite fallback, stat outliers, sparse coverage; writes `data/reports/wikidata/{runId}/quality-report.json` + `.md`
-- CI fails on errors or if row count &lt; 800 (`--min-rows`); use `--strict-incidents` or `--fail-on-warnings` for stricter gates
-
-**Phase 5 — dedupe, conflicts + ThemeParks snapshot verify**
-- `npm run data:analyze-catalog` — duplicate name groups, stat/status conflicts, proximate similar rides; optional ThemeParks.wiki cross-check on the snapshot (`--skip-themeparks` for offline-only)
-- Writes `catalog-analysis.json`, `dedupe-report.json`, `themeparks-snapshot-report.json` under `data/reports/wikidata/{runId}/`
-- CI runs after Wikipedia enrich with `--fail-on-duplicates`
-
-**Phase 6 — unit tests**
-- `npm test` — Vitest coverage for normalize, validate, dedupe/conflicts, field overrides, and path helpers
-- GitHub Action `.github/workflows/ci.yml` runs typecheck + tests on push/PR
-
-**Phase 7 — gated publish**
-- `npm run data:publish-catalog` — dry-run by default: validates + dedupe gates, applies known fixes + DB field overrides, writes `data/published/wikidata/{runId}/`
-- `npm run data:publish-catalog -- --apply` — uploads gated snapshot to Supabase Storage + DB (requires `.env.local`)
-- Monthly CI runs `--apply` only after validate + analyze pass
-
-Existing catalog sync endpoints are unchanged; they read the Storage URL populated by gated publish.
+Gated publish applies known fixes + approved `data_coaster_field_overrides` before Storage/DB upload. Catalog sync endpoints read the Storage URL that gated publish updates.

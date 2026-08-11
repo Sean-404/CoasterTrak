@@ -1,13 +1,10 @@
 /**
- * Read data/wikidata_coasters.json (produced by npm run wikidata:fetch) and
- * update the Supabase coasters table with enrichment fields.
+ * Read a Wikidata coaster JSON snapshot and update the Supabase coasters table.
  *
- * Prerequisites:
- *   1. Run the migration: supabase/migrations/001_coaster_enrichment.sql
- *   2. Run: npm run wikidata:fetch -- --out data/wikidata_coasters.json [--enrich]
- *   3. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local
+ * Prefer the CoasterTrak Data gated publish path:
+ *   npm run data:publish-catalog -- --apply
  *
- * Usage:
+ * Direct usage:
  *   npx tsx scripts/upload-wikidata-to-db.ts [--wikidata data/wikidata_coasters.json] [--dry-run]
  */
 
@@ -42,7 +39,7 @@ const supabase = createServiceRoleClient();
 
 const INCIDENT_TITLE_RE =
   /\b(disaster|accident|incident|derailment|collision|crash|fire|explosion|fatal)\b/i;
-// Keep upload preflight behavior aligned with validate-wikidata-coasters.
+// Keep upload preflight behavior aligned with data:validate-wikidata.
 const INCIDENT_TITLE_QID_ALLOWLIST = new Set(["Q22000267"]);
 
 // ---------------------------------------------------------------------------

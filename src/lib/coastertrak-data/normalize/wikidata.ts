@@ -132,5 +132,5 @@ export async function normalizeWikidataRaw(
   return { runDir, meta: processedMeta, rowCount: rows.length };
 }
 
-/** Convenience for tests or diffing against legacy snapshot format. */
+/** Convenience for tests or downstream tooling that expects WikidataCoasterRow[]. */
 export type { WikidataCoasterRow };

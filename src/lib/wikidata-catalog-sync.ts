@@ -177,7 +177,7 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
 const UPSERT_CHUNK = 200;
 
 /**
- * Full catalog sync from merged Wikidata JSON (see `npm run wikidata:fetch`).
+ * Full catalog sync from the Wikidata JSON snapshot (CoasterTrak Data pipeline / WIKIDATA_COASTERS_URL).
  * Creates/updates parks and upserts coasters. Parks without coordinates are skipped
  * (nothing to show on the map).
  */

@@ -40,7 +40,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# generated Wikidata / merge outputs (regenerate with npm run wikidata:fetch)
+# generated Wikidata / CoasterTrak Data outputs (regenerate with data:* scripts)
 data/wikidata_coasters.json
 data/wikidata_coasters.meta.json
 data/wikidata_sample.json

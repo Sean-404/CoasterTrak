@@ -78,7 +78,8 @@ export async function loadWikidataCatalogRows(options?: {
     const err = e as NodeJS.ErrnoException;
     if (err.code === "ENOENT") {
       throw new Error(
-        `Wikidata catalog file missing (${filepath}). Run \`npm run wikidata:fetch\` to create it, ` +
+        `Wikidata catalog file missing (${filepath}). Run the CoasterTrak Data pipeline ` +
+          "(`npm run data:ingest-wikidata` → normalize → materialize), " +
           "or set WIKIDATA_COASTERS_URL to a hosted JSON (see README).",
       );
     }

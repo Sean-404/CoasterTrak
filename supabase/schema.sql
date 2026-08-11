@@ -19,7 +19,7 @@ create table if not exists coasters (
   external_source text,
   external_id text,
   last_synced_at timestamptz,
-  -- Wikidata / Wikipedia enrichment (nullable; populated by wikidata:upload)
+  -- Wikidata / Wikipedia enrichment (nullable; populated by CoasterTrak Data publish)
   wikidata_id   text,
   image_url     text,
   length_ft     integer,

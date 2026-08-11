@@ -1,12 +1,12 @@
 /**
- * Copy a processed CoasterTrak Data snapshot into the legacy paths used by
- * validate / upload / catalog sync (`data/wikidata_coasters.json`).
+ * Materialize the latest processed snapshot into the working catalog path
+ * (`data/wikidata_coasters.json`) for enrich / analyze / validate / gated publish.
  *
- *   npx tsx scripts/data/publish-processed-snapshot.ts [--from-run {runId}] [--latest]
+ *   npx tsx scripts/data/materialize-snapshot.ts [--from-run {runId}] [--latest]
  */
 
 import { arg, hasFlag, runMain } from "../lib/cli";
-import { publishProcessedSnapshot } from "../../src/lib/coastertrak-data/publish/legacy-snapshot";
+import { materializeWorkingSnapshot } from "../../src/lib/coastertrak-data/publish/working-snapshot";
 import { latestWikidataProcessedRunId } from "../../src/lib/coastertrak-data/paths";
 
 async function main() {
@@ -15,7 +15,7 @@ async function main() {
     sourceRunId = (await latestWikidataProcessedRunId()) ?? undefined;
   }
 
-  const { outPath, metaPath, rowCount } = await publishProcessedSnapshot({
+  const { outPath, metaPath, rowCount } = await materializeWorkingSnapshot({
     sourceRunId,
     onProgress: (msg) => console.error(msg),
   });

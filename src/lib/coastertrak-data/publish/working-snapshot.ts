@@ -7,16 +7,17 @@ import {
 } from "../paths";
 import type { ProcessedNormalizeMeta } from "../types";
 
-export type PublishProcessedOptions = {
+export type MaterializeWorkingSnapshotOptions = {
   dataRoot?: string;
   sourceRunId?: string;
-  /** Legacy snapshot path consumed by validate / upload scripts. */
+  /** Working snapshot path used by enrich / analyze / validate / gated publish. */
   outPath?: string;
   onProgress?: (message: string) => void;
 };
 
-export async function publishProcessedSnapshot(
-  options: PublishProcessedOptions = {},
+/** Copy the latest processed run into the stable working catalog path. */
+export async function materializeWorkingSnapshot(
+  options: MaterializeWorkingSnapshotOptions = {},
 ): Promise<{ outPath: string; metaPath: string; rowCount: number }> {
   const dataRoot = options.dataRoot ?? "data";
   const log = options.onProgress ?? (() => {});
@@ -64,8 +65,11 @@ export async function publishProcessedSnapshot(
   );
 
   log(
-    `Published ${processedMeta.rowCount} rows from ${sourceRunId} → ${outPath}`,
+    `Materialized ${processedMeta.rowCount} rows from ${sourceRunId} → ${outPath}`,
   );
 
   return { outPath, metaPath, rowCount: processedMeta.rowCount };
 }
+
+/** @deprecated Use materializeWorkingSnapshot */
+export const publishProcessedSnapshot = materializeWorkingSnapshot;
