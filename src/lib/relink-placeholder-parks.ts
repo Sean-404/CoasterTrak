@@ -132,7 +132,8 @@ export function resolveParkForWikidataRow(
     }
   }
 
-  // No usable park label (common on Wikidata) — snap by ride coordinates.
+  // No usable park label (common on Wikidata) — snap tightly by ride coordinates.
+  // Keep this small: a 35 km UK radius wrongly parked Camelot's Knightmare at Blackpool.
   if (
     wd.latitude != null &&
     wd.longitude != null &&
@@ -143,7 +144,7 @@ export function resolveParkForWikidataRow(
       realParks,
       wd.latitude,
       wd.longitude,
-      35,
+      8,
       wd.countryLabel,
     );
   }

@@ -40,10 +40,23 @@ function parkGroupKey(parkName: string, country: string | null | undefined): str
   return `${parkName.trim().toLowerCase()}|${(country ?? "").trim().toLowerCase()}`;
 }
 
-/** Multi-install / mislabeled Wikidata items → preferred on-park name for Orlando catalog. */
+/** Multi-install / mislabeled Wikidata items → preferred catalog park name. */
 const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q3073731: "Universal's Islands of Adventure", // Flight of the Hippogriff
   Q21051432: "Universal Studios Florida", // Revenge of the Mummy (Orlando layout)
+  Q13415786: "Camelot Theme Park", // Knightmare (Chorley) — not Blackpool
+  Q10658106: "Dyrehavsbakken", // Rutschebanen — not Tivoli Gardens
+  Q1415640: "Dyrehavsbakken", // Tornado — not Tivoli Gardens
+  Q57522641: "Luna Park Sydney", // Wild Mouse — not Wonderland Sydney
+  Q87730001: "Nickelodeon Universe American Dream", // The Shredder
+  Q105095530: "Nickelodeon Universe American Dream", // Slime Streak
+  Q87721534: "Nickelodeon Universe American Dream", // Sandy's Blasting Bronco
+  Q74420101: "Nickelodeon Universe American Dream", // TMNT Shellraiser
+  Q7499849: "Brean Leisure Park", // Bulldog Coaster — not Six Flags Over Texas
+  Q2462361: "Gröna Lund", // Twister — not Knoebels
+  Q4827808: "Nickelodeon Universe", // Avatar Airbender (MoA) — not Blackpool
+  Q319758: "Europa-Park", // Schweizer Bobbahn — not Heide Park
+  Q2260635: "Kings Island", // Woodstock Express — not Geauga Lake
 };
 
 /** US mainland longitudes are west; some feeds store the absolute value. */

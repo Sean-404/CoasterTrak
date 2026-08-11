@@ -76,17 +76,26 @@ describe("resolveParkForWikidataRow", () => {
     ).toBe(115);
   });
 
-  it("ignores Other as a target", () => {
+  it("does not snap unlabeled UK rides ~28km to the wrong park", () => {
+    // Knightmare (Camelot / Chorley) vs Blackpool Pleasure Beach
     expect(
       resolveParkForWikidataRow(
         {
-          parkLabel: "Other",
+          parkLabel: null,
           parkWikidataId: null,
-          countryLabel: "United States",
-          latitude: 40.57,
-          longitude: -73.97,
+          countryLabel: "United Kingdom",
+          latitude: 53.6362,
+          longitude: -2.7006,
         },
-        parks,
+        [
+          {
+            id: 22,
+            name: "Blackpool Pleasure Beach",
+            country: "United Kingdom",
+            latitude: 53.790278,
+            longitude: -3.055556,
+          },
+        ],
       ),
     ).toBeNull();
   });

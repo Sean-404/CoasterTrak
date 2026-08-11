@@ -82,6 +82,13 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q618766: { name: "Apocalypse", status: "Operating" },
   Q674382: { name: "Scream", status: "Operating" },
   Q25223509: { name: "Wicker Man", status: "Operating", height_ft: 66 },
+  // Alton Towers — Wikidata P18 still the pre-2024 retrack photo
+  Q1477806: {
+    name: "Nemesis Reborn",
+    status: "Operating",
+    image_url:
+      "https://commons.wikimedia.org/wiki/Special:FilePath/Alton%20Towers%20-%20Nemesis%20Reborn%205-9-2025.jpg",
+  },
   // Alton Towers historical
   Q3338910: { name: "Beast", status: "Defunct" },
   // Universal Orlando — multi-install Wikidata rows that lag on stats / park linkage
