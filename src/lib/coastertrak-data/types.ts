@@ -36,3 +36,42 @@ export type ProcessedNormalizeResult = {
   meta: ProcessedNormalizeMeta;
   rowCount: number;
 };
+
+export type QualitySeverity = "error" | "warning" | "info";
+
+export type QualityFinding = {
+  severity: QualitySeverity;
+  code: string;
+  message: string;
+  wikidataId?: string;
+  label?: string;
+  details?: Record<string, unknown>;
+};
+
+export type QualityReportSummary = {
+  errors: number;
+  warnings: number;
+  info: number;
+  rowsMissingAllQuantities: number;
+  rowsMissingPark: number;
+  rowsMissingCoords: number;
+  rowsMissingOpeningDate: number;
+  statusCounts: Record<string, number>;
+  sourceQueryMode: string | null;
+  usedLiteFallback: boolean | null;
+};
+
+export type QualityReport = {
+  generatedAt: string;
+  sourcePath: string;
+  metaPath: string | null;
+  totalRows: number;
+  summary: QualityReportSummary;
+  findings: QualityFinding[];
+};
+
+export type QualityValidateResult = {
+  report: QualityReport;
+  reportDir: string;
+  passed: boolean;
+};

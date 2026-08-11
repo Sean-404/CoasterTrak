@@ -37,8 +37,8 @@ jobs:
       - name: Enrich from Wikipedia infoboxes
         run: npx tsx scripts/fetch-wikidata-coasters.ts --from-json --enrich --enrich-limit 1000
 
-      - name: Validate catalog snapshot
-        run: npm run wikidata:validate
+      - name: Validate catalog snapshot and write quality report
+        run: npm run data:validate-wikidata -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --min-rows 800
 
       - name: Upload pipeline artifacts
         if: always()
@@ -50,6 +50,7 @@ jobs:
             data/wikidata_coasters.json
             data/wikidata_coasters.meta.json
             data/processed/wikidata/**/meta.json
+            data/reports/wikidata/**/*
 
       - name: Upload catalog JSON to Supabase Storage
         env:

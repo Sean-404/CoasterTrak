@@ -14,6 +14,10 @@ export function wikidataProcessedRunDir(runId: string, dataRoot = "data"): strin
   return join(dataRoot, "processed", "wikidata", runId);
 }
 
+export function wikidataReportDir(runId: string, dataRoot = "data"): string {
+  return join(dataRoot, "reports", "wikidata", runId);
+}
+
 export function formatPageFileName(offset: number): string {
   return `${String(offset).padStart(6, "0")}.json`;
 }

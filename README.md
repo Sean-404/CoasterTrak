@@ -116,4 +116,8 @@ Lives under `src/lib/coastertrak-data/` (not a separate repo). Phases 2–3 do *
 - `npm run data:publish-processed` — copies processed snapshot → `data/wikidata_coasters.json` (for validate / upload / sync)
 - GitHub Action `.github/workflows/refresh-wikidata.yml` runs monthly: **ingest → normalize → publish → Wikipedia enrich → validate → Supabase upload**
 
+**Phase 4 — validate + quality report**
+- `npm run data:validate-wikidata` — checks dupes, lite fallback, stat outliers, sparse coverage; writes `data/reports/wikidata/{runId}/quality-report.json` + `.md`
+- CI fails on errors or if row count &lt; 800 (`--min-rows`); use `--strict-incidents` or `--fail-on-warnings` for stricter gates
+
 Existing catalog sync endpoints are unchanged until a later gated publish phase.

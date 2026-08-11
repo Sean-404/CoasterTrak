@@ -21,7 +21,8 @@
     "data:match-themeparks": "tsx --env-file=.env.local scripts/match-themeparks-wiki.ts",
     "data:ingest-wikidata": "tsx scripts/data/ingest-wikidata.ts",
     "data:normalize-wikidata": "tsx scripts/data/normalize-wikidata.ts",
-    "data:publish-processed": "tsx scripts/data/publish-processed-snapshot.ts"
+    "data:publish-processed": "tsx scripts/data/publish-processed-snapshot.ts",
+    "data:validate-wikidata": "tsx scripts/data/validate-wikidata.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
