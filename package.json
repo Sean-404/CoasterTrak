@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "wikidata:inspect-park": "tsx scripts/inspect-wikidata-park.ts",
     "wikipedia:backfill": "tsx --env-file=.env.local scripts/wikipedia-infobox-backfill.ts",
+    "wikipedia:backfill-images": "tsx --env-file=.env.local scripts/backfill-wikipedia-images.ts",
     "status:normalize": "tsx scripts/normalize-coaster-statuses.ts",
     "data:match-themeparks": "tsx --env-file=.env.local scripts/match-themeparks-wiki.ts",
     "data:ingest-wikidata": "tsx scripts/data/ingest-wikidata.ts",
@@ -20,7 +21,8 @@
     "data:enrich-wikipedia": "tsx scripts/data/enrich-wikipedia.ts",
     "data:validate-wikidata": "tsx scripts/data/validate-wikidata.ts",
     "data:analyze-catalog": "tsx scripts/data/analyze-catalog.ts",
-    "data:publish-catalog": "tsx scripts/data/publish-catalog.ts"
+    "data:publish-catalog": "tsx scripts/data/publish-catalog.ts",
+    "data:relink-placeholder-parks": "tsx --env-file=.env.local scripts/relink-placeholder-parks.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

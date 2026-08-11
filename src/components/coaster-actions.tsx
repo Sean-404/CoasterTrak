@@ -103,9 +103,11 @@ function setRidden(coasterId: number, value: boolean) {
 export function CoasterActions({
   coasterId,
   disableWishlist = false,
+  variant = "compact",
 }: {
   coasterId: number;
   disableWishlist?: boolean;
+  variant?: "compact" | "prominent" | "inline";
 }) {
   const [status, setStatus] = useState<Status>("loading");
   const [errorMsg, setErrorMsg] = useState("");
@@ -176,47 +178,74 @@ export function CoasterActions({
     });
   }
 
-  if (status === "loading" || !actionStore.ready) return null;
+  if (status === "loading" || !actionStore.ready) {
+    return variant === "inline" ? <span className="inline-flex h-7 min-w-[4.5rem]" aria-hidden /> : null;
+  }
 
   const busy = status === "loading-wishlist" || status === "loading-ridden";
   const showFeedback = status === "wishlisted" || status === "ridden" || status === "error";
+  const prominent = variant === "prominent";
+  const inline = variant === "inline";
+  const controlClass = prominent
+    ? "px-4 py-2.5 text-sm"
+    : "inline-flex h-7 items-center px-2.5 text-xs";
+
+  const body = showFeedback ? (
+    <p className={`text-xs font-medium ${status === "error" ? "text-red-500" : "text-green-600"}`}>
+      {status === "wishlisted" && "Added to wishlist"}
+      {status === "ridden" && "Ride logged!"}
+      {status === "error" && errorMsg}
+    </p>
+  ) : (
+    <div className={`flex flex-wrap items-center ${prominent ? "gap-2" : "gap-1.5"}`}>
+      {alreadyRidden && (
+        <span
+          className={`inline-flex h-7 items-center rounded-md bg-green-100 font-semibold text-green-700 ${
+            prominent ? "px-3 text-xs" : "px-2.5 text-xs"
+          }`}
+        >
+          Ridden
+        </span>
+      )}
+      {alreadyWishlisted && (
+        <span
+          className={`inline-flex h-7 items-center rounded-md bg-amber-100 font-semibold text-amber-700 ${
+            prominent ? "px-3 text-xs" : "px-2.5 text-xs"
+          }`}
+        >
+          Wishlisted
+        </span>
+      )}
+      {!disableWishlist && !alreadyWishlisted && !alreadyRidden && (
+        <button
+          type="button"
+          onClick={addWishlist}
+          disabled={busy}
+          className={`cursor-pointer rounded-md bg-amber-500 font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60 ${controlClass}`}
+        >
+          {status === "loading-wishlist" ? "Saving…" : prominent ? "Add to wishlist" : "Wishlist"}
+        </button>
+      )}
+      {!alreadyRidden && (
+        <button
+          type="button"
+          onClick={markRidden}
+          disabled={busy}
+          className={`cursor-pointer rounded-md border border-slate-300 font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60 ${controlClass}`}
+        >
+          {status === "loading-ridden" ? "Saving…" : prominent ? "Mark as ridden" : "Mark ridden"}
+        </button>
+      )}
+    </div>
+  );
+
+  if (inline) {
+    return <div data-store-tick={storeTick}>{body}</div>;
+  }
 
   return (
-    <div className="mt-2 min-h-[32px]" data-store-tick={storeTick}>
-      {showFeedback ? (
-        <p className={`text-xs font-medium ${status === "error" ? "text-red-500" : "text-green-600"}`}>
-          {status === "wishlisted" && "Added to wishlist"}
-          {status === "ridden" && "Ride logged!"}
-          {status === "error" && errorMsg}
-        </p>
-      ) : (
-        <div className="flex items-center gap-1.5">
-          {alreadyRidden && (
-            <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Ridden</span>
-          )}
-          {alreadyWishlisted && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Wishlisted</span>
-          )}
-          {!disableWishlist && !alreadyWishlisted && !alreadyRidden && (
-            <button
-              onClick={addWishlist}
-              disabled={busy}
-              className="cursor-pointer rounded-md bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-wait disabled:opacity-60"
-            >
-              {status === "loading-wishlist" ? "Saving…" : "Wishlist"}
-            </button>
-          )}
-          {!alreadyRidden && (
-            <button
-              onClick={markRidden}
-              disabled={busy}
-              className="cursor-pointer rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60"
-            >
-              {status === "loading-ridden" ? "Saving…" : "Mark ridden"}
-            </button>
-          )}
-        </div>
-      )}
+    <div className={prominent ? "mt-4 min-h-[40px]" : "mt-2 min-h-[32px]"} data-store-tick={storeTick}>
+      {body}
     </div>
   );
 }

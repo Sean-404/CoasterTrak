@@ -24,4 +24,8 @@ export type Coaster = {
   duration_s?: number | null;
   opening_year?: number | null;
   closing_year?: number | null;
+  /** English Wikipedia article title (when known) */
+  enwiki_title?: string | null;
+  /** Lead summary extract for catalog pages */
+  summary_text?: string | null;
 };

@@ -6,6 +6,7 @@ import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   findNearestParkForCoords,
   findParkMatchByNameAndLocation,
+  isCatalogHiddenParkName,
   isLikelyWaterParkName,
   parkNamesMatch,
   type ParkForMatch,
@@ -20,6 +21,11 @@ import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { loadWikidataCatalogRows } from "@/lib/wikidata-catalog-source";
 import { mergeRowsByItem, type WikidataCoasterRow } from "@/lib/wikidata-coasters";
+import {
+  planPlaceholderParkRelinks,
+  type RelinkCoaster,
+} from "@/lib/relink-placeholder-parks";
+import { applyPlaceholderRelinkPlans } from "@/lib/relink-placeholder-parks-apply";
 
 type ParkForSync = ParkForMatch & {
   external_source: string | null;
@@ -168,6 +174,7 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     ...(wd.durationS != null ? { duration_s: Math.round(wd.durationS) } : {}),
     ...(openingYear != null ? { opening_year: openingYear } : {}),
     ...(closingYear != null ? { closing_year: closingYear } : {}),
+    ...(wd.enwikiTitle?.trim() ? { enwiki_title: wd.enwikiTitle.trim() } : {}),
     external_source: "wikidata",
     external_id: wd.wikidataId,
     last_synced_at: new Date().toISOString(),
@@ -224,6 +231,39 @@ export async function syncCatalogFromWikidata() {
     let parkUpdates = 0;
     let coasterUpdates = 0;
 
+    // Repair legacy "Other" / unknown-historical park assignments before upserting.
+    {
+      const { data: existingCoasters, error: coasterLoadErr } = await fetchAllPages<RelinkCoaster>(
+        SUPABASE_PAGE_SIZE,
+        (from, to) =>
+          supabase
+            .from("coasters")
+            .select(
+              "id, name, park_id, wikidata_id, external_source, external_id, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, image_url, status, coaster_type, opening_year, closing_year, enwiki_title, summary_text",
+            )
+            .order("id", { ascending: true })
+            .range(from, to),
+      );
+      if (coasterLoadErr) throw coasterLoadErr;
+
+      const wdByQid = new Map<string, WikidataCoasterRow>();
+      for (const row of merged) {
+        const qid = row.wikidataId?.trim().toUpperCase();
+        if (qid) wdByQid.set(qid, row);
+      }
+      const plans = planPlaceholderParkRelinks({
+        parks: parkRows,
+        coasters: existingCoasters,
+        wdByQid,
+      });
+      const actionable = plans.filter((p) => p.action !== "skip");
+      if (actionable.length) {
+        const byId = new Map(existingCoasters.map((c) => [c.id, c]));
+        const { applied } = await applyPlaceholderRelinkPlans(supabase, plans, byId);
+        coasterUpdates += applied;
+      }
+    }
+
     const coasterBatch: ReturnType<typeof coasterUpsertPayload>[] = [];
 
     async function flushCoasters() {
@@ -247,6 +287,7 @@ export async function syncCatalogFromWikidata() {
         centroid.lng,
       );
       const parkName = groupRows[0]!.parkLabel!.trim();
+      if (isCatalogHiddenParkName(parkName)) continue;
       const parkQid = majorityParkWikidataId(groupRows);
       const syncLng = normalizeSyncParkLongitude(centroid.lat, centroid.lng, country);
       const syncCentroid = { lat: centroid.lat, lng: syncLng };

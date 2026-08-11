@@ -13,20 +13,21 @@ import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
+import { normalizeCatalog } from "@/lib/catalog-normalize";
 import {
-  absorbReverseGeocodeParks,
   isLikelyPlaceholderParkName,
   isLikelyWaterParkName,
   isUnknownHistoricalParkName,
-  parkNamesMatch,
-  snapOrphanCoastersToDisplayParks,
 } from "@/lib/park-match";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { useUnits } from "@/components/providers";
 import { UnitsToggle } from "@/components/units-toggle";
+import { MapParkRideSheet } from "@/components/map-park-ride-sheet";
+import { CoasterStatPills } from "@/components/coaster-stat-pills";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
-import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
+import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
+import { type Units } from "@/lib/units";
 import { coasterSlug, parkSlug } from "@/lib/slug";
 import {
   isLikelyCoasterEntry,
@@ -572,84 +573,6 @@ function preferCoasterForCrossParkWikidataDedup(
   return a.id <= b.id ? a : b;
 }
 
-function hasUniversalStudiosVsIslandsConflict(a: string, b: string): boolean {
-  const na = a.toLowerCase();
-  const nb = b.toLowerCase();
-  const aIslands = /\bislands?\b|\badventure\b/.test(na);
-  const bIslands = /\bislands?\b|\badventure\b/.test(nb);
-  const aStudios = /\bstudios?\b/.test(na);
-  const bStudios = /\bstudios?\b/.test(nb);
-  const aResort = /\bresort\b/.test(na);
-  const bResort = /\bresort\b/.test(nb);
-  const aSpecificGate = aStudios || aIslands || /\bvolcano\b|\bepic\b/.test(na);
-  const bSpecificGate = bStudios || bIslands || /\bvolcano\b|\bepic\b/.test(nb);
-  const studiosVsIslands = (aIslands && bStudios) || (aStudios && bIslands);
-  const resortVsGate = (aResort && bSpecificGate) || (bResort && aSpecificGate);
-  return studiosVsIslands || resortVsGate;
-}
-
-const NON_DISTINCTIVE_LOCATION_TOKENS = new Set([
-  "hong",
-  "kong",
-  "north",
-  "south",
-  "east",
-  "west",
-  "new",
-  "city",
-  "town",
-  "county",
-  "state",
-  "province",
-  "region",
-  "district",
-  "island",
-  "islands",
-  "park",
-  "parks",
-  "theme",
-  "amusement",
-  "resort",
-  "world",
-  "land",
-  "the",
-  "and",
-]);
-
-function tokenizeParkName(name: string): string[] {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((token) => token.length > 2);
-}
-
-function hasSharedDistinctiveParkToken(a: string, b: string): boolean {
-  const aTokens = new Set(
-    tokenizeParkName(a).filter((token) => !NON_DISTINCTIVE_LOCATION_TOKENS.has(token)),
-  );
-  if (aTokens.size === 0) return false;
-  for (const token of tokenizeParkName(b)) {
-    if (!NON_DISTINCTIVE_LOCATION_TOKENS.has(token) && aTokens.has(token)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function preferParkDisplayName(current: string, candidate: string): string {
-  const score = (name: string) => {
-    let s = 0;
-    if (/\bat\s+universal\b/i.test(name)) s -= 3;
-    if (/[™®©]/.test(name)) s -= 2;
-    if (/,/.test(name)) s -= 2;
-    // Prefer moderately short resort names over marketing dumps.
-    s -= Math.max(0, name.length - 40) * 0.05;
-    return s;
-  };
-  return score(candidate) > score(current) ? candidate : current;
-}
-
 function MapPageContent() {
   const searchParams = useSearchParams();
   const deepLinkedView = useMemo<ViewMode | null>(() => {
@@ -733,103 +656,17 @@ function MapPageContent() {
     };
   }, []);
 
-  // Wikidata sometimes creates a park row named like "Alton, Staffordshire, England" from a
-  // centroid — wrong pin next to "Alton Towers". Merge into the real resort and remap coasters.
-  const geoAbsorb = useMemo(() => absorbReverseGeocodeParks(parks), [parks]);
-
-  // Merge duplicate parks from different sync sources (e.g. centroid vs resort name).
-  // Exact same name: allow a wide radius (bad coords / different geocoders).
-  // Fuzzy name match: allow a moderate radius — Wikidata/OSM vs other geocoders can differ by km.
-  const deduplicatedParks = useMemo(() => {
-    const canonical = new Map<number, Park>(); // canonical id → merged park
-    const idRemap = new Map<number, number>(); // duplicate id → canonical id
-
-    function distanceKm(a: Park, b: Park) {
-      if (
-        a.latitude == null ||
-        b.latitude == null ||
-        a.longitude == null ||
-        b.longitude == null ||
-        !Number.isFinite(a.latitude) ||
-        !Number.isFinite(b.latitude) ||
-        !Number.isFinite(a.longitude) ||
-        !Number.isFinite(b.longitude)
-      ) {
-        return Infinity;
-      }
-      const dlat = (b.latitude - a.latitude) * 111;
-      const dlng = (b.longitude - a.longitude) * 111 * Math.cos((a.latitude * Math.PI) / 180);
-      return Math.sqrt(dlat * dlat + dlng * dlng);
-    }
-
-    function mergeInto(base: Park, duplicate: Park) {
-      idRemap.set(duplicate.id, base.id);
-      base.name = preferParkDisplayName(base.name, duplicate.name);
-      base.latitude = duplicate.latitude ?? base.latitude;
-      base.longitude = duplicate.longitude ?? base.longitude;
-      const lat = base.latitude ?? null;
-      const lng = base.longitude ?? null;
-      base.country = reconcileCountryWithCoords(base.country ?? duplicate.country, lat, lng);
-    }
-
-    for (const park of geoAbsorb.parks) {
-      if (idRemap.has(park.id)) continue;
-
-      canonical.set(park.id, { ...park });
-
-      for (const [, existing] of canonical) {
-        if (existing.id === park.id) continue;
-        if (idRemap.has(existing.id)) continue;
-
-        const sameName =
-          existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
-        const fuzzyName = parkNamesMatch(existing.name, park.name);
-        const dist = distanceKm(existing, park);
-        const sameNameNearby = sameName && dist < 200;
-        const fuzzyNameNearby =
-          fuzzyName &&
-          !sameName &&
-          dist < 40 &&
-          hasSharedDistinctiveParkToken(existing.name, park.name) &&
-          !hasUniversalStudiosVsIslandsConflict(existing.name, park.name);
-
-        if (sameNameNearby || fuzzyNameNearby) {
-          mergeInto(existing, park);
-          canonical.delete(park.id);
-          break;
-        }
-      }
-    }
-
-    return { parks: Array.from(canonical.values()), idRemap };
-  }, [geoAbsorb.parks]);
-
-  const rawParkById = useMemo(() => new Map(parks.map((p) => [p.id, p])), [parks]);
+  // Merge duplicate / geocode park rows and remap coaster park_id (shared with catalog pages).
+  const normalizedCatalog = useMemo(() => normalizeCatalog(parks, coasters), [parks, coasters]);
+  const deduplicatedParks = useMemo(
+    () => ({ parks: normalizedCatalog.parks, idRemap: normalizedCatalog.idRemap }),
+    [normalizedCatalog],
+  );
+  const remappedCoasters = normalizedCatalog.coasters;
   const dedupedParkById = useMemo(
     () => new Map(deduplicatedParks.parks.map((p) => [p.id, p])),
     [deduplicatedParks.parks],
   );
-
-  const remappedCoasters = useMemo(() => {
-    const geo = geoAbsorb.idRemap;
-    const dedupe = deduplicatedParks.idRemap;
-    const afterRemap = coasters.map((c) => {
-      let pid = c.park_id;
-      const g = geo.get(pid);
-      if (g !== undefined) pid = g;
-      const d = dedupe.get(pid);
-      if (d !== undefined) pid = d;
-      return pid !== c.park_id ? { ...c, park_id: pid } : c;
-    });
-    // If a coaster still references a removed geocode row, snap to nearest visible pin by distance.
-    return snapOrphanCoastersToDisplayParks(afterRemap, deduplicatedParks.parks, rawParkById);
-  }, [
-    coasters,
-    geoAbsorb.idRemap,
-    deduplicatedParks.idRemap,
-    deduplicatedParks.parks,
-    rawParkById,
-  ]);
 
   const coasterEntries = useMemo(() => {
     const mappedCoasters = remappedCoasters.filter((c) => {
@@ -1058,8 +895,8 @@ function MapPageContent() {
       .sort((a, b) => {
         const byCountry = a.country.localeCompare(b.country);
         if (byCountry !== 0) return byCountry;
-        const byRide = cleanCoasterName(a.coaster.name).localeCompare(cleanCoasterName(b.coaster.name));
-        if (byRide !== 0) return byRide;
+        const byStatus = compareCoastersOperatingFirst(a.coaster, b.coaster);
+        if (byStatus !== 0) return byStatus;
         return a.parkName.localeCompare(b.parkName);
       });
   }, [
@@ -1158,7 +995,7 @@ function MapPageContent() {
     // Ride deep-links open the map (pin focus). Park-only links still open the list.
     setViewMode(
       deepLinkedView ??
-        (deepLinkedCoasterId != null ? "map" : canonicalParkId != null ? "list" : "map"),
+        (deepLinkedCoasterId != null || canonicalParkId != null ? "map" : "map"),
     );
 
     if (deepLinkedCoasterId != null) {
@@ -1179,16 +1016,38 @@ function MapPageContent() {
     }
   }, [coasters, deduplicatedParks, deepLinkedCoasterId, deepLinkedParkId, deepLinkedView]);
 
-  const clearMapSelection = useCallback(() => {
+  const clearCoasterSelection = useCallback(() => {
+    setSelectedCoasterId(null);
+  }, []);
+
+  const dismissParkPanel = useCallback(() => {
     setSelectedCoasterId(null);
     setFocusedParkId(null);
+  }, []);
+
+  const [mapViewResetKey, setMapViewResetKey] = useState(0);
+  const resetMapView = useCallback(() => {
+    setSelectedCoasterId(null);
+    setFocusedParkId(null);
+    setMapViewResetKey((k) => k + 1);
   }, []);
 
   return (
     <div className="min-h-screen">
       <SiteHeader />
-      <main className="mx-auto max-w-6xl p-6">
-        <h1 className="mb-4 text-2xl font-bold text-slate-900">Coaster map</h1>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold text-slate-900">Coaster map</h1>
+          {!catalogLoading && (selectedCoasterId != null || focusedParkId != null) ? (
+            <button
+              type="button"
+              onClick={resetMapView}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-slate-400"
+            >
+              Reset map
+            </button>
+          ) : null}
+        </div>
         {catalogLoading ? (
           <MapPageCatalogSkeleton
             viewMode={viewMode}
@@ -1288,47 +1147,126 @@ function MapPageContent() {
             </div>
           ) : null}
           {viewMode === "map" ? (
-            <div className="flex gap-1 flex-wrap">
-              {CONTINENTS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setContinent(c)}
-                  aria-pressed={continent === c}
-                  className={`rounded-full px-3 py-1 text-sm transition-colors ${
-                    continent === c
-                      ? "bg-slate-900 text-white"
-                      : "border border-slate-300 text-slate-600 hover:border-slate-500"
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="hidden flex-col gap-2 sm:flex">
+                <div className="flex gap-1 flex-wrap">
+                  {CONTINENTS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setContinent(c)}
+                      aria-pressed={continent === c}
+                      className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                        continent === c
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-300 text-slate-600 hover:border-slate-500"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={includeFamilyRides}
+                    onChange={(e) => {
+                      setIncludeFamilyRides(e.target.checked);
+                      setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                    }}
+                    className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                  />
+                  Show kiddie / family-style rides
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={includeUnknownHistoricalParks}
+                    onChange={(e) => {
+                      setIncludeUnknownHistoricalParks(e.target.checked);
+                      setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                    }}
+                    className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                  />
+                  Include unknown / historical park entries
+                </label>
+              </div>
+              <details className="rounded-lg border border-slate-200 bg-slate-50/80 sm:hidden">
+                <summary className="cursor-pointer list-none px-3 py-2 text-sm font-semibold text-slate-700 [&::-webkit-details-marker]:hidden">
+                  Map filters ▾
+                </summary>
+                <div className="flex flex-col gap-2 px-3 pb-3">
+                  <div className="flex gap-1 flex-wrap">
+                    {CONTINENTS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setContinent(c)}
+                        aria-pressed={continent === c}
+                        className={`rounded-full px-3 py-1 text-sm transition-colors ${
+                          continent === c
+                            ? "bg-slate-900 text-white"
+                            : "border border-slate-300 text-slate-600 hover:border-slate-500"
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={includeFamilyRides}
+                      onChange={(e) => {
+                        setIncludeFamilyRides(e.target.checked);
+                        setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                      }}
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                    />
+                    Show kiddie / family-style rides
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={includeUnknownHistoricalParks}
+                      onChange={(e) => {
+                        setIncludeUnknownHistoricalParks(e.target.checked);
+                        setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                      }}
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                    />
+                    Include unknown / historical park entries
+                  </label>
+                </div>
+              </details>
+            </>
           ) : null}
-          <label className="mt-1 inline-flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={includeFamilyRides}
-              onChange={(e) => {
-                setIncludeFamilyRides(e.target.checked);
-                setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
-              }}
-              className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
-            />
-            Show kiddie / family-style rides
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              checked={includeUnknownHistoricalParks}
-              onChange={(e) => {
-                setIncludeUnknownHistoricalParks(e.target.checked);
-                setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
-              }}
-              className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
-            />
-            Include unknown / historical park entries
-          </label>
+          {viewMode === "list" ? (
+            <>
+              <label className="mt-1 inline-flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={includeFamilyRides}
+                  onChange={(e) => {
+                    setIncludeFamilyRides(e.target.checked);
+                    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                  }}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                />
+                Show kiddie / family-style rides
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={includeUnknownHistoricalParks}
+                  onChange={(e) => {
+                    setIncludeUnknownHistoricalParks(e.target.checked);
+                    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+                  }}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+                />
+                Include unknown / historical park entries
+              </label>
+            </>
+          ) : null}
           <p className="text-xs text-slate-500">
             Data quality note: ride and park details can be incomplete or outdated while upstream sources are refreshed.
           </p>
@@ -1346,8 +1284,25 @@ function MapPageContent() {
             selectedCoasterId={selectedCoasterId}
             selectedParkId={activeParkId}
             focusPark={focusParkForMap}
+            onParkSelect={(parkId) => {
+              setFocusedParkId(parkId);
+              setSelectedCoasterId(null);
+            }}
             onCoasterSelect={setSelectedCoasterId}
-            onClearSelection={clearMapSelection}
+            onClearCoasterSelection={clearCoasterSelection}
+            onClearAllSelection={dismissParkPanel}
+            onResetMapView={resetMapView}
+            viewResetKey={mapViewResetKey}
+          />
+        ) : null}
+        {!catalogLoading && viewMode === "map" && focusParkForMap ? (
+          <MapParkRideSheet
+            park={focusParkForMap}
+            coasters={coasterEntries.filter((c) => c.park_id === focusParkForMap.id)}
+            units={units}
+            selectedCoasterId={selectedCoasterId}
+            onCoasterSelect={setSelectedCoasterId}
+            onClose={dismissParkPanel}
           />
         ) : null}
         {!catalogLoading && viewMode === "list" ? (
@@ -1388,11 +1343,6 @@ function MapPageContent() {
                             closingYear: coaster.closing_year,
                           });
                           const isDefunct = lifecycle === "Defunct";
-                          const len = fmtLength(coaster.length_ft, units);
-                          const spd = fmtSpeed(coaster.speed_mph, units);
-                          const ht = fmtHeight(coaster.height_ft, units);
-                          const dur = fmtDuration(coaster.duration_s);
-                          const stats = [len, spd, ht ? `${ht} tall` : null, dur].filter(Boolean);
                           const isSelected = selectedCoasterId === coaster.id;
                           return (
                             <article
@@ -1464,9 +1414,7 @@ function MapPageContent() {
                                     </span>
                                   )}
                                 </div>
-                                {stats.length > 0 && (
-                                  <p className="mt-1 text-xs text-slate-500">{stats.join(" · ")}</p>
-                                )}
+                                <CoasterStatPills coaster={coaster} units={units} />
                                 <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
                               </div>
                             </article>

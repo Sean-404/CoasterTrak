@@ -2,11 +2,13 @@ import {
   deriveWikidataCoasterStats,
   type WikidataCoasterRow,
 } from "@/lib/wikidata-coasters";
+import { sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import {
   extractCoasterInfobox,
   fetchWikipediaArticleHtml,
   inferStatusFromText,
 } from "@/lib/wikipedia-infobox";
+import { fetchWikipediaSummary } from "@/lib/wikipedia-summary";
 
 export type WikipediaEnrichOptions = {
   limit?: number;
@@ -17,6 +19,7 @@ export type WikipediaEnrichOptions = {
 
 /**
  * Fill gaps / repair status from English Wikipedia roller-coaster infobox HTML.
+ * Also fills missing images from the page summary API when Wikidata has no P18.
  * Does not fetch Wikidata — operates on an existing snapshot.
  */
 export async function enrichWikidataRowsFromWikipedia(
@@ -38,6 +41,7 @@ export async function enrichWikidataRowsFromWikipedia(
 
   const byId = new Map<string, WikidataCoasterRow>();
   let done = 0;
+  let imagesFilled = 0;
   for (const row of processQueue) {
     const statGaps =
       row.lengthM == null ||
@@ -49,62 +53,82 @@ export async function enrichWikidataRowsFromWikipedia(
     const statusUnknown = row.status === "unknown";
     const statusMayNeedEnwiki =
       row.status === "defunct" && Boolean(row.enwikiTitle?.trim());
+    const imageGap = !sanitizeCoasterImageUrl(row.imageUrl ?? null);
     const allowStatEnrich = (statGaps || metaGaps || statusUnknown) && done < limit;
     const allowStatusRepair = statusMayNeedEnwiki;
-    if (!row.enwikiTitle || (!allowStatEnrich && !allowStatusRepair)) {
+    const allowImageEnrich = imageGap && Boolean(row.enwikiTitle?.trim());
+
+    if (!row.enwikiTitle || (!allowStatEnrich && !allowStatusRepair && !allowImageEnrich)) {
       byId.set(row.wikidataId, deriveWikidataCoasterStats(row));
       continue;
     }
-    try {
-      const html = await fetchWikipediaArticleHtml(row.enwikiTitle);
-      const ex = extractCoasterInfobox(html);
-      const lengthM = allowStatEnrich ? (row.lengthM ?? ex.lengthM) : row.lengthM;
-      const heightM = allowStatEnrich ? (row.heightM ?? ex.heightM) : row.heightM;
-      const speedMs = allowStatEnrich
-        ? (row.speedMs ??
-          (ex.speedMph != null ? ex.speedMph / 2.23693629 : null))
-        : row.speedMs;
 
-      let status = row.status;
-      const inferred = inferStatusFromText(ex.statusText);
-      if (inferred === "operating") {
-        status = "operating";
-      } else if (status === "unknown") {
-        if (inferred === "defunct") {
-          status = "defunct";
-        } else if (ex.closingDate) {
-          const st = (ex.statusText ?? "").toLowerCase();
-          const relocationHint =
-            /\brelocated\b/.test(st) ||
-            /\bmoved to\b/.test(st) ||
-            /\breopened\b/.test(st) ||
-            /\boperating\b/.test(st);
-          if (!relocationHint) {
-            const closing = new Date(ex.closingDate);
-            if (!Number.isNaN(closing.getTime()) && closing < new Date()) {
-              status = "defunct";
+    try {
+      let next: WikidataCoasterRow = { ...row };
+
+      if (allowStatEnrich || allowStatusRepair) {
+        const html = await fetchWikipediaArticleHtml(row.enwikiTitle);
+        const ex = extractCoasterInfobox(html);
+        const lengthM = allowStatEnrich ? (row.lengthM ?? ex.lengthM) : row.lengthM;
+        const heightM = allowStatEnrich ? (row.heightM ?? ex.heightM) : row.heightM;
+        const speedMs = allowStatEnrich
+          ? (row.speedMs ??
+            (ex.speedMph != null ? ex.speedMph / 2.23693629 : null))
+          : row.speedMs;
+
+        let status = row.status;
+        const inferred = inferStatusFromText(ex.statusText);
+        if (inferred === "operating") {
+          status = "operating";
+        } else if (status === "unknown") {
+          if (inferred === "defunct") {
+            status = "defunct";
+          } else if (ex.closingDate) {
+            const st = (ex.statusText ?? "").toLowerCase();
+            const relocationHint =
+              /\brelocated\b/.test(st) ||
+              /\bmoved to\b/.test(st) ||
+              /\breopened\b/.test(st) ||
+              /\boperating\b/.test(st);
+            if (!relocationHint) {
+              const closing = new Date(ex.closingDate);
+              if (!Number.isNaN(closing.getTime()) && closing < new Date()) {
+                status = "defunct";
+              }
             }
           }
         }
+
+        next = {
+          ...next,
+          lengthM,
+          heightM,
+          speedMs,
+          inversions: allowStatEnrich ? (row.inversions ?? ex.inversions) : row.inversions,
+          durationS: allowStatEnrich ? (row.durationS ?? ex.durationS) : row.durationS,
+          status,
+        };
+        if (allowStatEnrich) done += 1;
       }
 
-      const merged = deriveWikidataCoasterStats({
-        ...row,
-        lengthM,
-        heightM,
-        speedMs,
-        inversions: allowStatEnrich ? (row.inversions ?? ex.inversions) : row.inversions,
-        durationS: allowStatEnrich ? (row.durationS ?? ex.durationS) : row.durationS,
-        status,
-      });
-      byId.set(row.wikidataId, merged);
-      if (allowStatEnrich) done += 1;
+      if (allowImageEnrich && !sanitizeCoasterImageUrl(next.imageUrl ?? null)) {
+        const summary = await fetchWikipediaSummary(row.enwikiTitle);
+        const wikiImage = summary?.imageUrl ?? null;
+        if (wikiImage) {
+          next = { ...next, imageUrl: wikiImage };
+          imagesFilled += 1;
+        }
+      }
+
+      byId.set(row.wikidataId, deriveWikidataCoasterStats(next));
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
     } catch {
       byId.set(row.wikidataId, deriveWikidataCoasterStats(row));
     }
   }
 
-  log(`Wikipedia enrich applied to up to ${done} rows (limit ${limit})`);
+  log(
+    `Wikipedia enrich applied to up to ${done} rows (limit ${limit}); filled ${imagesFilled} missing images`,
+  );
   return rows.map((r) => byId.get(r.wikidataId) ?? deriveWikidataCoasterStats(r));
 }

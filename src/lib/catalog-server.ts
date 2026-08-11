@@ -1,16 +1,26 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import type { Coaster, Park } from "@/types/domain";
+import {
+  isCoasterCatalogSubstantial,
+  isParkCatalogSubstantial,
+} from "@/lib/catalog-content";
+import { normalizeCatalog, serializeNormalizedCatalog, deserializeNormalizedCatalog } from "@/lib/catalog-normalize";
 import { dedupeCoastersForCatalog } from "@/lib/coaster-dedup";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
-import { canonicalCountryLabel } from "@/lib/geo-country";
+import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
+import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
 import { matchesSearchQuery } from "@/lib/display";
-import { dedupeParksForCatalog, isCatalogHiddenParkName } from "@/lib/park-match";
+import { isCatalogHiddenParkName } from "@/lib/park-match";
 
 const PARK_COLUMNS = "id,name,country,latitude,longitude";
-const COASTER_COLUMNS =
+const COASTER_COLUMNS_CORE =
   "id,park_id,name,coaster_type,manufacturer,status,wikidata_id,image_url,length_ft,speed_mph,height_ft,inversions,duration_s,opening_year,closing_year";
+const COASTER_COLUMNS = `${COASTER_COLUMNS_CORE},enwiki_title,summary_text`;
 
 let anonClient: SupabaseClient | null = null;
+/** When true, new summary columns are missing — use core select only. */
+let coasterSelectFallback = false;
 
 /** Public anon client for server components / sitemap (parks & coasters are publicly readable). */
 export function getSupabaseAnonServerClient(): SupabaseClient | null {
@@ -38,29 +48,87 @@ export async function getParkById(id: number): Promise<ParkDetail | null> {
   return data as ParkDetail;
 }
 
-export async function getCoastersForPark(parkId: number): Promise<Coaster[]> {
+async function fetchAllParksRaw(): Promise<Park[]> {
+  return fetchAllIds<Park>("parks", PARK_COLUMNS);
+}
+
+function activeCoasterColumns(): string {
+  return coasterSelectFallback ? COASTER_COLUMNS_CORE : COASTER_COLUMNS;
+}
+
+function isMissingColumnError(error: { message?: string; code?: string } | null): boolean {
+  if (!error?.message) return false;
+  return /enwiki_title|summary_text|column .* does not exist|Could not find/i.test(error.message);
+}
+
+async function fetchAllCoastersRaw(): Promise<Coaster[]> {
+  const columns = activeCoasterColumns();
+  const rows = await fetchAllIds<Coaster>("coasters", columns);
+  if (rows.length > 0 || coasterSelectFallback) return rows;
+
+  // Empty could mean no data OR a failed select on missing columns — probe once.
   const supabase = getSupabaseAnonServerClient();
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("coasters")
-    .select(COASTER_COLUMNS)
-    .eq("park_id", parkId)
-    .order("name", { ascending: true });
-  if (error || !data) return [];
-  return dedupeCoastersForCatalog((data as Coaster[]).map(applyCoasterKnownFixes));
+  const { error } = await supabase.from("coasters").select(COASTER_COLUMNS).limit(1);
+  if (isMissingColumnError(error)) {
+    coasterSelectFallback = true;
+    return fetchAllIds<Coaster>("coasters", COASTER_COLUMNS_CORE);
+  }
+  return rows;
+}
+
+const getNormalizedCatalogCached = unstable_cache(
+  async () => {
+    const [parks, coasters] = await Promise.all([fetchAllParksRaw(), fetchAllCoastersRaw()]);
+    return serializeNormalizedCatalog(normalizeCatalog(parks, coasters));
+  },
+  ["catalog-normalized-v2"],
+  { revalidate: 3600 },
+);
+
+async function getNormalizedCatalog() {
+  const cached = await getNormalizedCatalogCached();
+  return deserializeNormalizedCatalog(cached);
+}
+
+/** Canonical park id after merge/absorb (matches map display). */
+export async function resolveCatalogParkId(parkId: number): Promise<number> {
+  const { idRemap } = await getNormalizedCatalog();
+  let id = parkId;
+  const seen = new Set<number>();
+  while (idRemap.has(id) && !seen.has(id)) {
+    seen.add(id);
+    id = idRemap.get(id)!;
+  }
+  return id;
+}
+
+export async function getCoastersForPark(parkId: number): Promise<Coaster[]> {
+  const normalized = await getNormalizedCatalog();
+  const canonicalId = await resolveCatalogParkId(parkId);
+  const forPark = normalized.coasters.filter((c) => c.park_id === canonicalId);
+  return dedupeCoastersForCatalog(forPark).sort(compareCoastersOperatingFirst);
 }
 
 export async function getCoasterById(id: number): Promise<CoasterDetail | null> {
   const supabase = getSupabaseAnonServerClient();
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("coasters")
-    .select(`${COASTER_COLUMNS}, parks(${PARK_COLUMNS})`)
-    .eq("id", id)
-    .maybeSingle();
+
+  const trySelect = async (columns: string) =>
+    supabase
+      .from("coasters")
+      .select(`${columns}, parks(${PARK_COLUMNS})`)
+      .eq("id", id)
+      .maybeSingle();
+
+  let { data, error } = await trySelect(activeCoasterColumns());
+  if (error && isMissingColumnError(error) && !coasterSelectFallback) {
+    coasterSelectFallback = true;
+    ({ data, error } = await trySelect(COASTER_COLUMNS_CORE));
+  }
   if (error || !data) return null;
 
-  const row = data as Coaster & {
+  const row = data as unknown as Coaster & {
     parks:
       | Pick<Park, "id" | "name" | "country" | "latitude" | "longitude">
       | Pick<Park, "id" | "name" | "country" | "latitude" | "longitude">[]
@@ -72,12 +140,21 @@ export async function getCoasterById(id: number): Promise<CoasterDetail | null> 
 }
 
 export async function listParksForSitemap(): Promise<Pick<Park, "id" | "name">[]> {
-  const rows = await fetchAllIds<Pick<Park, "id" | "name">>("parks", "id,name");
-  return rows.filter((p) => !isCatalogHiddenParkName(p.name));
+  const normalized = await getNormalizedCatalog();
+  const eligible = await Promise.all(
+    normalized.parks.map(async (park) => {
+      const coasters = normalized.coasters.filter((c) => c.park_id === park.id);
+      return isParkCatalogSubstantial(coasters) ? park : null;
+    }),
+  );
+  return eligible.filter(Boolean) as Pick<Park, "id" | "name">[];
 }
 
 export async function listCoastersForSitemap(): Promise<Pick<Coaster, "id" | "name">[]> {
-  return fetchAllIds("coasters", "id,name");
+  const normalized = await getNormalizedCatalog();
+  return normalized.coasters
+    .filter((c) => isCoasterCatalogSubstantial(c, c.summary_text))
+    .map(({ id, name }) => ({ id, name }));
 }
 
 const FEATURED_PARK_BRAND_BONUSES: Array<{ pattern: RegExp; bonus: number }> = [
@@ -120,7 +197,7 @@ function isExcludedFeaturedParkName(name: string): boolean {
 /** Lightweight coaster rows for the public /coasters index (name + park). */
 export type CoasterIndexRow = Pick<
   Coaster,
-  "id" | "name" | "coaster_type" | "manufacturer" | "park_id"
+  "id" | "name" | "coaster_type" | "manufacturer" | "park_id" | "status" | "closing_year"
 > & {
   parks: Pick<Park, "id" | "name" | "country"> | null;
 };
@@ -148,12 +225,14 @@ function normalizeCoasterIndexRows(
   });
 
   return dedupeCoastersForCatalog(rows).map(
-    ({ id, name, coaster_type, manufacturer, park_id, parks }) => ({
+    ({ id, name, coaster_type, manufacturer, park_id, status, closing_year, parks }) => ({
       id,
       name,
       coaster_type,
       manufacturer,
       park_id,
+      status,
+      closing_year,
       parks,
     }),
   );
@@ -161,46 +240,28 @@ function normalizeCoasterIndexRows(
 
 /**
  * Parks for the public /parks index. Optional `search` filters by park name or country.
+ * Uses the same normalized catalog as the map so list/map stay aligned.
  */
 export async function listCatalogParks(search?: string): Promise<Park[]> {
-  const supabase = getSupabaseAnonServerClient();
-  if (!supabase) return [];
+  const normalized = await getNormalizedCatalog();
+  const parkIdsWithCoasters = new Set(normalized.coasters.map((c) => c.park_id));
 
-  const pageSize = 1000;
-  const rows: Array<Park & { rideCount: number }> = [];
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from("parks")
-      .select(`${PARK_COLUMNS}, coasters(count)`)
-      .order("name", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (error || !data?.length) break;
-
-    for (const row of data as Array<
-      Park & { coasters: { count: number }[] | { count: number } | null }
-    >) {
-      const countRaw = Array.isArray(row.coasters) ? row.coasters[0]?.count : row.coasters?.count;
-      rows.push({
-        id: row.id,
-        name: row.name,
-        country: row.country,
-        latitude: row.latitude,
-        longitude: row.longitude,
-        rideCount: typeof countRaw === "number" ? countRaw : 0,
-      });
-    }
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-
-  const parks = dedupeParksForCatalog(rows).map(({ id, name, country, latitude, longitude }) => ({
-    id,
-    name,
-    country: canonicalCountryLabel(country) || country,
-    latitude,
-    longitude,
-  }));
+  const parks = normalized.parks
+    .filter((park) => !isCatalogHiddenParkName(park.name) && parkIdsWithCoasters.has(park.id))
+    .map((park) => {
+      const country =
+        reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
+        canonicalCountryLabel(park.country) ||
+        park.country;
+      return {
+        id: park.id,
+        name: park.name,
+        country,
+        latitude: park.latitude,
+        longitude: park.longitude,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const q = search?.trim() ?? "";
   if (!q) return parks;
@@ -294,42 +355,30 @@ export async function listFeaturedParks(limit = 12): Promise<ParkDetail[]> {
   return featured;
 }
 
-/** Lightweight coaster rows for the public /coasters index (name + park). */
-export async function listCoastersForIndex(
-  limit = 500,
-  search?: string,
-): Promise<CoasterIndexRow[]> {
+/** Lightweight coaster rows for the public /coasters index (name + park). Full catalog, no hard cap. */
+export async function listCoastersForIndex(search?: string): Promise<CoasterIndexRow[]> {
   const supabase = getSupabaseAnonServerClient();
   if (!supabase) return [];
 
   const q = search?.trim() ?? "";
   const selectCols =
-    "id,name,coaster_type,manufacturer,park_id,status,wikidata_id,image_url,length_ft,speed_mph,height_ft,inversions,duration_s, parks(id,name,country)";
+    "id,name,coaster_type,manufacturer,park_id,status,closing_year,wikidata_id,image_url,length_ft,speed_mph,height_ft,inversions,duration_s, parks(id,name,country)";
 
   if (!q) {
-    // Over-fetch so same-park name variants can collapse; trim after dedupe.
-    const fetchLimit = Math.min(Math.max(limit * 2, limit + 200), 2000);
-    const { data, error } = await supabase
-      .from("coasters")
-      .select(selectCols)
-      .order("name", { ascending: true })
-      .limit(fetchLimit);
-    if (error || !data) return [];
-    return normalizeCoasterIndexRows(
-      data as Array<
-        Coaster & {
-          parks:
-            | Pick<Park, "id" | "name" | "country">
-            | Pick<Park, "id" | "name" | "country">[]
-            | null;
-        }
-      >,
-    ).slice(0, limit);
+    const data = await fetchAllIds<
+      Coaster & {
+        parks:
+          | Pick<Park, "id" | "name" | "country">
+          | Pick<Park, "id" | "name" | "country">[]
+          | null;
+      }
+    >("coasters", selectCols);
+    return normalizeCoasterIndexRows(data).sort(compareCoastersOperatingFirst);
   }
 
   // Search: match coaster name and/or park name, then refine with punctuation-insensitive filter.
   const pattern = `%${escapeIlikePattern(q)}%`;
-  const fetchLimit = Math.min(Math.max(limit * 3, 400), 1500);
+  const fetchLimit = 2000;
 
   const [{ data: byName, error: nameErr }, { data: matchingParks, error: parkErr }] =
     await Promise.all([
@@ -339,7 +388,7 @@ export async function listCoastersForIndex(
         .ilike("name", pattern)
         .order("name", { ascending: true })
         .limit(fetchLimit),
-      supabase.from("parks").select("id").ilike("name", pattern).limit(200),
+      supabase.from("parks").select("id").ilike("name", pattern).limit(400),
     ]);
 
   if (nameErr && parkErr) return [];
@@ -362,11 +411,13 @@ export async function listCoastersForIndex(
     .map((p) => (p as { id: number }).id)
     .filter((id) => Number.isFinite(id));
 
-  if (parkIds.length > 0) {
+  // Chunk park_id filters to stay within PostgREST URL limits.
+  for (let i = 0; i < parkIds.length; i += 80) {
+    const chunk = parkIds.slice(i, i + 80);
     const { data: byPark } = await supabase
       .from("coasters")
       .select(selectCols)
-      .in("park_id", parkIds.slice(0, 80))
+      .in("park_id", chunk)
       .order("name", { ascending: true })
       .limit(fetchLimit);
     for (const row of normalizeCoasterIndexRows(
@@ -383,14 +434,12 @@ export async function listCoastersForIndex(
     }
   }
 
-  const filtered = [...byId.values()]
+  return [...byId.values()]
     .filter((row) => {
       const haystack = `${row.name} ${row.parks?.name ?? ""} ${row.parks?.country ?? ""}`;
       return matchesSearchQuery(haystack, q);
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return filtered.slice(0, limit);
+    .sort(compareCoastersOperatingFirst);
 }
 
 async function fetchAllIds<T>(table: "parks" | "coasters", columns: string): Promise<T[]> {
@@ -412,4 +461,35 @@ async function fetchAllIds<T>(table: "parks" | "coasters", columns: string): Pro
     from += pageSize;
   }
   return rows;
+}
+
+export type CatalogIndexCounts = {
+  parks: number;
+  coasters: number;
+  countries: number;
+};
+
+/** Totals for catalog index pages (after park/coaster normalization, matching public lists). */
+export async function getCatalogIndexCounts(): Promise<CatalogIndexCounts> {
+  const normalized = await getNormalizedCatalog();
+  const parkIdsWithCoasters = new Set(normalized.coasters.map((c) => c.park_id));
+  const parks = normalized.parks
+    .filter((park) => !isCatalogHiddenParkName(park.name) && parkIdsWithCoasters.has(park.id))
+    .map((park) => ({
+      ...park,
+      country:
+        reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
+        canonicalCountryLabel(park.country) ||
+        park.country,
+    }));
+  const coasters = dedupeCoastersForCatalog(normalized.coasters);
+  const countries = new Set(
+    parks.map((park) => (park.country || "Unknown").trim() || "Unknown"),
+  ).size;
+
+  return {
+    parks: parks.length,
+    coasters: coasters.length,
+    countries,
+  };
 }

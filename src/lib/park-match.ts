@@ -56,6 +56,56 @@ export type ParkForMatch = {
 export type CatalogParkCandidate = ParkForMatch & { rideCount?: number };
 
 /**
+ * Geographic / generic tokens that often co-occur on unrelated nearby parks
+ * (e.g. "Hong Kong Disneyland" vs "Ocean Park Hong Kong").
+ */
+const NON_DISTINCTIVE_PARK_NAME_TOKENS = new Set([
+  "hong",
+  "kong",
+  "north",
+  "south",
+  "east",
+  "west",
+  "new",
+  "city",
+  "town",
+  "county",
+  "state",
+  "province",
+  "region",
+  "district",
+  "island",
+  "islands",
+  "park",
+  "parks",
+  "theme",
+  "amusement",
+  "resort",
+  "world",
+  "land",
+  "the",
+  "and",
+]);
+
+function distinctiveParkNameTokens(name: string): Set<string> {
+  return new Set(
+    normalizeParkNameForMatch(name)
+      .split(" ")
+      .filter((w) => w.length > 2 && !NON_DISTINCTIVE_PARK_NAME_TOKENS.has(w)),
+  );
+}
+
+/** True when two names share a brand-like token (not just "hong"/"kong"/"park"). */
+export function hasSharedDistinctiveParkToken(a: string, b: string): boolean {
+  const aTokens = distinctiveParkNameTokens(a);
+  if (aTokens.size === 0) return false;
+  for (const token of distinctiveParkNameTokens(b)) {
+    if (aTokens.has(token)) return true;
+  }
+  return false;
+}
+
+/**
  * Hide unknown/placeholder parks and collapse near-duplicate names
  * (e.g. Europa Park / Europa-Park, Six Flags Mexico / México) for catalog lists.
  * Prefers the row with more rides, then the longer display name.
@@ -82,6 +132,12 @@ export function dedupeParksForCatalog<T extends CatalogParkCandidate>(parks: T[]
       if (!parkNamesMatch(existing.name, park.name)) continue;
       if (!countriesCompatibleForParkMatch(existing.country, park.country)) continue;
 
+      const sameNorm =
+        normalizeParkNameForMatch(existing.name) === normalizeParkNameForMatch(park.name);
+      // Fuzzy matches must share a distinctive brand token — shared place words alone
+      // ("Hong Kong") must not collapse unrelated parks.
+      if (!sameNorm && !hasSharedDistinctiveParkToken(existing.name, park.name)) continue;
+
       const bothHaveCoords =
         existing.latitude != null &&
         existing.longitude != null &&
@@ -100,8 +156,6 @@ export function dedupeParksForCatalog<T extends CatalogParkCandidate>(parks: T[]
           park.longitude!,
         );
         // Exact-ish names can drift between geocoders; fuzzy names stay tighter.
-        const sameNorm =
-          normalizeParkNameForMatch(existing.name) === normalizeParkNameForMatch(park.name);
         if (d > (sameNorm ? 200 : 40)) continue;
       }
 
@@ -186,15 +240,16 @@ export function parkNamesMatch(a: string, b: string): boolean {
   if (short.length >= 8 && long.includes(short)) return true;
   if (short.length >= 6 && long.length >= 10 && long.includes(short)) return true;
 
-  const ta = new Set(na.split(" ").filter((w) => w.length > 2));
-  const tb = new Set(nb.split(" ").filter((w) => w.length > 2));
+  // Score only brand-like tokens so "Hong Kong" alone cannot match Disneyland ↔ Ocean Park.
+  const ta = distinctiveParkNameTokens(a);
+  const tb = distinctiveParkNameTokens(b);
   if (ta.size === 0 || tb.size === 0) return false;
   let overlap = 0;
   for (const w of ta) {
     if (tb.has(w)) overlap++;
   }
   const minSize = Math.min(ta.size, tb.size);
-  return minSize >= 2 && overlap >= minSize * 0.6;
+  return minSize >= 1 && overlap >= Math.max(1, minSize * 0.6);
 }
 
 /**

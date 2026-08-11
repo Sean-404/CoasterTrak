@@ -6,6 +6,11 @@
 /** Bounding boxes are intentionally loose for park-scale use (not border disputes). */
 function countryHintFromLatLng(lat: number, lng: number): string | null {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  // Hong Kong / Macau before broader Asia corrections — Wikidata often stores these as China.
+  if (lat >= 22.15 && lat <= 22.6 && lng >= 113.82 && lng <= 114.5) return "Hong Kong";
+  if (lat >= 22.1 && lat <= 22.26 && lng >= 113.52 && lng <= 113.63) return "Macau";
+  // Taiwan (main island + Penghu) — Wikidata P17 is often China for ROC parks.
+  if (lat >= 21.9 && lat <= 25.4 && lng >= 119.5 && lng <= 122.1) return "Taiwan";
   // India (mainland + usual park lat/lng bands)
   if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 97) return "India";
   // Saudi Arabia (includes Qiddiya / Six Flags Qiddiya City)
@@ -70,6 +75,17 @@ function normalizeStoredCountry(raw: string): string {
   if (compact.includes("unitedkingdom") || compact === "uk" || compact === "greatbritain") {
     return "United Kingdom";
   }
+  if (compact.includes("hongkong") || compact === "hk" || compact === "hksar") {
+    return "Hong Kong";
+  }
+  if (compact.includes("macau") || compact.includes("macao")) {
+    return "Macau";
+  }
+  if (compact.includes("taiwan") || compact === "roc" || compact.includes("republicofchina")) {
+    // Keep Taiwan distinct when Wikidata/labels use ROC-style aliases.
+    if (!compact.includes("people") && !compact.startsWith("prc")) return "Taiwan";
+  }
+  if (compact.includes("chinesetaipei")) return "Taiwan";
   if (compact.includes("southkorea")) return "South Korea";
   if (compact.includes("northkorea")) return "North Korea";
   return withSpaces;
@@ -77,7 +93,8 @@ function normalizeStoredCountry(raw: string): string {
 
 /**
  * When stored country is Unknown or clearly conflicts with coordinates, prefer the hint.
- * Currently only corrects a few high-impact mismatches (e.g. India vs wrong "China").
+ * Currently only corrects a few high-impact mismatches (e.g. India vs wrong "China",
+ * Hong Kong / Macau parks wrongly labeled China).
  */
 export function reconcileCountryWithCoords(
   country: string | null | undefined,
@@ -93,9 +110,26 @@ export function reconcileCountryWithCoords(
   const cl = c.toLowerCase();
   if (!c || cl === "unknown") return hint;
 
-  if (hint === "India" && (cl === "china" || cl === "hong kong")) return hint;
-  if (hint === "South Korea" && (cl === "japan" || cl === "china" || cl === "hong kong")) return hint;
-  if (hint === "Japan" && (cl === "south korea" || cl === "north korea" || cl === "china" || cl === "hong kong")) {
+  const chinaLike =
+    cl === "china" ||
+    cl === "people's republic of china" ||
+    cl === "peoples republic of china" ||
+    cl === "prc" ||
+    cl.includes("people's republic of china");
+
+  // Wikidata P17 for HK/Macau/Taiwan parks is often China — keep them separate in the UI.
+  if (hint === "Hong Kong" && (chinaLike || cl.includes("hong kong"))) return "Hong Kong";
+  if (hint === "Macau" && (chinaLike || cl.includes("macau") || cl.includes("macao"))) return "Macau";
+  if (
+    hint === "Taiwan" &&
+    (chinaLike || cl.includes("taiwan") || cl.includes("chinese taipei") || cl === "roc")
+  ) {
+    return "Taiwan";
+  }
+
+  if (hint === "India" && (chinaLike || cl === "hong kong")) return hint;
+  if (hint === "South Korea" && (cl === "japan" || chinaLike || cl === "hong kong")) return hint;
+  if (hint === "Japan" && (cl === "south korea" || cl === "north korea" || chinaLike || cl === "hong kong")) {
     return hint;
   }
   return c;

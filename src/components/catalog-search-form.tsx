@@ -13,6 +13,7 @@ type CatalogSearchFormProps = {
 
 /**
  * Debounced catalog search that syncs to `?q=` without a full page jump.
+ * Clears `page` when the query changes so results start from page 1.
  */
 export function CatalogSearchForm({
   placeholder,
@@ -38,6 +39,7 @@ export function CatalogSearchForm({
       const params = new URLSearchParams(searchParams.toString());
       if (trimmed) params.set("q", trimmed);
       else params.delete("q");
+      params.delete("page");
       const qs = params.toString();
       startTransition(() => {
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });

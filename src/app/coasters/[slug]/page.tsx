@@ -2,11 +2,22 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { CatalogPageShell, StatGrid } from "@/components/catalog-page-shell";
+import { CatalogPageShell } from "@/components/catalog-page-shell";
+import { CatalogStatPills } from "@/components/catalog-stat-pills";
+import { CoasterDetailActions } from "@/components/coaster-detail-actions";
+import { ParkCoasterRow } from "@/components/park-coaster-row";
+import { isCoasterCatalogSubstantial } from "@/lib/catalog-content";
+import {
+  buildCoasterMeasurementPills,
+  buildCoasterMetaPills,
+} from "@/lib/catalog-coaster-pills";
 import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/lib/catalog-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
-import { fmtDuration, fmtHeight, fmtLength, fmtSpeed } from "@/lib/units";
+import {
+  clampSummaryText,
+  fetchWikipediaSummaryForCoaster,
+} from "@/lib/wikipedia-summary";
 
 export const revalidate = 86400;
 export const dynamicParams = true;
@@ -29,33 +40,44 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const name = cleanCoasterName(coaster.name);
   const parkLabel = formatParkLabel(coaster.parks?.name, coaster.parks?.country);
+  const wikiSummary = await fetchWikipediaSummaryForCoaster({
+    enwikiTitle: coaster.enwiki_title,
+    wikidataId: coaster.wikidata_id,
+    storedSummary: coaster.summary_text,
+    storedEnwikiTitle: coaster.enwiki_title,
+  });
   const title = parkLabel ? `${name} at ${coaster.parks?.name}` : name;
-  const description = [
-    `${name} is a ${coaster.coaster_type || "roller coaster"}`,
-    parkLabel ? `at ${parkLabel}` : null,
-    coaster.status ? `(${coaster.status})` : null,
-    "Track it on CoasterTrak.",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const description = wikiSummary
+    ? clampSummaryText(wikiSummary.extract, 160)
+    : [
+        `${name} is a ${coaster.coaster_type || "roller coaster"}`,
+        parkLabel ? `at ${parkLabel}` : null,
+        coaster.status ? `(${coaster.status})` : null,
+        "Track it on CoasterTrak.",
+      ]
+        .filter(Boolean)
+        .join(" ");
   const canonical = `/coasters/${coasterSlug(coaster.name, coaster.id)}`;
+  const indexable = isCoasterCatalogSubstantial(coaster, wikiSummary?.extract ?? coaster.summary_text);
+  const ogImage = coaster.image_url || wikiSummary?.imageUrl || null;
 
   return {
     title,
     description,
     alternates: { canonical },
+    ...(indexable ? {} : { robots: { index: false, follow: true } }),
     openGraph: {
       title: `${title} | CoasterTrak`,
       description,
       url: canonical,
       type: "article",
-      ...(coaster.image_url ? { images: [{ url: coaster.image_url }] } : {}),
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | CoasterTrak`,
       description,
-      ...(coaster.image_url ? { images: [coaster.image_url] } : {}),
+      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -77,31 +99,34 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   const park = coaster.parks;
   const parkLabel = formatParkLabel(park?.name, park?.country);
   const units = "imperial" as const;
+  const metaPills = buildCoasterMetaPills(coaster);
+  const measurementPills = buildCoasterMeasurementPills(coaster, units);
   const siblings = park
     ? (await getCoastersForPark(park.id)).filter((row) => row.id !== coaster.id).slice(0, 12)
     : [];
 
-  const stats = [
-    coaster.coaster_type ? { label: "Type", value: coaster.coaster_type } : null,
-    coaster.manufacturer ? { label: "Manufacturer", value: coaster.manufacturer } : null,
-    coaster.status ? { label: "Status", value: coaster.status } : null,
-    fmtHeight(coaster.height_ft, units) ? { label: "Height", value: fmtHeight(coaster.height_ft, units)! } : null,
-    fmtLength(coaster.length_ft, units) ? { label: "Length", value: fmtLength(coaster.length_ft, units)! } : null,
-    fmtSpeed(coaster.speed_mph, units) ? { label: "Speed", value: fmtSpeed(coaster.speed_mph, units)! } : null,
-    coaster.inversions != null ? { label: "Inversions", value: String(coaster.inversions) } : null,
-    fmtDuration(coaster.duration_s) ? { label: "Duration", value: fmtDuration(coaster.duration_s)! } : null,
-    coaster.opening_year ? { label: "Opened", value: String(coaster.opening_year) } : null,
-    coaster.closing_year ? { label: "Closed", value: String(coaster.closing_year) } : null,
-  ].filter(Boolean) as { label: string; value: string }[];
+  const wikiSummary = await fetchWikipediaSummaryForCoaster({
+    enwikiTitle: coaster.enwiki_title,
+    wikidataId: coaster.wikidata_id,
+    storedSummary: coaster.summary_text,
+    storedEnwikiTitle: coaster.enwiki_title,
+  });
+  const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+  const bodyIntro =
+    wikiSummary?.extract ??
+    `${name} is a ${coaster.coaster_type || "roller coaster"}${parkLabel ? ` at ${parkLabel}` : ""}${
+      coaster.manufacturer ? `, built by ${coaster.manufacturer}` : ""
+    }${coaster.status ? `. Current catalog status: ${coaster.status}` : "."}`;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "TouristAttraction",
     name,
     url: `${siteUrl}/coasters/${canonicalSlug}`,
-    description: `${name}${parkLabel ? ` at ${parkLabel}` : ""} — roller coaster tracked on CoasterTrak.`,
-    ...(coaster.image_url ? { image: coaster.image_url } : {}),
+    description: clampSummaryText(bodyIntro),
+    ...(displayImage ? { image: displayImage } : {}),
     ...(park
       ? {
           containedInPlace: {
@@ -140,10 +165,10 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         </p>
       ) : null}
 
-      {coaster.image_url ? (
+      {displayImage ? (
         <div className="relative mt-8 aspect-[16/10] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
           <Image
-            src={coaster.image_url}
+            src={displayImage}
             alt={`${name} roller coaster`}
             fill
             className="object-cover"
@@ -153,19 +178,38 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         </div>
       ) : null}
 
-      <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">
-        {name} is a {coaster.coaster_type || "roller coaster"}
-        {parkLabel ? ` at ${parkLabel}` : ""}
-        {coaster.manufacturer ? `, built by ${coaster.manufacturer}` : ""}
-        {coaster.status ? `. Current catalog status: ${coaster.status}` : "."} Use CoasterTrak to log the
-        credit, add it to your wishlist, or find it on the interactive map.
-      </p>
+      <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>
+      {wikiSummary ? (
+        <p className="mt-3 text-sm text-slate-500">
+          Summary from{" "}
+          <a
+            href={wikiSummary.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-amber-700 hover:underline"
+          >
+            Wikipedia
+          </a>
+          . Confirm ride status with the park before visiting.
+        </p>
+      ) : null}
 
-      <StatGrid items={stats} />
+      {(metaPills.length > 0 || measurementPills.length > 0) ? (
+        <div className="mt-8 space-y-3">
+          {metaPills.length > 0 ? <CatalogStatPills pills={metaPills} /> : null}
+          {measurementPills.length > 0 ? <CatalogStatPills pills={measurementPills} /> : null}
+        </div>
+      ) : null}
+
+      <CoasterDetailActions
+        coasterId={coaster.id}
+        status={coaster.status}
+        closingYear={coaster.closing_year}
+      />
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
-          href={`/map?coaster=${coaster.id}`}
+          href={`/map?coaster=${coaster.id}&view=map`}
           className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
         >
           Open on map
@@ -190,25 +234,9 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         <section className="mt-10">
           <h2 className="text-xl font-semibold text-slate-900">More coasters at {park.name}</h2>
           <ul className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {siblings.map((sibling) => {
-              const siblingName = cleanCoasterName(sibling.name);
-              return (
-                <li key={sibling.id}>
-                  <Link
-                    href={`/coasters/${coasterSlug(sibling.name, sibling.id)}`}
-                    className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-900">{siblingName}</p>
-                      <p className="truncate text-xs text-slate-500">
-                        {[sibling.coaster_type, sibling.status].filter(Boolean).join(" · ")}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-semibold text-amber-700">View →</span>
-                  </Link>
-                </li>
-              );
-            })}
+            {siblings.map((sibling) => (
+              <ParkCoasterRow key={sibling.id} coaster={sibling} />
+            ))}
           </ul>
           <p className="mt-3 text-sm text-slate-500">
             <Link

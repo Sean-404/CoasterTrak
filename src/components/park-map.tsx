@@ -3,25 +3,13 @@
 import "leaflet/dist/leaflet.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { createPortal, flushSync } from "react-dom";
-import Link from "next/link";
-import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { useEffect, useMemo, useRef } from "react";
+import { MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
-import {
-  normalizeCoasterDedupKey,
-  preferCoasterForDedup,
-} from "@/lib/coaster-dedup";
-import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
-import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
-import { reconcileCountryWithCoords } from "@/lib/geo-country";
-import { coasterSlug, parkSlug } from "@/lib/slug";
-import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
-import { normalizeLifecycleStatus } from "@/lib/coaster-status";
-import { CoasterActions } from "./coaster-actions";
-import { CoasterThumbnail } from "./coaster-thumbnail";
+import { cleanCoasterName } from "@/lib/display";
+import type { Units } from "@/lib/units";
 
 const icon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
@@ -67,16 +55,19 @@ const CONTINENT_VIEWS: Record<string, { center: [number, number]; zoom: number }
 function MapController({
   continent,
   selectedPark,
-  markerByParkId,
   tightFocus,
+  viewResetKey = 0,
 }: {
   continent: string;
   selectedPark: Park | null;
-  markerByParkId: MutableRefObject<Map<number, L.Marker>>;
   /** Zoom in closer when a specific ride is selected so the right park dominates the view. */
   tightFocus: boolean;
+  /** Bumped when the user explicitly resets the map view. */
+  viewResetKey?: number;
 }) {
   const map = useMap();
+  const prevContinent = useRef(continent);
+  const prevResetKey = useRef(viewResetKey);
 
   useEffect(() => {
     if (!selectedPark) return;
@@ -84,10 +75,6 @@ function MapController({
     map.flyTo([selectedPark.latitude, selectedPark.longitude], targetZoom, {
       duration: 1,
     });
-    // Park-only focus opens the rides popup; a specific ride uses the offset pin instead.
-    if (!tightFocus) {
-      markerByParkId.current.get(selectedPark.id)?.openPopup();
-    }
     return () => {
       try {
         map.stop();
@@ -95,10 +82,18 @@ function MapController({
         /* map not yet ready */
       }
     };
-  }, [selectedPark, map, markerByParkId, tightFocus]);
+  }, [selectedPark, map, tightFocus]);
 
   useEffect(() => {
+    const continentChanged = prevContinent.current !== continent;
+    const resetRequested = prevResetKey.current !== viewResetKey;
+    prevContinent.current = continent;
+    prevResetKey.current = viewResetKey;
+
+    // Stay put when the park panel closes — only reframe for continent filter or Reset map.
     if (selectedPark) return;
+    if (!continentChanged && !resetRequested) return;
+
     if (continent === "All") {
       map.flyTo([25, 10], 2, { duration: 1 });
     } else {
@@ -112,34 +107,42 @@ function MapController({
         /* map not yet ready */
       }
     };
-  }, [continent, map, selectedPark]);
+  }, [continent, map, selectedPark, viewResetKey]);
   return null;
 }
 
-/** Click empty map / Escape to leave a focused ride or park. */
+/** Click empty map / Escape to step back (ride → park → world). */
 function MapClearSelection({
   enabled,
-  onClear,
+  hasCoasterSelected,
+  onClearCoaster,
+  onClearAll,
 }: {
   enabled: boolean;
-  onClear?: () => void;
+  hasCoasterSelected: boolean;
+  onClearCoaster?: () => void;
+  onClearAll?: () => void;
 }) {
   useMapEvents({
     click() {
-      if (enabled) onClear?.();
+      if (!enabled) return;
+      if (hasCoasterSelected) onClearCoaster?.();
+      else onClearAll?.();
     },
   });
 
   useEffect(() => {
-    if (!enabled || !onClear) return;
+    if (!enabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // Park ride sheet handles Escape when open; only clear ride pin focus here.
+      if (!hasCoasterSelected) return;
       event.preventDefault();
-      onClear();
+      onClearCoaster?.();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enabled, onClear]);
+  }, [enabled, hasCoasterSelected, onClearCoaster]);
 
   return null;
 }
@@ -153,198 +156,32 @@ type Props = {
   selectedParkId?: number | null;
   /** Park row for the selected coaster (full catalog), used when markers are filtered out. */
   focusPark?: Park | null;
+  onParkSelect?: (parkId: number) => void;
   onCoasterSelect?: (coasterId: number) => void;
-  /** Clear ride/park focus so the user can browse the wider map again. */
-  onClearSelection?: () => void;
+  /** Clear selected ride but keep park focus (browse siblings). */
+  onClearCoasterSelection?: () => void;
+  /** Clear ride and park focus (keep current map position). */
+  onClearAllSelection?: () => void;
+  /** Clear focus and zoom back to continent/world. */
+  onResetMapView?: () => void;
+  /** Bumped to force world/continent reframing (Reset map). */
+  viewResetKey?: number;
 };
-
-type PreviewState = {
-  imageUrl: string;
-  name: string;
-};
-
-function ParkPopupContent({
-  park,
-  parkCoasters,
-  units = "imperial",
-  selectedCoasterId,
-  onCoasterSelect,
-  onPreview,
-}: {
-  park: Park;
-  parkCoasters: Coaster[];
-  units?: Units;
-  selectedCoasterId?: number | null;
-  onCoasterSelect?: (coasterId: number) => void;
-  onPreview: (payload: PreviewState) => void;
-}) {
-  const [filter, setFilter] = useState("");
-
-  /** Same physical ride: merged spellings + queue variants (e.g. Standby vs Single rider). */
-  const rideGroups = (() => {
-    const byKey = new Map<string, Coaster[]>();
-    const keyByName = new Map<string, string>();
-    for (const coaster of parkCoasters) {
-      const nameKey = normalizeCoasterDedupKey(coaster.name);
-      const wdKeyRaw = coaster.wikidata_id?.trim().toUpperCase();
-      const wdKey = wdKeyRaw ? `wd:${wdKeyRaw}` : null;
-      const existingByWd = wdKey ? byKey.get(wdKey) : undefined;
-      const existingNameGroupKey = keyByName.get(nameKey);
-      const groupKey = existingByWd
-        ? (wdKey as string)
-        : existingNameGroupKey ?? wdKey ?? `name:${nameKey}`;
-      const arr = byKey.get(groupKey) ?? [];
-      arr.push(coaster);
-      byKey.set(groupKey, arr);
-      keyByName.set(nameKey, groupKey);
-    }
-    return Array.from(byKey.values()).map((members) => {
-      let primary = members[0];
-      for (const c of members.slice(1)) {
-        primary = preferCoasterForDedup(primary, c);
-      }
-      if (!primary.image_url) {
-        const withImage = members.find((c) => Boolean(c.image_url));
-        if (withImage?.image_url) primary = { ...primary, image_url: withImage.image_url };
-      }
-      return { members, primary };
-    });
-  })();
-
-  const visible = filter.trim()
-    ? rideGroups.filter((g) => g.members.some((c) => matchesSearchQuery(c.name, filter)))
-    : rideGroups;
-
-  return (
-    <div className="w-64">
-      <h3 className="font-bold text-slate-900">
-        <Link
-          href={`/parks/${parkSlug(park.name, park.id)}`}
-          className="hover:text-amber-800 hover:underline"
-        >
-          {park.name}
-        </Link>
-      </h3>
-      <p className="text-xs text-slate-400">
-        {reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null)}
-      </p>
-      <p className="mt-1">
-        <Link
-          href={`/parks/${parkSlug(park.name, park.id)}`}
-          className="text-[11px] font-semibold text-amber-700 hover:underline"
-        >
-          Park page →
-        </Link>
-      </p>
-
-      {rideGroups.length > 5 && (
-        <input
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          placeholder="Filter rides…"
-          aria-label="Filter rides"
-          className="mt-2 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-amber-400"
-        />
-      )}
-
-      <div className="mt-2 max-h-64 overflow-y-auto pr-0.5">
-        {visible.length === 0 && <p className="text-xs text-slate-400">No matches</p>}
-        {visible.map(({ members, primary: coaster }) => {
-          const lifecycle = normalizeLifecycleStatus(coaster.status, {
-            closingYear: coaster.closing_year,
-          });
-          const isDefunct = lifecycle === "Defunct";
-          const isSelected =
-            selectedCoasterId != null && members.some((member) => member.id === selectedCoasterId);
-
-          const stats: string[] = [];
-          const len = fmtLength(coaster.length_ft, units);
-          const spd = fmtSpeed(coaster.speed_mph, units);
-          const ht = fmtHeight(coaster.height_ft, units);
-          if (len) stats.push(len);
-          if (spd) stats.push(spd);
-          if (ht) stats.push(`${ht} tall`);
-          if (coaster.inversions != null) stats.push(`${coaster.inversions} inv`);
-          const dur = fmtDuration(coaster.duration_s);
-          if (dur) stats.push(dur);
-
-          const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
-          const title = cleanCoasterName(coaster.name);
-          return (
-            <div
-              key={coaster.id}
-              className={`border-t border-slate-100 py-2 first:border-0 ${
-                isSelected ? "rounded-md bg-amber-50 px-1" : ""
-              }`}
-            >
-              <div className="flex items-start gap-2">
-                <CoasterThumbnail
-                  name={title}
-                  imageUrl={coaster.image_url}
-                  sizeClassName="h-10 w-10"
-                  onPreview={onPreview}
-                />
-                <div className="min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => onCoasterSelect?.(coaster.id)}
-                    className="text-left text-sm font-semibold leading-tight text-slate-900 hover:underline"
-                  >
-                    {title}
-                  </button>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    {rideType !== "Unknown" && (
-                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                        {rideType}
-                      </span>
-                    )}
-                    {coaster.manufacturer && (
-                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                        {coaster.manufacturer}
-                      </span>
-                    )}
-                    {isDefunct && (
-                      <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
-                        Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
-                      </span>
-                    )}
-                  </div>
-                  {stats.length > 0 && (
-                    <p className="mt-1 text-[10px] text-slate-400">{stats.join(" · ")}</p>
-                  )}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <Link
-                      href={`/coasters/${coasterSlug(coaster.name, coaster.id)}`}
-                      className="text-[11px] font-semibold text-amber-700 hover:underline"
-                    >
-                      Details
-                    </Link>
-                    <CoasterActions coasterId={coaster.id} disableWishlist={isDefunct} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export function ParkMap({
   parks,
   coasters,
-  units = "imperial",
   continent = "All",
   selectedCoasterId = null,
   selectedParkId = null,
   focusPark = null,
+  onParkSelect,
   onCoasterSelect,
-  onClearSelection,
+  onClearCoasterSelection,
+  onClearAllSelection,
+  onResetMapView,
+  viewResetKey = 0,
 }: Props) {
-  const [preview, setPreview] = useState<PreviewState | null>(null);
-  const markerByParkId = useRef<Map<number, L.Marker>>(new Map());
-  const canPortal = typeof window !== "undefined";
   const selectedPark = useMemo(() => {
     if (!parks.length) return null;
     return parks.find((park) => park.id === selectedParkId) ?? null;
@@ -370,147 +207,106 @@ export function ParkMap({
     return { position, title, parkName: flyTargetPark.name };
   }, [selectedCoaster, flyTargetPark]);
 
-  useEffect(() => {
-    if (!preview) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPreview(null);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [preview]);
-
   return (
-    <>
-      <MapContainer
-        center={[25, 10]}
-        zoom={2}
-        scrollWheelZoom
-        worldCopyJump={false}
-        maxBounds={[
-          [-85, -210],
-          [85, 210],
-        ]}
-        maxBoundsViscosity={0.7}
-        className="h-[65vh] w-full rounded border border-slate-200"
-      >
-        <MapController
-          continent={continent}
-          selectedPark={flyTargetPark}
-          markerByParkId={markerByParkId}
-          tightFocus={selectedCoasterId != null}
-        />
-        <MapClearSelection
-          enabled={hasFocus && preview == null}
-          onClear={onClearSelection}
-        />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        />
-        <MarkerClusterGroup chunkedLoading>
-          {parks.map((park) => {
-            const parkCoasters = coasters.filter((c) => c.park_id === park.id);
-            const dimOthers =
-              selectedParkId != null && park.id !== selectedParkId ? 0.38 : 1;
-            return (
-              <Marker
-                key={park.id}
-                position={[park.latitude, park.longitude]}
-                icon={icon}
-                opacity={dimOthers}
-                zIndexOffset={park.id === selectedParkId ? 500 : 0}
-                ref={(marker) => {
-                  if (marker) {
-                    markerByParkId.current.set(park.id, marker);
-                  } else {
-                    markerByParkId.current.delete(park.id);
-                  }
-                }}
-              >
-                <Popup>
-                  <ParkPopupContent
-                    park={park}
-                    parkCoasters={parkCoasters}
-                    units={units}
-                    selectedCoasterId={selectedCoasterId}
-                    onCoasterSelect={onCoasterSelect}
-                    onPreview={(payload) => {
-                      flushSync(() => {
-                        setPreview(payload);
-                      });
-                    }}
-                  />
-                </Popup>
-              </Marker>
-            );
-          })}
-        </MarkerClusterGroup>
-        {selectedRidePin ? (
-          <Marker
-            position={selectedRidePin.position}
-            icon={selectedRideIcon}
-            zIndexOffset={2500}
-            interactive
-            eventHandlers={{
-              click: (event) => {
-                L.DomEvent.stopPropagation(event);
-              },
-            }}
-          >
-            <Tooltip permanent direction="top" offset={[0, -10]} opacity={1} interactive>
-              <div className="max-w-[12rem] text-center leading-tight">
-                <div className="text-xs font-semibold text-slate-900">{selectedRidePin.title}</div>
-                {selectedRidePin.parkName ? (
-                  <div className="mt-0.5 text-[10px] font-normal text-slate-600">
-                    {selectedRidePin.parkName}
-                  </div>
-                ) : null}
-                {onClearSelection ? (
-                  <button
-                    type="button"
-                    className="mt-1 text-[10px] font-semibold text-amber-700 underline-offset-2 hover:underline"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      onClearSelection();
-                    }}
-                  >
-                    Show full map
-                  </button>
-                ) : null}
-              </div>
-            </Tooltip>
-          </Marker>
-        ) : null}
-      </MapContainer>
-      {canPortal &&
-        preview &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/80 p-4"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => {
-              if (event.target === event.currentTarget) setPreview(null);
-            }}
-          >
-            <button
-              type="button"
-              className="absolute right-4 top-4 min-h-10 min-w-10 rounded-full bg-white/90 px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-white active:scale-95"
-              onClick={() => setPreview(null)}
-            >
-              Close
-            </button>
-            <img
-              src={preview.imageUrl}
-              alt={preview.name}
-              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-              referrerPolicy="no-referrer"
-              onClick={(event) => event.stopPropagation()}
+    <MapContainer
+      center={[25, 10]}
+      zoom={2}
+      scrollWheelZoom={typeof window !== "undefined" ? window.matchMedia("(pointer: fine)").matches : true}
+      worldCopyJump={false}
+      maxBounds={[
+        [-85, -210],
+        [85, 210],
+      ]}
+      maxBoundsViscosity={0.7}
+      className="h-[min(72vh,560px)] w-full rounded border border-slate-200 sm:h-[65vh]"
+    >
+      <MapController
+        continent={continent}
+        selectedPark={flyTargetPark}
+        tightFocus={selectedCoasterId != null}
+        viewResetKey={viewResetKey}
+      />
+      <MapClearSelection
+        enabled={hasFocus}
+        hasCoasterSelected={selectedCoasterId != null}
+        onClearCoaster={onClearCoasterSelection}
+        onClearAll={onClearAllSelection}
+      />
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+      />
+      <MarkerClusterGroup chunkedLoading>
+        {parks.map((park) => {
+          const dimOthers = selectedParkId != null && park.id !== selectedParkId ? 0.38 : 1;
+          return (
+            <Marker
+              key={park.id}
+              position={[park.latitude, park.longitude]}
+              icon={icon}
+              opacity={dimOthers}
+              zIndexOffset={park.id === selectedParkId ? 500 : 0}
+              eventHandlers={{
+                click: (event) => {
+                  L.DomEvent.stopPropagation(event);
+                  onParkSelect?.(park.id);
+                },
+              }}
             />
-          </div>,
-          document.body,
-        )}
-    </>
+          );
+        })}
+      </MarkerClusterGroup>
+      {selectedRidePin ? (
+        <Marker
+          position={selectedRidePin.position}
+          icon={selectedRideIcon}
+          zIndexOffset={2500}
+          interactive
+          eventHandlers={{
+            click: (event) => {
+              L.DomEvent.stopPropagation(event);
+              if (selectedCoasterId != null) onCoasterSelect?.(selectedCoasterId);
+            },
+          }}
+        >
+          <Tooltip permanent direction="top" offset={[0, -10]} opacity={1} interactive>
+            <div className="max-w-[12rem] text-center leading-tight">
+              <div className="text-xs font-semibold text-slate-900">{selectedRidePin.title}</div>
+              {selectedRidePin.parkName ? (
+                <div className="mt-0.5 text-[10px] font-normal text-slate-600">
+                  {selectedRidePin.parkName}
+                </div>
+              ) : null}
+              {onClearCoasterSelection ? (
+                <button
+                  type="button"
+                  className="mt-1 text-[10px] font-semibold text-amber-700 underline-offset-2 hover:underline"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onClearCoasterSelection();
+                  }}
+                >
+                  All rides here
+                </button>
+              ) : null}
+              {onResetMapView ? (
+                <button
+                  type="button"
+                  className="mt-0.5 block w-full text-[10px] font-medium text-slate-500 underline-offset-2 hover:underline"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onResetMapView();
+                  }}
+                >
+                  Reset map
+                </button>
+              ) : null}
+            </div>
+          </Tooltip>
+        </Marker>
+      ) : null}
+    </MapContainer>
   );
 }

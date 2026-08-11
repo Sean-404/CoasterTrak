@@ -20,7 +20,8 @@ import { normalizeCoasterDedupKey } from "../src/lib/coaster-dedup";
 import { reconcileCountryWithCoords } from "../src/lib/geo-country";
 import { haversineKm } from "../src/lib/geo";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
-import { isLikelyWaterParkName, parkNamesMatch } from "../src/lib/park-match";
+import { isCatalogHiddenParkName, isLikelyWaterParkName, parkNamesMatch } from "../src/lib/park-match";
+import { resolveParkForWikidataRow } from "../src/lib/relink-placeholder-parks";
 import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import {
   inferCoasterType,
@@ -84,6 +85,7 @@ type CoasterUpdate = {
   external_source: "wikidata";
   external_id: string;
   last_synced_at: string;
+  park_id?: number;
   length_ft?: number;
   speed_mph?: number;
   height_ft?: number;
@@ -483,7 +485,7 @@ function pickBestMatch(
  */
 async function insertParkFromWikidataRow(wd: WikidataCoasterRow): Promise<DbPark | null> {
   const label = wd.parkLabel?.trim();
-  if (!label) return null;
+  if (!label || isCatalogHiddenParkName(label) || isPlaceholderLikeParkLabel(label)) return null;
   if (
     wd.latitude == null ||
     wd.longitude == null ||
@@ -815,6 +817,22 @@ async function main() {
   const coasters = dbCoasters;
   console.error(`  ${coasters.length} DB coasters loaded.`);
 
+  console.error("Loading parks from Supabase...");
+  const { data: dbParksEarly, error: parksEarlyErr } = await fetchAllPages<DbPark>(
+    SUPABASE_PAGE_SIZE,
+    (from, to) =>
+      supabase
+        .from("parks")
+        .select("id, name, country, latitude, longitude, external_source, external_id")
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
+  if (parksEarlyErr) {
+    console.error("Could not load parks:", parksEarlyErr.message);
+    process.exit(1);
+  }
+  const parksForRelink = dbParksEarly;
+
   const index = buildIndex(coasters);
 
   const byWikidataId = new Map<string, DbCoaster>();
@@ -883,6 +901,22 @@ async function main() {
       update.coaster_type = inferredType;
     }
 
+    // Legacy CSV dumped rides under park "Other" — move when Wikidata names a real park.
+    if (isCatalogHiddenParkName(match.parks?.name)) {
+      const target = resolveParkForWikidataRow(wd, parksForRelink);
+      if (target && target.id !== match.park_id) {
+        const nameConflict = coasters.some(
+          (c) =>
+            c.id !== match.id &&
+            c.park_id === target.id &&
+            normalizeNameKey(c.name) === normalizeNameKey(match.name),
+        );
+        if (!nameConflict) {
+          update.park_id = target.id;
+        }
+      }
+    }
+
     updates.push(update);
   }
 
@@ -935,21 +969,7 @@ async function main() {
   // -------------------------------------------------------------------------
   console.error(`\nChecking ${unmatched.length} unmatched Wikidata entries for insertable new rides...`);
 
-  const { data: dbParks, error: parksErr } = await fetchAllPages<DbPark>(
-    SUPABASE_PAGE_SIZE,
-    (from, to) =>
-      supabase
-        .from("parks")
-        .select("id, name, country, latitude, longitude, external_source, external_id")
-        .order("id", { ascending: true })
-        .range(from, to),
-  );
-  if (parksErr) {
-    console.error("Could not load parks:", parksErr.message);
-    return;
-  }
-
-  const allDbParks = dbParks;
+  const allDbParks = parksForRelink;
 
   // Index parks by normalised name for fast exact-match lookup
   const parkByName = new Map<string, DbPark>();
