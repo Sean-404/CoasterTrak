@@ -38,5 +38,11 @@ describe("catalog-pagination", () => {
   it("builds hrefs without page=1", () => {
     expect(catalogHref("/coasters", { page: 1 })).toBe("/coasters");
     expect(catalogHref("/coasters", { q: "nemesis", page: 2 })).toBe("/coasters?q=nemesis&page=2");
+    expect(catalogHref("/parks", { country: "United Kingdom", page: 2 })).toBe(
+      "/parks?country=United+Kingdom&page=2",
+    );
+    expect(catalogHref("/parks", { q: "alton", country: "United Kingdom" })).toBe(
+      "/parks?q=alton&country=United+Kingdom",
+    );
   });
 });

@@ -13,6 +13,20 @@ export function cleanCoasterName(name: string): string {
     .trim();
 }
 
+/**
+ * Wikipedia multi-install manufacturer cells often lose `<br>` separators when scraped,
+ * producing strings like "Arrow Development (Florida)Dynamic Structures (rebuild)".
+ * Also strip leftover wiki markup brackets.
+ */
+export function normalizeManufacturerLabel(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  let s = raw.replace(/[\[\]]+/g, "").replace(/\s+/g, " ").trim();
+  if (!s) return null;
+  s = s.replace(/\)(?=[A-Z])/g, ") · ");
+  s = s.replace(/\s*·\s*/g, " · ").trim();
+  return s || null;
+}
+
 /** "Park name · Country" when country is known — disambiguates Disney/Universal and other chains. */
 export function formatParkLabel(
   name: string | null | undefined,

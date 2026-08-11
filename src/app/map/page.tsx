@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { CoasterActions } from "@/components/coaster-actions";
@@ -612,9 +620,13 @@ function MapPageContent() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setSearch(searchInput);
-    }, 180);
+      setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
+
+  // Keep the input snappy; heavy park/ride filtering can lag a frame behind.
+  const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -804,25 +816,25 @@ function MapPageContent() {
     return parkOptions.filter((park) => {
       if (activeParkFilter != null && park.id !== activeParkFilter) return false;
       const bySearch =
-        matchesSearchQuery(park.name, search) ||
+        matchesSearchQuery(park.name, deferredSearch) ||
         visibleCoasters
           .filter((c) => c.park_id === park.id)
-          .some((c) => matchesSearchQuery(c.name, search));
+          .some((c) => matchesSearchQuery(c.name, deferredSearch));
       return bySearch;
     });
-  }, [parkOptions, parkFilter, search, viewMode, visibleCoasters]);
+  }, [parkOptions, parkFilter, deferredSearch, viewMode, visibleCoasters]);
 
   const filteredParkIds = useMemo(() => new Set(filteredParks.map((park) => park.id)), [filteredParks]);
 
   const coasterNameMatches = useMemo(() => {
-    const q = search.trim();
+    const q = deferredSearch.trim();
     if (!q) return new Set<number>();
     const ids = new Set<number>();
     for (const coaster of visibleCoasters) {
       if (matchesSearchQuery(coaster.name, q)) ids.add(coaster.id);
     }
     return ids;
-  }, [search, visibleCoasters]);
+  }, [deferredSearch, visibleCoasters]);
 
   const hasCoasterNameMatches = coasterNameMatches.size > 0;
 
@@ -858,12 +870,12 @@ function MapPageContent() {
 
     for (const coaster of visibleCoasters) {
       if (!filteredParkIds.has(coaster.park_id)) continue;
-      if (search.trim()) {
+      if (deferredSearch.trim()) {
         if (hasCoasterNameMatches) {
           if (!coasterNameMatches.has(coaster.id)) continue;
         } else {
           const parkName = dedupedParkById.get(coaster.park_id)?.name ?? "";
-          if (!matchesSearchQuery(parkName, search)) continue;
+          if (!matchesSearchQuery(parkName, deferredSearch)) continue;
         }
       }
       const existing = findExisting(coaster);
@@ -903,7 +915,7 @@ function MapPageContent() {
     visibleCoasters,
     dedupedParkById,
     filteredParkIds,
-    search,
+    deferredSearch,
     hasCoasterNameMatches,
     coasterNameMatches,
     dedupLookupKeysByCoasterId,
@@ -1060,10 +1072,7 @@ function MapPageContent() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <input
               value={searchInput}
-              onChange={(e) => {
-                setSearchInput(e.target.value);
-                setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
-              }}
+              onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by park or coaster…"
               aria-label="Search by park or coaster"
               className="w-full min-w-0 rounded border border-slate-300 px-3 py-2 sm:w-80"

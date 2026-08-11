@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type CatalogSearchFormProps = {
@@ -9,34 +9,47 @@ type CatalogSearchFormProps = {
   label: string;
   /** Initial query from the server (URL `q` param). */
   initialQuery?: string;
+  className?: string;
 };
 
 /**
  * Debounced catalog search that syncs to `?q=` without a full page jump.
  * Clears `page` when the query changes so results start from page 1.
+ *
+ * Local input state is authoritative while typing. We only adopt the URL into
+ * the field on external navigation (back/forward). Syncing from server
+ * `initialQuery` after each replace was eating keystrokes mid-type.
  */
 export function CatalogSearchForm({
   placeholder,
   label,
   initialQuery = "",
+  className = "mt-6",
 }: CatalogSearchFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [value, setValue] = useState(initialQuery);
   const [isPending, startTransition] = useTransition();
+  const committedQueryRef = useRef(initialQuery.trim());
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
 
+  // Browser back/forward (or any URL `q` change we did not just commit).
   useEffect(() => {
-    setValue(initialQuery);
-  }, [initialQuery]);
+    const fromUrl = (searchParams.get("q") ?? "").trim();
+    if (fromUrl === committedQueryRef.current) return;
+    committedQueryRef.current = fromUrl;
+    setValue(fromUrl);
+  }, [searchParams]);
 
   useEffect(() => {
     const trimmed = value.trim();
-    const current = (searchParams.get("q") ?? "").trim();
-    if (trimmed === current) return;
+    if (trimmed === committedQueryRef.current) return;
 
     const timer = window.setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
+      committedQueryRef.current = trimmed;
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       if (trimmed) params.set("q", trimmed);
       else params.delete("q");
       params.delete("page");
@@ -44,13 +57,13 @@ export function CatalogSearchForm({
       startTransition(() => {
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       });
-    }, 280);
+    }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [value, pathname, router, searchParams]);
+  }, [value, pathname, router]);
 
   return (
-    <div className="mt-6">
+    <div className={className}>
       <label className="sr-only" htmlFor="catalog-search">
         {label}
       </label>

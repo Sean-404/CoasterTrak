@@ -9,6 +9,7 @@ type Props = {
   from: number;
   to: number;
   query?: string;
+  country?: string;
   itemLabel: string;
 };
 
@@ -20,6 +21,7 @@ export function CatalogPagination({
   from,
   to,
   query = "",
+  country = "",
   itemLabel,
 }: Props) {
   if (total === 0 || totalPages <= 1) {
@@ -34,6 +36,7 @@ export function CatalogPagination({
   const prev = page > 1 ? page - 1 : null;
   const next = page < totalPages ? page + 1 : null;
   const windowPages = visiblePages(page, totalPages);
+  const hrefOpts = { q: query, country };
 
   return (
     <nav
@@ -46,7 +49,7 @@ export function CatalogPagination({
       <div className="flex flex-wrap items-center gap-1.5">
         {prev != null ? (
           <Link
-            href={catalogHref(path, { q: query, page: prev })}
+            href={catalogHref(path, { ...hrefOpts, page: prev })}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400"
             rel="prev"
           >
@@ -66,7 +69,7 @@ export function CatalogPagination({
           ) : (
             <Link
               key={entry}
-              href={catalogHref(path, { q: query, page: entry })}
+              href={catalogHref(path, { ...hrefOpts, page: entry })}
               aria-current={entry === page ? "page" : undefined}
               className={`min-w-9 rounded-lg px-2.5 py-1.5 text-center text-sm font-semibold transition ${
                 entry === page
@@ -81,7 +84,7 @@ export function CatalogPagination({
 
         {next != null ? (
           <Link
-            href={catalogHref(path, { q: query, page: next })}
+            href={catalogHref(path, { ...hrefOpts, page: next })}
             className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400"
             rel="next"
           >

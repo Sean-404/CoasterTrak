@@ -483,12 +483,12 @@ export default function AccountPage() {
               <div className="flex items-start gap-4">
                 <ProfileAvatar avatarKey={avatarKey} name={displayName} size="lg" title="Your avatar" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Signed in as</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{email}</p>
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Display name</p>
-                  <p className="mt-1 text-sm text-slate-700">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Display name</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
                     {displayName.trim() ? displayName : "Not set yet"}
                   </p>
+                  <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Signed in as</p>
+                  <p className="mt-1 truncate text-sm text-slate-600">{email}</p>
                 </div>
               </div>
               <p className="mt-3 text-xs font-semibold uppercase tracking-widest text-slate-400">Country</p>

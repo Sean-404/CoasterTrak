@@ -1,9 +1,10 @@
 /**
- * Parse English Wikipedia {{Infobox roller coaster}} wikitext for numeric stats.
- * Used as a fallback when Wikidata rows lack measurements. Does not scrape HTML —
- * callers should use the MediaWiki API (action=query&prop=revisions) to fetch wikitext.
+ * Parse English Wikipedia roller-coaster infobox wikitext for catalog fields.
+ * Supports `{{Infobox roller coaster}}` and `{{Infobox dual roller coaster}}`.
+ * Does not scrape HTML — uses MediaWiki API revisions.
  */
 
+import { normalizeManufacturerLabel } from "@/lib/display";
 import {
   parseDurationSecondsFromText,
   WIKIDATA_USER_AGENT,
@@ -15,12 +16,16 @@ export type InfoboxCoasterStats = {
   speed_mph?: number;
   inversions?: number;
   duration_s?: number;
+  manufacturer?: string;
+  coaster_type?: string;
 };
 
-/** Extract `{{Infobox roller coaster … }}` including nested templates. */
-function extractInfoboxRollerCoasterBlock(wikitext: string): string | null {
-  const re = /\{\{\s*[Ii]nfobox\s+roller\s+coaster\b/;
-  const m = re.exec(wikitext);
+const INFOBOX_START_RE =
+  /\{\{\s*[Ii]nfobox\s+(?:dual\s+)?roller\s+coaster\b/;
+
+/** Extract the first roller-coaster infobox block, including nested templates. */
+export function extractInfoboxRollerCoasterBlock(wikitext: string): string | null {
+  const m = INFOBOX_START_RE.exec(wikitext);
   if (!m) return null;
   let i = m.index;
   let depth = 0;
@@ -124,76 +129,129 @@ function parseParamsFromBlock(block: string): Map<string, string> {
   return map;
 }
 
+function pickParam(p: Map<string, string>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = p.get(key);
+    if (v?.trim()) return v;
+  }
+  return undefined;
+}
+
+/** Strip wiki markup from an infobox cell for display fields. */
+export function cleanInfoboxWikiValue(val: string): string {
+  return val
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/\{\{[^}]*\}\}/g, " ")
+    .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1")
+    .replace(/<br\s*\/?>/gi, " · ")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/'{2,}/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseCoasterType(raw: string): string | undefined {
+  const cleaned = cleanInfoboxWikiValue(raw);
+  const m = /\b(steel|wood|wooden|hybrid)\b/i.exec(cleaned);
+  if (!m) return undefined;
+  const t = m[1].toLowerCase();
+  if (t === "wood" || t === "wooden") return "Wood";
+  if (t === "hybrid") return "Hybrid";
+  return "Steel";
+}
+
+function parseManufacturer(raw: string): string | undefined {
+  const cleaned = cleanInfoboxWikiValue(raw);
+  const normalized = normalizeManufacturerLabel(cleaned);
+  if (!normalized) return undefined;
+  // Multi-install Wikipedia pages sometimes list every park's builder in one cell —
+  // keep those usable, but drop empty/noise.
+  if (normalized.length > 160) return undefined;
+  return normalized;
+}
+
 /**
- * Read stats from full page wikitext. Returns partial object; only include fields present in infobox.
+ * Read stats + type/manufacturer from full page wikitext.
+ * Returns a partial object; only include fields present in the infobox.
  */
-function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxCoasterStats {
+export function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxCoasterStats {
   const block = extractInfoboxRollerCoasterBlock(wikitext);
   if (!block) return {};
   const p = parseParamsFromBlock(block);
   const out: InfoboxCoasterStats = {};
 
-  const lf = p.get("length_ft") ?? p.get("length");
+  const lf = pickParam(p, ["length_ft", "length", "length1_ft", "length1"]);
   if (lf) {
     const n = firstNumberFromConvertOrPlain(lf, "ft");
     if (n != null) out.length_ft = n;
   }
 
-  const hf = p.get("height_ft") ?? p.get("height");
+  const hf = pickParam(p, ["height_ft", "height", "height1_ft", "height1"]);
   if (hf) {
     const n = firstNumberFromConvertOrPlain(hf, "ft");
     if (n != null) out.height_ft = n;
   }
 
-  const sp = p.get("speed_mph") ?? p.get("speed");
+  const sp = pickParam(p, ["speed_mph", "speed", "speed1_mph", "speed1"]);
   if (sp) {
     const n = firstNumberFromConvertOrPlain(sp, "mph");
     if (n != null) out.speed_mph = n;
   }
 
-  const inv = p.get("inversions");
+  const inv = pickParam(p, ["inversions", "inversions1"]);
   if (inv) {
-    const stripped = inv.replace(/\{\{[^}]*\}\}/g, "").trim();
-    // Reject values like "2:28" (duration leak) or "2 trains" (only a leading digit would wrongly match).
+    const stripped = cleanInfoboxWikiValue(inv);
     const m = /^(\d{1,2})\s*$/.exec(stripped);
     if (m) out.inversions = parseInt(m[1], 10);
   }
 
-  const dur = p.get("duration");
+  const dur = pickParam(p, ["duration", "duration1"]);
   if (dur) {
     const s = parseDurationSecondsFromText(dur);
     if (s != null) out.duration_s = s;
   }
 
+  const manufacturer = pickParam(p, ["manufacturer", "builder"]);
+  if (manufacturer) {
+    const mfr = parseManufacturer(manufacturer);
+    if (mfr) out.manufacturer = mfr;
+  }
+
+  const typeRaw = pickParam(p, ["type", "coaster_type"]);
+  if (typeRaw) {
+    const ct = parseCoasterType(typeRaw);
+    if (ct) out.coaster_type = ct;
+  }
+
   return out;
 }
 
+type WikiPage = {
+  missing?: boolean;
+  revisions?: Array<{
+    slots?: { main?: { content?: string } };
+    content?: string;
+  }>;
+};
+
 type WikiQueryResponse = {
   query?: {
-    pages?: Record<
-      string,
-      {
-        missing?: boolean;
-        revisions?: Array<{
-          slots?: { main?: { content?: string } };
-          content?: string;
-        }>;
-      }
-    >;
+    pages?: WikiPage[] | Record<string, WikiPage>;
   };
 };
 
 function revisionWikitext(json: WikiQueryResponse): string | null {
   const pages = json.query?.pages;
   if (!pages) return null;
-  for (const page of Object.values(pages)) {
+  const list = Array.isArray(pages) ? pages : Object.values(pages);
+  for (const page of list) {
     if (page.missing) continue;
     const r = page.revisions?.[0];
     if (!r) continue;
     const fromSlot = r.slots?.main?.content;
     if (typeof fromSlot === "string") return fromSlot;
-    const legacy = (r as { content?: string }).content;
-    if (typeof legacy === "string") return legacy;
+    if (typeof r.content === "string") return r.content;
   }
   return null;
 }
@@ -201,7 +259,7 @@ function revisionWikitext(json: WikiQueryResponse): string | null {
 /**
  * Fetch main-slot wikitext for an English Wikipedia article title (with redirects followed).
  */
-async function fetchEnwikiWikitext(title: string): Promise<string | null> {
+export async function fetchEnwikiWikitext(title: string): Promise<string | null> {
   const url = new URL("https://en.wikipedia.org/w/api.php");
   url.searchParams.set("action", "query");
   url.searchParams.set("format", "json");
@@ -220,7 +278,9 @@ async function fetchEnwikiWikitext(title: string): Promise<string | null> {
   return revisionWikitext(json);
 }
 
-export async function fetchInfoboxStatsForEnwikiTitle(title: string): Promise<InfoboxCoasterStats | null> {
+export async function fetchInfoboxStatsForEnwikiTitle(
+  title: string,
+): Promise<InfoboxCoasterStats | null> {
   const wt = await fetchEnwikiWikitext(title);
   if (!wt) return null;
   const stats = parseInfoboxCoasterStatsFromWikitext(wt);

@@ -2,6 +2,7 @@ import {
   sanitizeCoasterImageUrl,
   shouldSkipWikidataCoasterId,
 } from "@/lib/coaster-known-fixes";
+import { normalizeManufacturerLabel } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   findNearestParkForCoords,
@@ -57,6 +58,7 @@ const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q4827808: "Nickelodeon Universe", // Avatar Airbender (MoA) — not Blackpool
   Q319758: "Europa-Park", // Schweizer Bobbahn — not Heide Park
   Q2260635: "Kings Island", // Woodstock Express — not Geauga Lake
+  Q22666883: "Shanghai Disney Resort", // Tron Lightcycle Power Run — not Other
 };
 
 /** US mainland longitudes are west; some feeds store the absolute value. */
@@ -177,7 +179,7 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     name,
     wikidata_id: wd.wikidataId,
     coaster_type: inferred,
-    manufacturer: wd.manufacturerLabel ?? null,
+    manufacturer: wd.manufacturerLabel ? normalizeManufacturerLabel(wd.manufacturerLabel) : null,
     image_url: sanitizeCoasterImageUrl(wd.imageUrl ?? null),
     status,
     ...(wd.lengthFt != null ? { length_ft: Math.round(wd.lengthFt) } : {}),

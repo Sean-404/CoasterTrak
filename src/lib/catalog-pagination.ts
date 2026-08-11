@@ -38,11 +38,13 @@ export function sliceCatalogPage<T>(
 
 export function catalogHref(
   path: string,
-  opts: { q?: string; page?: number },
+  opts: { q?: string; country?: string; page?: number },
 ): string {
   const params = new URLSearchParams();
   const q = opts.q?.trim();
   if (q) params.set("q", q);
+  const country = opts.country?.trim();
+  if (country) params.set("country", country);
   if (opts.page != null && opts.page > 1) params.set("page", String(opts.page));
   const qs = params.toString();
   return qs ? `${path}?${qs}` : path;

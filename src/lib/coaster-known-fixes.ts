@@ -1,4 +1,5 @@
 import type { Coaster } from "@/types/domain";
+import { normalizeManufacturerLabel } from "@/lib/display";
 
 /** Generic guard: suppress incident/disaster-style image URLs from Wikidata/Commons. */
 export function isLikelyIncidentImageUrl(url: string | null | undefined): boolean {
@@ -88,6 +89,21 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     status: "Operating",
     image_url:
       "https://commons.wikimedia.org/wiki/Special:FilePath/Alton%20Towers%20-%20Nemesis%20Reborn%205-9-2025.jpg",
+  },
+  // Magic Kingdom — Wikipedia multi-park manufacturer blob wrongly attached
+  Q85474505: { manufacturer: "Arrow Development" },
+  // Disneyland Space Mountain — current track work / rebuild attribution
+  Q11704022: { manufacturer: "Dynamic Structures" },
+  // Magic Kingdom TRON — WD has length only; type is launched subclass, no P176
+  Q123594444: {
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Vekoma",
+    height_ft: 78,
+    speed_mph: 59,
+    length_ft: 3169,
+    inversions: 0,
+    duration_s: 60,
   },
   // Alton Towers historical
   Q3338910: { name: "Beast", status: "Defunct" },
@@ -251,6 +267,10 @@ export function applyCoasterKnownFixes<
   const cleaned = sanitizeCoasterImageUrl(out.image_url ?? null);
   if (cleaned !== out.image_url) {
     out = { ...out, image_url: cleaned };
+  }
+  const manufacturer = normalizeManufacturerLabel(out.manufacturer ?? null);
+  if (manufacturer !== (out.manufacturer ?? null)) {
+    out = { ...out, manufacturer };
   }
   return out;
 }

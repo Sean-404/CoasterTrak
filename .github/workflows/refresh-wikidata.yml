@@ -35,7 +35,7 @@ jobs:
         run: npm run data:materialize-snapshot -- --latest
 
       - name: Enrich from Wikipedia infoboxes
-        run: npm run data:enrich-wikipedia -- --enrich-limit 1000
+        run: npm run data:enrich-wikipedia -- --enrich-limit 2500
 
       - name: Analyze catalog (dedupe + ThemeParks snapshot verify)
         run: npm run data:analyze-catalog -- --in data/wikidata_coasters.json --fail-on-duplicates --max-parks 170
@@ -62,14 +62,15 @@ jobs:
             data/published/wikidata/**/*
             data/reports/wikidata/**/*
 
-      - name: Backfill missing stats from Wikipedia infoboxes (DB)
+      # Catalog-wide gap fill after publish: stats, type, manufacturer from enwiki infoboxes.
+      - name: Backfill missing fields from Wikipedia infoboxes (DB)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/wikipedia-infobox-backfill.ts --limit 1000 --delay-ms 250
+        run: npx tsx scripts/wikipedia-infobox-backfill.ts --limit 2500 --delay-ms 200
 
       - name: Backfill missing images from Wikipedia summaries (DB)
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/backfill-wikipedia-images.ts --limit 1000 --delay-ms 250
+        run: npx tsx scripts/backfill-wikipedia-images.ts --limit 1500 --delay-ms 200
