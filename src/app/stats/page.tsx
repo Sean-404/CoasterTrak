@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { applyRideCredit } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { RiddenRideSheet } from "@/components/ridden-ride-sheet";
 import { SiteHeader } from "@/components/site-header";
@@ -25,6 +26,12 @@ import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { loadRideCreditSummaries, logRideEvents, summariesByCoasterId } from "@/lib/ride-log";
+import {
+  buildStatsCopyText,
+  formatRideCount,
+  type RideCreditSummary,
+} from "@/lib/ride-history";
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
@@ -53,10 +60,36 @@ type RideRow = {
   coaster_id: number;
   rating: number | null;
   ridden_at?: string | null;
+  total_rides: number;
+  first_ridden_on: string | null;
+  last_ridden_on: string | null;
   coasters?: RideCoaster | null;
 };
 
-type RideSort = "name" | "rating" | "recent";
+type RideSort = "name" | "rating" | "recent" | "rides";
+type RideCountFilter = "any" | "1" | "2+" | "3+" | "5+" | "10+";
+
+function rideCountMatches(totalRides: number, filter: RideCountFilter): boolean {
+  const n = Math.max(1, totalRides);
+  if (filter === "any") return true;
+  if (filter === "1") return n === 1;
+  if (filter === "2+") return n >= 2;
+  if (filter === "3+") return n >= 3;
+  if (filter === "5+") return n >= 5;
+  return n >= 10;
+}
+
+function recencyTimestamp(ride: RideRow): number {
+  if (ride.last_ridden_on) {
+    const t = Date.parse(`${ride.last_ridden_on}T00:00:00`);
+    return Number.isFinite(t) ? t : 0;
+  }
+  if (ride.ridden_at) {
+    const t = Date.parse(ride.ridden_at);
+    return Number.isFinite(t) ? t : 0;
+  }
+  return 0;
+}
 
 type ProfileRow = {
   display_name: string | null;
@@ -144,6 +177,11 @@ const RiddenRideRow = memo(function RiddenRideRow({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {ride.total_rides > 1 && (
+            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600">
+              ×{ride.total_rides}
+            </span>
+          )}
           {/* Compact on narrow screens so stars/sort don't get clipped */}
           <span
             className={`text-xs font-semibold tabular-nums sm:hidden ${
@@ -167,6 +205,7 @@ const RiddenRideRow = memo(function RiddenRideRow({
   );
 }, (prev, next) =>
   prev.ride === next.ride &&
+  prev.ride.total_rides === next.ride.total_rides &&
   prev.selected === next.selected &&
   prev.canEdit === next.canEdit &&
   prev.onOpen === next.onOpen
@@ -275,8 +314,10 @@ function StatsPageContent() {
   const [activeStatsUserId, setActiveStatsUserId] = useState<string | null>(null);
   const [removing, setRemoving] = useState<number | null>(null);
   const [savingRating, setSavingRating] = useState(false);
+  const [loggingRide, setLoggingRide] = useState(false);
   const [selectedCoasterId, setSelectedCoasterId] = useState<number | null>(null);
   const [rideSort, setRideSort] = useState<RideSort>("name");
+  const [rideCountFilter, setRideCountFilter] = useState<RideCountFilter>("any");
   const [fetchError, setFetchError] = useState(false);
   const [friendAccessDenied, setFriendAccessDenied] = useState(false);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
@@ -328,7 +369,7 @@ function StatsPageContent() {
         }
       }
 
-      const [profileRes, ridesRes, friendCountRes] = await Promise.all([
+      const [profileRes, ridesRes, friendCountRes, summariesRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("display_name, favorite_ride_id, favorite_park_id")
@@ -341,6 +382,7 @@ function StatsPageContent() {
           )
           .eq("user_id", targetUserId),
         supabase.rpc("accepted_friend_count", { target: targetUserId }),
+        loadRideCreditSummaries(supabase, targetUserId),
       ]);
 
       if (ridesRes.error) {
@@ -349,12 +391,19 @@ function StatsPageContent() {
 
       setFriendCount(typeof friendCountRes.data === "number" ? friendCountRes.data : 0);
       const rows = (ridesRes.data ?? []) as unknown as RideRow[];
-      const mapped = rows.map((r) => ({
-        ...r,
-        rating: typeof r.rating === "number" ? r.rating : null,
-        ridden_at: r.ridden_at ?? null,
-        coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
-      }));
+      const summaryMap = summariesByCoasterId(summariesRes.summaries);
+      const mapped = rows.map((r) => {
+        const summary = summaryMap.get(r.coaster_id);
+        return {
+          ...r,
+          rating: typeof r.rating === "number" ? r.rating : null,
+          ridden_at: r.ridden_at ?? null,
+          total_rides: summary?.totalRides ?? 1,
+          first_ridden_on: summary?.firstRiddenOn ?? null,
+          last_ridden_on: summary?.lastRiddenOn ?? null,
+          coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
+        };
+      });
       const hydrated = await fillMissingRideImages(mapped, supabase);
       setRides(hydrated);
 
@@ -529,6 +578,21 @@ function StatsPageContent() {
       fastest: best("speed_mph"),
       mostInversions: best("inversions"),
       longestDuration: best("duration_s"),
+      mostRidden: (() => {
+        let top: RecordEntry | null = null;
+        for (const r of filteredUniqueRides) {
+          const v = r.total_rides ?? 1;
+          if (v <= 1) continue;
+          if (top === null || v > top.value) {
+            top = {
+              name: cleanCoasterName(r.coasters?.name ?? ""),
+              park: formatParkLabel(r.coasters?.parks?.name, r.coasters?.parks?.country),
+              value: v,
+            };
+          }
+        }
+        return top;
+      })(),
     };
   }, [filteredUniqueRides]);
 
@@ -537,19 +601,19 @@ function StatsPageContent() {
   const [rideFilter, setRideFilter] = useState("");
 
   const filteredRides = useMemo(() => {
-    const searched = !rideFilter.trim()
-      ? filteredUniqueRides
-      : filteredUniqueRides.filter((r) => {
-          const c = r.coasters;
-          return (
-            matchesSearchQuery(cleanCoasterName(c?.name ?? ""), rideFilter) ||
-            matchesSearchQuery(c?.parks?.name ?? "", rideFilter) ||
-            matchesSearchQuery(c?.parks?.country ?? "", rideFilter) ||
-            matchesSearchQuery(c?.coaster_type ?? "", rideFilter) ||
-            matchesSearchQuery(effectiveCoasterType(c?.coaster_type, c?.manufacturer), rideFilter) ||
-            matchesSearchQuery(c?.manufacturer ?? "", rideFilter)
-          );
-        });
+    const searched = filteredUniqueRides.filter((r) => {
+      if (!rideCountMatches(r.total_rides || 1, rideCountFilter)) return false;
+      if (!rideFilter.trim()) return true;
+      const c = r.coasters;
+      return (
+        matchesSearchQuery(cleanCoasterName(c?.name ?? ""), rideFilter) ||
+        matchesSearchQuery(c?.parks?.name ?? "", rideFilter) ||
+        matchesSearchQuery(c?.parks?.country ?? "", rideFilter) ||
+        matchesSearchQuery(c?.coaster_type ?? "", rideFilter) ||
+        matchesSearchQuery(effectiveCoasterType(c?.coaster_type, c?.manufacturer), rideFilter) ||
+        matchesSearchQuery(c?.manufacturer ?? "", rideFilter)
+      );
+    });
 
     const sorted = [...searched];
     if (rideSort === "rating") {
@@ -563,9 +627,18 @@ function StatsPageContent() {
       });
     } else if (rideSort === "recent") {
       sorted.sort((a, b) => {
-        const at = a.ridden_at ? Date.parse(a.ridden_at) : 0;
-        const bt = b.ridden_at ? Date.parse(b.ridden_at) : 0;
+        const at = recencyTimestamp(a);
+        const bt = recencyTimestamp(b);
         if (bt !== at) return bt - at;
+        return cleanCoasterName(a.coasters?.name ?? "").localeCompare(
+          cleanCoasterName(b.coasters?.name ?? ""),
+        );
+      });
+    } else if (rideSort === "rides") {
+      sorted.sort((a, b) => {
+        const ac = a.total_rides || 1;
+        const bc = b.total_rides || 1;
+        if (bc !== ac) return bc - ac;
         return cleanCoasterName(a.coasters?.name ?? "").localeCompare(
           cleanCoasterName(b.coasters?.name ?? ""),
         );
@@ -578,7 +651,7 @@ function StatsPageContent() {
       );
     }
     return sorted;
-  }, [filteredUniqueRides, rideFilter, rideSort]);
+  }, [filteredUniqueRides, rideCountFilter, rideFilter, rideSort]);
 
   const selectedRide = useMemo(
     () => (selectedCoasterId == null ? null : rides.find((r) => r.coaster_id === selectedCoasterId) ?? null),
@@ -623,7 +696,7 @@ function StatsPageContent() {
       setRideListScrollTop(0);
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [rideFilter, includeFamilyRides, rideSort]);
+  }, [rideFilter, rideCountFilter, includeFamilyRides, rideSort]);
 
   const virtualizedRideRows = useMemo(() => {
     const total = displayedRides.length;
@@ -654,14 +727,14 @@ function StatsPageContent() {
   }, []);
 
   const closeRideSheet = useCallback(() => {
-    if (savingRating || removing !== null) return;
+    if (savingRating || removing !== null || loggingRide) return;
     setSelectedCoasterId(null);
-  }, [removing, savingRating]);
+  }, [loggingRide, removing, savingRating]);
 
   const rateRide = useCallback(async (coasterId: number, rating: number | null) => {
     if (!isOwnStatsView) return;
     const supabase = getSupabaseBrowserClient();
-    if (!supabase || !userId || savingRating || removing !== null) return;
+    if (!supabase || !userId || savingRating || removing !== null || loggingRide) return;
     setSavingRating(true);
     const { error } = await supabase
       .from("rides")
@@ -674,21 +747,76 @@ function StatsPageContent() {
       );
     }
     setSavingRating(false);
-  }, [isOwnStatsView, removing, savingRating, userId]);
+  }, [isOwnStatsView, loggingRide, removing, savingRating, userId]);
+
+  const addRide = useCallback(async (coasterId: number, quantity: number, riddenOn: string) => {
+    if (!isOwnStatsView) return { ok: false as const, message: "You can only edit your own rides." };
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !userId || loggingRide || removing !== null || savingRating) {
+      return { ok: false as const, message: "Please wait a moment and try again." };
+    }
+    setLoggingRide(true);
+    const result = await logRideEvents(supabase, { coasterId, riddenOn, quantity });
+    if (result.ok) {
+      applyRideCredit(coasterId, result.summary);
+      setRides((prev) =>
+        prev.map((ride) =>
+          ride.coaster_id === coasterId
+            ? {
+                ...ride,
+                total_rides: result.summary.totalRides,
+                first_ridden_on: result.summary.firstRiddenOn,
+                last_ridden_on: result.summary.lastRiddenOn,
+              }
+            : ride,
+        ),
+      );
+    }
+    setLoggingRide(false);
+    return result;
+  }, [isOwnStatsView, loggingRide, removing, savingRating, userId]);
+
+  const applyHistoryChange = useCallback((coasterId: number, summary: RideCreditSummary | null) => {
+    applyRideCredit(coasterId, summary);
+    if (!summary) {
+      setRides((prev) => prev.filter((ride) => ride.coaster_id !== coasterId));
+      setSelectedCoasterId((currentId) => (currentId === coasterId ? null : currentId));
+      return;
+    }
+    setRides((prev) =>
+      prev.map((ride) =>
+        ride.coaster_id === coasterId
+          ? {
+              ...ride,
+              total_rides: summary.totalRides,
+              first_ridden_on: summary.firstRiddenOn,
+              last_ridden_on: summary.lastRiddenOn,
+            }
+          : ride,
+      ),
+    );
+  }, []);
 
   const removeRide = useCallback(async (coasterId: number, name: string) => {
     if (!isOwnStatsView) return;
-    if (!confirm(`Remove "${name}" from your ridden list?`)) return;
+    const current = rides.find((ride) => ride.coaster_id === coasterId);
+    const count = current?.total_rides ?? 1;
+    const confirmMessage =
+      count > 1
+        ? `Remove "${name}" and all ${count} logged rides?`
+        : `Remove "${name}" from your ridden list?`;
+    if (!confirm(confirmMessage)) return;
     const supabase = getSupabaseBrowserClient();
-    if (!supabase || !userId || removing !== null || savingRating) return;
+    if (!supabase || !userId || removing !== null || savingRating || loggingRide) return;
     setRemoving(coasterId);
     const { error } = await supabase.from("rides").delete().eq("user_id", userId).eq("coaster_id", coasterId);
     if (!error) {
+      applyRideCredit(coasterId, null);
       setRides((prev) => prev.filter((r) => r.coaster_id !== coasterId));
-      setSelectedCoasterId((current) => (current === coasterId ? null : current));
+      setSelectedCoasterId((currentId) => (currentId === coasterId ? null : currentId));
     }
     setRemoving(null);
-  }, [isOwnStatsView, removing, savingRating, userId]);
+  }, [isOwnStatsView, loggingRide, removing, rides, savingRating, userId]);
 
   const totalTrackLengthFt = useMemo(
     () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.coasters?.length_ft ?? 0), 0),
@@ -725,8 +853,14 @@ function StatsPageContent() {
     [filteredUniqueRides],
   );
 
+  const totalRides = useMemo(
+    () => filteredUniqueRides.reduce((sum, ride) => sum + (ride.total_rides || 1), 0),
+    [filteredUniqueRides],
+  );
+
   const statCards = [
     { label: "Coasters ridden", value: filteredUniqueRides.length.toLocaleString() },
+    { label: "Total rides", value: totalRides.toLocaleString() },
     { label: "Parks visited", value: parksVisited.toLocaleString() },
     { label: "Countries visited", value: countriesVisited.toLocaleString() },
     { label: "Continents visited", value: continentsVisited.toLocaleString() },
@@ -743,32 +877,42 @@ function StatsPageContent() {
   ];
 
   async function copyStatsSummary() {
-    const shareTitle = shareDisplayName ? `${shareDisplayName}'s CoasterTrak stats` : "My CoasterTrak stats";
-    const summary = [
-      shareTitle,
-      `- Ride filter: ${includeFamilyRides ? "Includes kiddie/family rides" : "Thrill rides only"}`,
-      `- Coasters ridden: ${filteredUniqueRides.length}`,
-      `- Parks visited: ${parksVisited}`,
-      `- Countries visited: ${countriesVisited}`,
-      `- Continents visited: ${continentsVisited}`,
-      `- Total track length: ${fmtLength(totalTrackLengthFt, units) ?? `${Math.round(totalTrackLengthFt).toLocaleString()} ft`}`,
-      `- Total ride time: ${fmtDuration(totalRideDurationS) ?? `${Math.round(totalRideDurationS).toLocaleString()} s`}`,
-      `- Total inversions: ${Math.round(totalInversions).toLocaleString()}`,
-      `- Average speed: ${
+    const summary = buildStatsCopyText({
+      displayName: shareDisplayName,
+      includeFamilyRides,
+      uniqueCoasters: filteredUniqueRides.length,
+      totalRides,
+      parksVisited,
+      countriesVisited,
+      continentsVisited,
+      totalTrackLength: fmtLength(totalTrackLengthFt, units) ?? `${Math.round(totalTrackLengthFt).toLocaleString()} ft`,
+      totalRideTime: fmtDuration(totalRideDurationS) ?? `${Math.round(totalRideDurationS).toLocaleString()} s`,
+      totalInversions: Math.round(totalInversions).toLocaleString(),
+      averageSpeed:
         averageSpeedMph > 0
           ? (fmtSpeed(Math.round(averageSpeedMph), units) ?? `${Math.round(averageSpeedMph).toLocaleString()} mph`)
-          : "N/A"
-      }`,
-      `- Favorite ride: ${favoriteRideLabel}`,
-      `- Favorite park: ${favoriteParkLabel}`,
-      personalRecords.fastest ? `- Fastest coaster: ${cleanCoasterName(personalRecords.fastest.name)} (${fmtSpeed(personalRecords.fastest.value, units) ?? `${personalRecords.fastest.value} mph`})` : null,
-      personalRecords.tallest ? `- Tallest coaster: ${cleanCoasterName(personalRecords.tallest.name)} (${fmtHeight(personalRecords.tallest.value, units) ?? `${personalRecords.tallest.value} ft`})` : null,
-      personalRecords.longest ? `- Longest coaster: ${cleanCoasterName(personalRecords.longest.name)} (${fmtLength(personalRecords.longest.value, units) ?? `${personalRecords.longest.value} ft`})` : null,
-      personalRecords.mostInversions ? `- Most inversions: ${cleanCoasterName(personalRecords.mostInversions.name)} (${personalRecords.mostInversions.value})` : null,
-      personalRecords.longestDuration ? `- Longest ride: ${cleanCoasterName(personalRecords.longestDuration.name)} (${fmtDuration(personalRecords.longestDuration.value) ?? `${personalRecords.longestDuration.value}s`})` : null,
-      "",
-      "Track your rides on CoasterTrak: https://coastertrak.com",
-    ].filter(Boolean).join("\n");
+          : "N/A",
+      favoriteRideLabel,
+      favoriteParkLabel,
+      mostRidden: personalRecords.mostRidden
+        ? { name: personalRecords.mostRidden.name, rides: personalRecords.mostRidden.value }
+        : null,
+      fastest: personalRecords.fastest
+        ? `${cleanCoasterName(personalRecords.fastest.name)} (${fmtSpeed(personalRecords.fastest.value, units) ?? `${personalRecords.fastest.value} mph`})`
+        : null,
+      tallest: personalRecords.tallest
+        ? `${cleanCoasterName(personalRecords.tallest.name)} (${fmtHeight(personalRecords.tallest.value, units) ?? `${personalRecords.tallest.value} ft`})`
+        : null,
+      longest: personalRecords.longest
+        ? `${cleanCoasterName(personalRecords.longest.name)} (${fmtLength(personalRecords.longest.value, units) ?? `${personalRecords.longest.value} ft`})`
+        : null,
+      mostInversions: personalRecords.mostInversions
+        ? `${cleanCoasterName(personalRecords.mostInversions.name)} (${personalRecords.mostInversions.value})`
+        : null,
+      longestRide: personalRecords.longestDuration
+        ? `${cleanCoasterName(personalRecords.longestDuration.name)} (${fmtDuration(personalRecords.longestDuration.value) ?? `${personalRecords.longestDuration.value}s`})`
+        : null,
+    });
 
     try {
       await navigator.clipboard.writeText(summary);
@@ -780,6 +924,13 @@ function StatsPageContent() {
 
   const shareCardProps = useMemo<StatsShareCardProps>(() => {
     const records = [
+      personalRecords.mostRidden
+        ? {
+            label: "Most ridden",
+            value: `${personalRecords.mostRidden.value}×`,
+            detail: cleanCoasterName(personalRecords.mostRidden.name),
+          }
+        : null,
       personalRecords.tallest
         ? {
             label: "Tallest",
@@ -813,6 +964,7 @@ function StatsPageContent() {
     return {
       displayName: shareDisplayName?.trim() || "My stats",
       coasters: filteredUniqueRides.length,
+      totalRides,
       parks: parksVisited,
       countries: countriesVisited,
       achievementsUnlocked: unlockedAchievements.length,
@@ -828,8 +980,10 @@ function StatsPageContent() {
     personalRecords.fastest,
     personalRecords.longest,
     personalRecords.mostInversions,
+    personalRecords.mostRidden,
     personalRecords.tallest,
     shareDisplayName,
+    totalRides,
     units,
     unlockedAchievements.length,
   ]);
@@ -993,6 +1147,19 @@ function StatsPageContent() {
                         </svg>
                       ),
                     },
+                    {
+                      key: "mostRidden",
+                      label: "Most ridden",
+                      record: personalRecords.mostRidden,
+                      format: (v: number) => formatRideCount(v),
+                      icon: (
+                        // square-2-stack: the same ride, logged more than once
+                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                          <path d="M2 4.25A2.25 2.25 0 014.25 2h6.5A2.25 2.25 0 0113 4.25V5.5H9.25A3.75 3.75 0 005.5 9.25V13H4.25A2.25 2.25 0 012 10.75v-6.5z" />
+                          <path d="M9.25 7A2.25 2.25 0 007 9.25v6.5A2.25 2.25 0 009.25 18h6.5A2.25 2.25 0 0018 15.75v-6.5A2.25 2.25 0 0015.75 7h-6.5z" />
+                        </svg>
+                      ),
+                    },
                   ] as const
                 ).map(({ key, label, record, format, icon }) => (
                   <div key={key} className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
@@ -1055,17 +1222,40 @@ function StatsPageContent() {
                         className="min-w-0 w-full flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
                       />
                     )}
-                    <select
-                      value={rideSort}
-                      onChange={(e) => setRideSort(e.target.value as RideSort)}
-                      className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto sm:shrink-0"
-                      aria-label="Sort rides"
-                    >
-                      <option value="name">Sort: Name</option>
-                      <option value="rating">Sort: Rating</option>
-                      <option value="recent">Sort: Recent</option>
-                    </select>
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                      <select
+                        value={rideCountFilter}
+                        onChange={(e) => setRideCountFilter(e.target.value as RideCountFilter)}
+                        className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
+                        aria-label="Filter by times ridden"
+                      >
+                        <option value="any">Any count</option>
+                        <option value="1">Ridden once</option>
+                        <option value="2+">2+ times</option>
+                        <option value="3+">3+ times</option>
+                        <option value="5+">5+ times</option>
+                        <option value="10+">10+ times</option>
+                      </select>
+                      <select
+                        value={rideSort}
+                        onChange={(e) => setRideSort(e.target.value as RideSort)}
+                        className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
+                        aria-label="Sort rides"
+                      >
+                        <option value="name">Sort: Name</option>
+                        <option value="rating">Sort: Rating</option>
+                        <option value="recent">Sort: Recent</option>
+                        <option value="rides">Sort: Times ridden</option>
+                      </select>
+                    </div>
                   </div>
+                  {(rideCountFilter !== "any" || rideFilter.trim()) && (
+                    <p className="mb-2 text-xs text-slate-500">
+                      {filteredRides.length === 1
+                        ? "1 match"
+                        : `${filteredRides.length.toLocaleString()} matches`}
+                    </p>
+                  )}
                   <ul
                     ref={rideListRef}
                     onScroll={(event) => {
@@ -1126,9 +1316,16 @@ function StatsPageContent() {
                     canEdit={isOwnStatsView}
                     savingRating={savingRating}
                     removing={removing === selectedRide?.coaster_id}
+                    loggingRide={loggingRide}
                     onClose={closeRideSheet}
                     onRate={rateRide}
                     onRemove={removeRide}
+                    onAddRide={isOwnStatsView ? addRide : undefined}
+                    onHistoryChanged={
+                      isOwnStatsView && selectedRide
+                        ? (summary) => applyHistoryChange(selectedRide.coaster_id, summary)
+                        : undefined
+                    }
                   />
                 </>
               )}

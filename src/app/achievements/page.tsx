@@ -213,8 +213,9 @@ export default function AchievementsPage() {
         <AuthGate>
           <h1 className="mb-2 text-2xl font-bold text-slate-900">Achievements</h1>
           <p className="mb-6 max-w-2xl text-sm text-slate-600">
-            Achievements are self-reported for fun — there is no verification. Every coaster you log counts toward achievements,
-            including family and kiddie rides (your Stats page can optionally hide those for a thrill-focused count).
+            Achievements are self-reported for fun — there is no verification. They count unique
+            coaster credits, not how many times you ride the same one. Family and kiddie rides still
+            count here (your Stats page can optionally hide those for a thrill-focused count).
             Progress uses catalog data where available (length, height, duration may be missing).
           </p>
 

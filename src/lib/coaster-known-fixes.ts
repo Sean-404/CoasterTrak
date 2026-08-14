@@ -57,6 +57,19 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q112689934: { name: "Mantis", status: "Defunct" },
   Q1787446: { name: "Steel Vengeance", status: "Operating" },
   Q60845759: { name: "Mean Streak", status: "Defunct" },
+  // Canada's Wonderland — ThemeParks feed used DareDeviler for The Fly
+  Q2880135: { name: "The Fly", status: "Operating" },
+  // Canada's Wonderland Thunder Run (not Kentucky Kingdom's wood coaster)
+  Q7799028: {
+    height_ft: 33,
+    speed_mph: 40,
+    length_ft: 1080,
+    duration_s: 84,
+    manufacturer: "Mack Rides",
+    coaster_type: "Steel",
+  },
+  // Enchanted Kingdom — park / ThemeParks name
+  Q7572494: { name: "Space Shuttle Max", status: "Operating" },
   // Animal Kingdom / Hollywood Studios
   Q1341067: {
     name: "Expedition Everest - Legend of the Forbidden Mountain",
@@ -209,6 +222,10 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
   },
   mulhollandmadness: {
     name: "Goofy's Sky School",
+    status: "Operating",
+  },
+  daredeviler: {
+    name: "The Fly",
     status: "Operating",
   },
 };

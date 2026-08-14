@@ -12,6 +12,7 @@ export type StatsShareCardRecord = {
 export type StatsShareCardProps = {
   displayName: string;
   coasters: number;
+  totalRides?: number;
   parks: number;
   countries: number;
   achievementsUnlocked: number;
@@ -37,6 +38,7 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
     {
       displayName,
       coasters,
+      totalRides,
       parks,
       countries,
       achievementsUnlocked,
@@ -204,6 +206,18 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
             >
               Coasters
             </p>
+            {typeof totalRides === "number" && totalRides > 0 ? (
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 18,
+                  fontWeight: 600,
+                  color: "#cbd5e1",
+                }}
+              >
+                {totalRides.toLocaleString()} total rides
+              </p>
+            ) : null}
           </div>
 
           <div

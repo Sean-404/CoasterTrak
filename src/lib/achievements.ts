@@ -2,7 +2,14 @@ import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 
-/** One row per distinct coaster, with joined coaster + park fields (matches stats query + park_id). */
+/**
+ * Achievements are unique-credit based.
+ * Pass one row per distinct coaster (see `ridesChronologicalUnique`).
+ * Total ride counts (VelociCoaster × 12) must not be used for credit badges
+ * such as first_credit, credits_3/5, enthusiast_10, collector_50, veteran_100, legend_200.
+ * Manufacturer, type, park, and geo badges also count distinct coasters.
+ * There are currently no total-ride achievements.
+ */
 export type AchievementRide = {
   coaster_id: number;
   /** When the credit was logged; used for “unlocked at” ordering. */

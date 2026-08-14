@@ -9,11 +9,62 @@ import {
   type RelinkPlan,
 } from "@/lib/relink-placeholder-parks";
 
+async function remapRideEvents(
+  supabase: SupabaseClient,
+  fromId: number,
+  toId: number,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("ride_events")
+    .select("id, user_id, ridden_on, quantity")
+    .eq("coaster_id", fromId);
+  if (error) {
+    if (/does not exist|schema cache/i.test(error.message)) return;
+    throw new Error(`ride_events load ${fromId}->${toId}: ${error.message}`);
+  }
+
+  for (const event of data ?? []) {
+    const { error: updateError } = await supabase
+      .from("ride_events")
+      .update({ coaster_id: toId })
+      .eq("id", event.id);
+    if (!updateError) continue;
+    if (!/duplicate|unique/i.test(updateError.message)) {
+      throw new Error(`ride_events remap ${fromId}->${toId}: ${updateError.message}`);
+    }
+
+    let query = supabase
+      .from("ride_events")
+      .select("id, quantity")
+      .eq("user_id", event.user_id)
+      .eq("coaster_id", toId)
+      .neq("id", event.id);
+    query = event.ridden_on == null ? query.is("ridden_on", null) : query.eq("ridden_on", event.ridden_on);
+    const { data: existing, error: existingError } = await query.maybeSingle();
+    if (existingError) {
+      throw new Error(`ride_events merge lookup ${fromId}->${toId}: ${existingError.message}`);
+    }
+    if (!existing) {
+      throw new Error(
+        `ride_events merge ${fromId}->${toId}: unique conflict but no target row for user ${event.user_id}`,
+      );
+    }
+    const { error: addError } = await supabase
+      .from("ride_events")
+      .update({ quantity: Math.min(99, Number(existing.quantity) + Number(event.quantity)) })
+      .eq("id", existing.id);
+    if (addError) throw new Error(`ride_events merge ${fromId}->${toId}: ${addError.message}`);
+    const { error: deleteError } = await supabase.from("ride_events").delete().eq("id", event.id);
+    if (deleteError) throw new Error(`ride_events drop ${fromId}->${toId}: ${deleteError.message}`);
+  }
+}
+
 async function remapUserRefs(
   supabase: SupabaseClient,
   fromId: number,
   toId: number,
 ): Promise<void> {
+  await remapRideEvents(supabase, fromId, toId);
   for (const table of ["rides", "wishlist"] as const) {
     const { error } = await supabase.from(table).update({ coaster_id: toId }).eq("coaster_id", fromId);
     if (error) throw new Error(`${table} remap ${fromId}->${toId}: ${error.message}`);

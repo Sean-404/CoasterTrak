@@ -1,12 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { useUnits } from "@/components/providers";
+import { RideHistoryEditor } from "@/components/ride-history-editor";
 import { StarRating } from "@/components/star-rating";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
+import {
+  formatRideCount,
+  formatRideOnDate,
+  localDateISO,
+  MAX_RIDES_PER_EVENT,
+  type RideCreditSummary,
+} from "@/lib/ride-history";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed } from "@/lib/units";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 
@@ -14,6 +22,9 @@ export type RiddenRideSheetRide = {
   coaster_id: number;
   rating: number | null;
   ridden_at?: string | null;
+  total_rides?: number;
+  first_ridden_on?: string | null;
+  last_ridden_on?: string | null;
   coasters?: {
     park_id?: number;
     name: string;
@@ -35,9 +46,16 @@ type RiddenRideSheetProps = {
   canEdit: boolean;
   savingRating: boolean;
   removing: boolean;
+  loggingRide?: boolean;
   onClose: () => void;
   onRate: (coasterId: number, rating: number | null) => void;
   onRemove: (coasterId: number, name: string) => void;
+  onAddRide?: (
+    coasterId: number,
+    quantity: number,
+    riddenOn: string,
+  ) => Promise<{ ok: true } | { ok: false; message: string } | void> | void;
+  onHistoryChanged?: (summary: RideCreditSummary | null) => void;
 };
 
 function formatRiddenDate(iso: string | null | undefined): string | null {
@@ -57,14 +75,28 @@ export function RiddenRideSheet({
   canEdit,
   savingRating,
   removing,
+  loggingRide = false,
   onClose,
   onRate,
   onRemove,
+  onAddRide,
+  onHistoryChanged,
 }: RiddenRideSheetProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const { units } = useUnits();
-  const busy = savingRating || removing;
+  const [quantity, setQuantity] = useState(1);
+  const [rideDate, setRideDate] = useState(() => localDateISO());
+  const [logError, setLogError] = useState("");
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const busy = savingRating || removing || loggingRide || historyBusy;
+
+  useEffect(() => {
+    if (!open) return;
+    setQuantity(1);
+    setRideDate(localDateISO());
+    setLogError("");
+  }, [open, ride?.coaster_id]);
 
   useEffect(() => {
     if (!open) return;
@@ -99,6 +131,9 @@ export function RiddenRideSheet({
       ? `/map?coaster=${ride.coaster_id}&park=${ride.coasters.park_id}&view=map`
       : `/map?coaster=${ride.coaster_id}&view=map`;
   const riddenLabel = formatRiddenDate(ride.ridden_at);
+  const totalRides = ride.total_rides ?? 1;
+  const firstRiddenLabel = formatRideOnDate(ride.first_ridden_on);
+  const lastRiddenLabel = formatRideOnDate(ride.last_ridden_on);
   const c = ride.coasters;
   const stats: Array<{ label: string; value: string }> = [
     { label: "Height", value: fmtHeight(c?.height_ft, units) ?? "" },
@@ -145,9 +180,6 @@ export function RiddenRideSheet({
                   <span> · {ride.coasters.manufacturer}</span>
                 )}
               </p>
-              {riddenLabel && (
-                <p className="mt-1 text-xs text-slate-400">Logged {riddenLabel}</p>
-              )}
             </div>
           </div>
           <button
@@ -161,8 +193,50 @@ export function RiddenRideSheet({
         </div>
 
         <div className="overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          <div className="mb-4 rounded-xl bg-green-50 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700/80">
+              You&apos;ve ridden this
+            </p>
+            <p className="mt-0.5 text-2xl font-bold tabular-nums text-green-900">
+              {formatRideCount(totalRides)}
+            </p>
+            {(firstRiddenLabel || lastRiddenLabel || riddenLabel) && (
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-green-900/80">
+                {firstRiddenLabel ? (
+                  <div>
+                    <dt className="font-medium text-green-700/80">First ridden</dt>
+                    <dd className="mt-0.5 tabular-nums">{firstRiddenLabel}</dd>
+                  </div>
+                ) : null}
+                {lastRiddenLabel ? (
+                  <div>
+                    <dt className="font-medium text-green-700/80">Last ridden</dt>
+                    <dd className="mt-0.5 tabular-nums">{lastRiddenLabel}</dd>
+                  </div>
+                ) : null}
+                {!firstRiddenLabel && !lastRiddenLabel && riddenLabel ? (
+                  <div className="col-span-2">
+                    <dt className="font-medium text-green-700/80">Logged</dt>
+                    <dd className="mt-0.5 tabular-nums">{riddenLabel}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            )}
+          </div>
+
+          {canEdit && onHistoryChanged ? (
+            <RideHistoryEditor
+              coasterId={ride.coaster_id}
+              refreshKey={`${totalRides}-${ride.last_ridden_on ?? ""}`}
+              disabled={busy}
+              className="mb-4"
+              onBusyChange={setHistoryBusy}
+              onChanged={onHistoryChanged}
+            />
+          ) : null}
+
           {stats.length > 0 ? (
-            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="mb-4 grid grid-cols-2 gap-2">
               {stats.map((stat) => (
                 <div
                   key={stat.label}
@@ -178,6 +252,71 @@ export function RiddenRideSheet({
               ))}
             </div>
           ) : null}
+
+          {canEdit && onAddRide && (
+            <div className="mb-4 rounded-xl bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-800">Log another ride</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Adds to your total, even if you already rode this on another day.
+              </p>
+              {logError ? (
+                <p className="mt-2 text-xs font-medium text-red-500">{logError}</p>
+              ) : null}
+              <label className="mt-3 block">
+                <span className="text-xs font-medium text-slate-600">Ride date</span>
+                <input
+                  type="date"
+                  value={rideDate}
+                  max={localDateISO()}
+                  min="1950-01-01"
+                  onChange={(event) => {
+                    setLogError("");
+                    setRideDate(event.target.value || localDateISO());
+                  }}
+                  className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                />
+              </label>
+              <div className="mt-2 flex items-stretch gap-2">
+                <div className="inline-flex h-11 shrink-0 items-center rounded-lg border border-slate-200 bg-white">
+                  <button
+                    type="button"
+                    aria-label="Fewer rides"
+                    disabled={busy || quantity <= 1}
+                    onClick={() => setQuantity((n) => Math.max(1, n - 1))}
+                    className="flex h-11 w-11 items-center justify-center text-lg font-semibold text-slate-700 disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-8 text-center text-base font-semibold tabular-nums text-slate-900">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="More rides"
+                    disabled={busy || quantity >= MAX_RIDES_PER_EVENT}
+                    onClick={() => setQuantity((n) => Math.min(MAX_RIDES_PER_EVENT, n + 1))}
+                    className="flex h-11 w-11 items-center justify-center text-lg font-semibold text-slate-700 disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    void (async () => {
+                      setLogError("");
+                      const result = await onAddRide(ride.coaster_id, quantity, rideDate);
+                      if (result && result.ok === false) setLogError(result.message);
+                    })();
+                  }}
+                  className="h-11 min-w-0 flex-1 rounded-lg bg-amber-500 px-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+                >
+                  {loggingRide ? "Saving…" : quantity === 1 ? "Add ride" : `Add ${quantity} rides`}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl bg-slate-50 px-4 py-4">
             <p className="text-sm font-medium text-slate-800">
@@ -217,7 +356,7 @@ export function RiddenRideSheet({
                 onClick={() => onRemove(ride.coaster_id, coasterName)}
                 className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-red-200 bg-white px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
               >
-                {removing ? "Removing…" : "Remove ride"}
+                {removing ? "Removing…" : totalRides > 1 ? "Remove all rides" : "Remove ride"}
               </button>
             )}
           </div>

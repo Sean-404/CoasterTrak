@@ -34,7 +34,7 @@ export function CoasterDetailActions({
       <p className="text-sm font-semibold text-slate-900">Track this ride</p>
       {signedIn === false ? (
         <p className="mt-1 text-sm text-slate-600">
-          Add to your wishlist or mark as ridden.{" "}
+          Add to your wishlist, mark as ridden, or log another ride.{" "}
           <Link href="/login" className="font-semibold text-amber-700 hover:underline">
             Sign in
           </Link>{" "}
@@ -42,7 +42,7 @@ export function CoasterDetailActions({
         </p>
       ) : (
         <p className="mt-1 text-sm text-slate-600">
-          Add to your wishlist or mark as ridden to keep your credits up to date.
+          Add to your wishlist, mark as ridden, or log another ride. Tap − on a logged day if you made a mistake.
         </p>
       )}
       <CoasterActions coasterId={coasterId} disableWishlist={isDefunct} variant="prominent" />

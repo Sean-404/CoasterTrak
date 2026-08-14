@@ -53,6 +53,19 @@ create table if not exists rides (
   unique (user_id, coaster_id)
 );
 
+-- Event-level ride logs. `rides` remains one unique credit (+ rating) per coaster.
+create table if not exists ride_events (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  coaster_id bigint not null references coasters(id) on delete cascade,
+  ridden_on date,
+  quantity integer not null default 1,
+  source text not null default 'user_log',
+  created_at timestamptz not null default now(),
+  constraint ride_events_quantity_range check (quantity >= 1 and quantity <= 99),
+  constraint ride_events_source_allowed check (source in ('legacy_credit', 'user_log'))
+);
+
 create table if not exists wishlist (
   user_id uuid not null references auth.users(id) on delete cascade,
   coaster_id bigint not null references coasters(id) on delete cascade,
@@ -270,6 +283,17 @@ create unique index if not exists coasters_park_source_external_uidx
   where external_id is not null and external_source is not null;
 create index if not exists idx_rides_user_id on rides(user_id);
 create index if not exists idx_rides_coaster_id on rides(coaster_id);
+create unique index if not exists ride_events_user_coaster_dated_uidx
+  on ride_events (user_id, coaster_id, ridden_on)
+  where ridden_on is not null;
+create unique index if not exists ride_events_legacy_one_per_credit_uidx
+  on ride_events (user_id, coaster_id)
+  where ridden_on is null;
+create index if not exists idx_ride_events_user_id on ride_events (user_id);
+create index if not exists idx_ride_events_user_coaster on ride_events (user_id, coaster_id);
+create index if not exists idx_ride_events_user_date on ride_events (user_id, ridden_on);
+create index if not exists idx_ride_events_coaster_id on ride_events (coaster_id);
+grant select, insert, update, delete on table ride_events to authenticated;
 create index if not exists idx_wishlist_coaster_id on wishlist(coaster_id);
 create index if not exists idx_profiles_display_name on profiles(display_name);
 create index if not exists idx_profiles_favorite_ride_id on profiles(favorite_ride_id);
@@ -346,6 +370,7 @@ execute function public.guard_unique_wikidata_binding();
 alter table parks enable row level security;
 alter table coasters enable row level security;
 alter table rides enable row level security;
+alter table ride_events enable row level security;
 alter table wishlist enable row level security;
 alter table sync_runs enable row level security;
 alter table profiles enable row level security;
@@ -385,6 +410,34 @@ create policy "users can update own rides"
 
 drop policy if exists "users can delete own rides" on rides;
 create policy "users can delete own rides" on rides for delete using (auth.uid() = user_id);
+
+drop policy if exists "users can read own ride events and accepted friends ride events" on ride_events;
+create policy "users can read own ride events and accepted friends ride events"
+  on ride_events for select
+  using (
+    auth.uid() = user_id
+    or exists (
+      select 1
+      from friendships f
+      where f.status = 'accepted'
+        and (
+          (f.requester_id = auth.uid() and f.addressee_id = ride_events.user_id)
+          or (f.addressee_id = auth.uid() and f.requester_id = ride_events.user_id)
+        )
+    )
+  );
+
+drop policy if exists "users can create own ride events" on ride_events;
+create policy "users can create own ride events" on ride_events for insert with check (auth.uid() = user_id);
+
+drop policy if exists "users can update own ride events" on ride_events;
+create policy "users can update own ride events"
+  on ride_events for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "users can delete own ride events" on ride_events;
+create policy "users can delete own ride events" on ride_events for delete using (auth.uid() = user_id);
 
 drop policy if exists "users can read own wishlist" on wishlist;
 create policy "users can read own wishlist" on wishlist for select using (auth.uid() = user_id);
@@ -460,3 +513,234 @@ $$;
 
 revoke all on function public.accepted_friend_count(uuid) from public;
 grant execute on function public.accepted_friend_count(uuid) to authenticated;
+
+create or replace function public.cascade_delete_ride_events()
+returns trigger
+language plpgsql
+as $$
+begin
+  delete from ride_events
+  where user_id = old.user_id
+    and coaster_id = old.coaster_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists trg_rides_delete_events on rides;
+create trigger trg_rides_delete_events
+before delete on rides
+for each row
+execute function public.cascade_delete_ride_events();
+
+create or replace view public.ride_credit_summaries
+with (security_invoker = true) as
+select
+  e.user_id,
+  e.coaster_id,
+  sum(e.quantity)::integer as total_rides,
+  min(e.ridden_on) as first_ridden_on,
+  max(e.ridden_on) as last_ridden_on
+from ride_events e
+where e.ridden_on is not null
+   or not exists (
+     select 1
+     from ride_events d
+     where d.user_id = e.user_id
+       and d.coaster_id = e.coaster_id
+       and d.ridden_on is not null
+   )
+group by e.user_id, e.coaster_id;
+
+grant select on public.ride_credit_summaries to authenticated;
+
+create or replace function public.log_ride_events(
+  p_coaster_id bigint,
+  p_ridden_on date,
+  p_quantity integer default 1
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  uid uuid := auth.uid();
+  logged_qty integer;
+  v_total integer;
+  v_first date;
+  v_last date;
+begin
+  if uid is null then
+    raise exception 'Not authenticated' using errcode = '28000';
+  end if;
+  if p_coaster_id is null then
+    raise exception 'coaster_id is required';
+  end if;
+  if p_ridden_on is null then
+    raise exception 'ridden_on is required';
+  end if;
+  if p_quantity is null or p_quantity < 1 or p_quantity > 99 then
+    raise exception 'quantity must be between 1 and 99';
+  end if;
+
+  insert into rides (user_id, coaster_id)
+  values (uid, p_coaster_id)
+  on conflict (user_id, coaster_id) do nothing;
+
+  -- Same calendar day: increment only when the new total stays within 99.
+  update ride_events
+     set quantity = ride_events.quantity + p_quantity
+   where ride_events.user_id = uid
+     and ride_events.coaster_id = p_coaster_id
+     and ride_events.ridden_on = p_ridden_on
+     and ride_events.quantity + p_quantity <= 99
+  returning ride_events.quantity into logged_qty;
+
+  if not found then
+    if exists (
+      select 1
+      from ride_events
+      where ride_events.user_id = uid
+        and ride_events.coaster_id = p_coaster_id
+        and ride_events.ridden_on = p_ridden_on
+    ) then
+      raise exception 'Too many rides logged for this coaster on this date';
+    end if;
+
+    begin
+      insert into ride_events (user_id, coaster_id, ridden_on, quantity, source)
+      values (uid, p_coaster_id, p_ridden_on, p_quantity, 'user_log')
+      returning ride_events.quantity into logged_qty;
+    exception
+      when unique_violation then
+        update ride_events
+           set quantity = ride_events.quantity + p_quantity
+         where ride_events.user_id = uid
+           and ride_events.coaster_id = p_coaster_id
+           and ride_events.ridden_on = p_ridden_on
+           and ride_events.quantity + p_quantity <= 99
+        returning ride_events.quantity into logged_qty;
+
+        if not found then
+          raise exception 'Too many rides logged for this coaster on this date';
+        end if;
+    end;
+  end if;
+
+  delete from ride_events
+  where ride_events.user_id = uid
+    and ride_events.coaster_id = p_coaster_id
+    and ride_events.ridden_on is null;
+
+  delete from wishlist
+  where wishlist.user_id = uid
+    and wishlist.coaster_id = p_coaster_id;
+
+  select
+    coalesce(sum(ride_events.quantity), 0)::integer,
+    min(ride_events.ridden_on),
+    max(ride_events.ridden_on)
+  into v_total, v_first, v_last
+  from ride_events
+  where ride_events.user_id = uid
+    and ride_events.coaster_id = p_coaster_id;
+
+  return jsonb_build_object(
+    'coaster_id', p_coaster_id,
+    'total_rides', v_total,
+    'first_ridden_on', v_first,
+    'last_ridden_on', v_last
+  );
+end;
+$$;
+
+revoke all on function public.log_ride_events(bigint, date, integer) from public;
+grant execute on function public.log_ride_events(bigint, date, integer) to authenticated;
+
+create or replace function public.adjust_ride_events(
+  p_coaster_id bigint,
+  p_ridden_on date,
+  p_quantity integer default 1
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  uid uuid := auth.uid();
+  current_qty integer;
+  event_id bigint;
+  remaining integer;
+  v_total integer;
+  v_first date;
+  v_last date;
+  credit_removed boolean := false;
+begin
+  if uid is null then
+    raise exception 'Not authenticated' using errcode = '28000';
+  end if;
+  if p_coaster_id is null then
+    raise exception 'coaster_id is required';
+  end if;
+  if p_quantity is null or p_quantity < 1 or p_quantity > 99 then
+    raise exception 'quantity must be between 1 and 99';
+  end if;
+
+  select ride_events.id, ride_events.quantity
+    into event_id, current_qty
+  from ride_events
+  where ride_events.user_id = uid
+    and ride_events.coaster_id = p_coaster_id
+    and ride_events.ridden_on is not distinct from p_ridden_on
+  for update;
+
+  if event_id is null then
+    raise exception 'No rides logged for this date';
+  end if;
+
+  if p_quantity >= current_qty then
+    delete from ride_events
+    where ride_events.id = event_id;
+  else
+    update ride_events
+       set quantity = current_qty - p_quantity
+     where ride_events.id = event_id;
+  end if;
+
+  select count(*)::integer
+    into remaining
+  from ride_events
+  where ride_events.user_id = uid
+    and ride_events.coaster_id = p_coaster_id;
+
+  if remaining = 0 then
+    delete from rides
+    where rides.user_id = uid
+      and rides.coaster_id = p_coaster_id;
+    credit_removed := true;
+  end if;
+
+  select
+    coalesce(sum(ride_events.quantity), 0)::integer,
+    min(ride_events.ridden_on),
+    max(ride_events.ridden_on)
+  into v_total, v_first, v_last
+  from ride_events
+  where ride_events.user_id = uid
+    and ride_events.coaster_id = p_coaster_id;
+
+  return jsonb_build_object(
+    'coaster_id', p_coaster_id,
+    'total_rides', coalesce(v_total, 0),
+    'first_ridden_on', v_first,
+    'last_ridden_on', v_last,
+    'credit_removed', credit_removed
+  );
+end;
+$$;
+
+revoke all on function public.adjust_ride_events(bigint, date, integer) from public;
+grant execute on function public.adjust_ride_events(bigint, date, integer) to authenticated;

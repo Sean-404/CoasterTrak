@@ -80,6 +80,11 @@ function stripGenericTypeSuffixes(s: string): string {
   return t;
 }
 
+/** Marketing spellings that should collapse to the same catalog key. */
+function foldThemedSpellings(s: string): string {
+  return s.replace(/\bwilde\b/gi, "wild").replace(/\bfyre\b/gi, "fire");
+}
+
 /**
  * Map/list dedup: index the same coaster under normalized name and (when present) Wikidata id
  * so "Mayan" and "Fast Pass Mayan Kol Licznik" (Q…) collapse even if only one row has `wikidata_id`.
@@ -111,6 +116,7 @@ export function normalizeCoasterDedupKey(raw: string): string {
   s = s.replace(/\bth13teen\b/gi, "thirteen");
   // Energylandia spelling drift between Fast Pass feed and park labels
   s = s.replace(/\btofiffee\b/gi, "toffifee");
+  s = foldThemedSpellings(s);
   // Universal marketing prefix on VelociCoaster
   s = s.replace(/^jurassic\s+world\s+/i, "");
   s = s.replace(/\s*\(roller coaster\)\s*/gi, " ");
@@ -129,6 +135,7 @@ function normalizeCoasterAliasKey(raw: string): string {
   s = s.replace(/[™®©]/g, "");
   s = s.replace(/^the\s+/i, "").trim();
   s = s.replace(/\bth13teen\b/gi, "thirteen");
+  s = foldThemedSpellings(s);
   s = s.replace(/^jurassic\s+world\s+/i, "");
   s = s.replace(/\s+/g, " ").trim();
   return s.replace(/[^a-z0-9]/g, "");

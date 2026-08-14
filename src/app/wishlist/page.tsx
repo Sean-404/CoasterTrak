@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { applyRideCredit } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
@@ -10,6 +11,7 @@ import { isThrillCoaster, normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { cleanCoasterName } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { logRideEvents } from "@/lib/ride-log";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 
 type WishlistItem = {
@@ -371,18 +373,14 @@ export default function WishlistPage() {
     if (!supabase || !userId) return;
     setPending((p) => ({ ...p, [coasterId]: "ridden" }));
 
-    const { error: rideErr } = await supabase.from("rides").upsert(
-      { user_id: userId, coaster_id: coasterId },
-      { onConflict: "user_id,coaster_id", ignoreDuplicates: true },
-    );
-
-    if (rideErr) {
-      setToast("Failed to mark as ridden. Please try again.");
+    const result = await logRideEvents(supabase, { coasterId, quantity: 1 });
+    if (!result.ok) {
+      setToast(result.message || "Failed to mark as ridden. Please try again.");
       setPending((p) => ({ ...p, [coasterId]: null }));
       return;
     }
 
-    await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", coasterId);
+    applyRideCredit(coasterId, result.summary);
     setItems((prev) => prev.filter((i) => i.coaster_id !== coasterId));
     setPending((p) => ({ ...p, [coasterId]: null }));
   }, [userId]);

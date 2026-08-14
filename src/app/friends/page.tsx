@@ -7,6 +7,7 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { loadRideCreditSummaries } from "@/lib/ride-log";
 
 type FriendshipStatus = "pending" | "accepted" | "declined" | "blocked";
 
@@ -66,6 +67,7 @@ type RideStatsRow = {
 
 type UserStats = {
   coasters: number;
+  totalRides: number;
   parks: number;
   countries: number;
   totalLengthFt: number;
@@ -81,6 +83,7 @@ type UserStats = {
 
 const EMPTY_USER_STATS: UserStats = {
   coasters: 0,
+  totalRides: 0,
   parks: 0,
   countries: 0,
   totalLengthFt: 0,
@@ -224,6 +227,7 @@ function computeUserStats(rows: RideStatsRow[]): Record<string, UserStats> {
   for (const id of userIds) {
     stats[id] = {
       coasters: coasterSets.get(id)?.size ?? 0,
+      totalRides: coasterSets.get(id)?.size ?? 0,
       parks: parkSets.get(id)?.size ?? 0,
       countries: countrySets.get(id)?.size ?? 0,
       totalLengthFt: totalLengthFtByUser.get(id) ?? 0,
@@ -384,11 +388,20 @@ export default function FriendsPage() {
     }
 
     const statsUsers = [activeUserId, ...relatedIds];
-    const { data: statRows } = await supabase
-      .from("rides")
-      .select("user_id, coaster_id, coasters(park_id, length_ft, speed_mph, height_ft, inversions, duration_s, parks(country))")
-      .in("user_id", statsUsers);
-    setStatsByUserId(computeUserStats((statRows ?? []) as RideStatsRow[]));
+    const [{ data: statRows }, summariesRes] = await Promise.all([
+      supabase
+        .from("rides")
+        .select("user_id, coaster_id, coasters(park_id, length_ft, speed_mph, height_ft, inversions, duration_s, parks(country))")
+        .in("user_id", statsUsers),
+      loadRideCreditSummaries(supabase, statsUsers),
+    ]);
+    const stats = computeUserStats((statRows ?? []) as RideStatsRow[]);
+    for (const [id, list] of summariesRes.byUser) {
+      const current = stats[id];
+      if (!current) continue;
+      current.totalRides = list.reduce((sum, row) => sum + row.totalRides, 0);
+    }
+    setStatsByUserId(stats);
   }
 
   useEffect(() => {
@@ -866,6 +879,15 @@ export default function FriendsPage() {
                                       </span>
                                     )}
                                   </span>
+                                  <span className="font-medium text-slate-500">Total rides</span>
+                                  <span className="flex items-center justify-end gap-2">
+                                    <span>{myStats.totalRides}</span>
+                                    {comparisonTag(myStats.totalRides, comparedFriendStats.totalRides, "more") && (
+                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                                        {comparisonTag(myStats.totalRides, comparedFriendStats.totalRides, "more")}
+                                      </span>
+                                    )}
+                                  </span>
                                   <span className="font-medium text-slate-500">Parks</span>
                                   <span className="flex items-center justify-end gap-2">
                                     <span>{myStats.parks}</span>
@@ -1006,6 +1028,15 @@ export default function FriendsPage() {
                                     {comparisonTag(comparedFriendStats.coasters, myStats.coasters, "more") && (
                                       <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
                                         {comparisonTag(comparedFriendStats.coasters, myStats.coasters, "more")}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="font-medium text-slate-500">Total rides</span>
+                                  <span className="flex items-center justify-end gap-2">
+                                    <span>{comparedFriendStats.totalRides}</span>
+                                    {comparisonTag(comparedFriendStats.totalRides, myStats.totalRides, "more") && (
+                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                                        {comparisonTag(comparedFriendStats.totalRides, myStats.totalRides, "more")}
                                       </span>
                                     )}
                                   </span>
