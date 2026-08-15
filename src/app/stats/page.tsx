@@ -6,6 +6,7 @@ import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { AuthGate } from "@/components/auth-gate";
 import { applyRideCredit } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
+import { ProfileAvatar } from "@/components/profile-avatar";
 import { RiddenRideSheet } from "@/components/ridden-ride-sheet";
 import { SiteHeader } from "@/components/site-header";
 import { StarRating } from "@/components/star-rating";
@@ -27,6 +28,12 @@ import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/dis
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { loadRideCreditSummaries, logRideEvents, summariesByCoasterId } from "@/lib/ride-log";
+import {
+  isStatsVisibility,
+  removeRidePhoto,
+  signRidePhotoUrls,
+} from "@/lib/ride-photos";
+import { signAvatarUrls } from "@/lib/profile-photos";
 import {
   buildStatsCopyText,
   formatRideCount,
@@ -63,6 +70,8 @@ type RideRow = {
   total_rides: number;
   first_ridden_on: string | null;
   last_ridden_on: string | null;
+  photo_path?: string | null;
+  photoUrl?: string | null;
   coasters?: RideCoaster | null;
 };
 
@@ -93,8 +102,11 @@ function recencyTimestamp(ride: RideRow): number {
 
 type ProfileRow = {
   display_name: string | null;
+  avatar_key: string | null;
+  avatar_path: string | null;
   favorite_ride_id: number | null;
   favorite_park_id: number | null;
+  stats_visibility?: string | null;
 };
 
 type ParkRow = {
@@ -156,7 +168,7 @@ const RiddenRideRow = memo(function RiddenRideRow({
       >
         <CoasterThumbnail
           name={coasterName}
-          imageUrl={ride.coasters?.image_url}
+          imageUrl={ride.photoUrl || ride.coasters?.image_url}
           sizeClassName="h-10 w-10"
           showMissingLabel
           allowPreview={false}
@@ -320,12 +332,15 @@ function StatsPageContent() {
   const [rideCountFilter, setRideCountFilter] = useState<RideCountFilter>("any");
   const [fetchError, setFetchError] = useState(false);
   const [friendAccessDenied, setFriendAccessDenied] = useState(false);
+  const [viewingPublicProfile, setViewingPublicProfile] = useState(false);
   const [includeFamilyRides, setIncludeFamilyRides] = useState(false);
   const [visibleRideCount, setVisibleRideCount] = useState(INITIAL_VISIBLE_RIDES);
   const [rideListScrollTop, setRideListScrollTop] = useState(0);
   const [rideListViewportHeight, setRideListViewportHeight] = useState(0);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
+  const [profileAvatarKey, setProfileAvatarKey] = useState<string | null>(null);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [favoriteRideLabel, setFavoriteRideLabel] = useState("Not set");
   const [favoriteParkLabel, setFavoriteParkLabel] = useState("Not set");
   const [friendCount, setFriendCount] = useState(0);
@@ -340,8 +355,11 @@ function StatsPageContent() {
     setLoading(true);
     setFetchError(false);
     setFriendAccessDenied(false);
+    setViewingPublicProfile(false);
     setRides([]);
     setShareDisplayName(null);
+    setProfileAvatarKey(null);
+    setProfileAvatarUrl(null);
     setFavoriteRideLabel("Not set");
     setFavoriteParkLabel("Not set");
     setFriendCount(0);
@@ -352,38 +370,49 @@ function StatsPageContent() {
       const targetUserId = requestedUserId && requestedUserId !== user.id ? requestedUserId : user.id;
       setActiveStatsUserId(targetUserId);
 
+      const profileQuery = supabase
+        .from("profiles")
+        .select("display_name, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+      const friendshipQuery =
+        targetUserId !== user.id
+          ? supabase
+              .from("friendships")
+              .select("id")
+              .eq("status", "accepted")
+              .or(
+                `and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`,
+              )
+              .limit(1)
+          : Promise.resolve({ data: [{ id: 1 }], error: null });
+
+      const [profilePreview, friendshipRes] = await Promise.all([profileQuery, friendshipQuery]);
       if (targetUserId !== user.id) {
-        const { data: friendshipRows, error: friendshipError } = await supabase
-          .from("friendships")
-          .select("id")
-          .eq("status", "accepted")
-          .or(
-            `and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`,
-          )
-          .limit(1);
-        if (friendshipError || !friendshipRows || friendshipRows.length === 0) {
+        const isFriend = !friendshipRes.error && (friendshipRes.data?.length ?? 0) > 0;
+        const isPublic = isStatsVisibility(profilePreview.data?.stats_visibility)
+          ? profilePreview.data?.stats_visibility === "public"
+          : false;
+        if (!isFriend && !isPublic) {
           setRides([]);
           setFriendAccessDenied(true);
           setLoading(false);
           return;
         }
+        setViewingPublicProfile(!isFriend && isPublic);
       }
 
-      const [profileRes, ridesRes, friendCountRes, summariesRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("display_name, favorite_ride_id, favorite_park_id")
-          .eq("user_id", targetUserId)
-          .maybeSingle(),
+      const [ridesRes, friendCountRes, summariesRes] = await Promise.all([
         supabase
           .from("rides")
           .select(
-            "coaster_id, rating, ridden_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
+            "coaster_id, rating, ridden_at, photo_path, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))",
           )
           .eq("user_id", targetUserId),
         supabase.rpc("accepted_friend_count", { target: targetUserId }),
         loadRideCreditSummaries(supabase, targetUserId),
       ]);
+      const profileRes = profilePreview;
 
       if (ridesRes.error) {
         setFetchError(true);
@@ -404,12 +433,27 @@ function StatsPageContent() {
           coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
         };
       });
-      const hydrated = await fillMissingRideImages(mapped, supabase);
+      const photoUrls = await signRidePhotoUrls(
+        supabase,
+        mapped.map((ride) => ride.photo_path),
+      );
+      const withPhotos = mapped.map((ride) => ({
+        ...ride,
+        photoUrl: ride.photo_path ? photoUrls.get(ride.photo_path) ?? null : null,
+      }));
+      const hydrated = await fillMissingRideImages(withPhotos, supabase);
       setRides(hydrated);
 
       const profile = (profileRes.data as ProfileRow | null) ?? null;
       const displayName = profile?.display_name?.trim() || null;
       setShareDisplayName(displayName);
+      setProfileAvatarKey(profile?.avatar_key ?? null);
+      if (profile?.avatar_path) {
+        const signed = await signAvatarUrls(supabase, [profile.avatar_path]);
+        setProfileAvatarUrl(signed.get(profile.avatar_path) ?? null);
+      } else {
+        setProfileAvatarUrl(null);
+      }
       let nextFavoriteRideLabel = "Not set";
       let nextFavoriteParkLabel = "Not set";
 
@@ -797,6 +841,19 @@ function StatsPageContent() {
     );
   }, []);
 
+  const applyPhotoChange = useCallback(
+    (coasterId: number, next: { photoPath: string | null; photoUrl: string | null }) => {
+      setRides((prev) =>
+        prev.map((ride) =>
+          ride.coaster_id === coasterId
+            ? { ...ride, photo_path: next.photoPath, photoUrl: next.photoUrl }
+            : ride,
+        ),
+      );
+    },
+    [],
+  );
+
   const removeRide = useCallback(async (coasterId: number, name: string) => {
     if (!isOwnStatsView) return;
     const current = rides.find((ride) => ride.coaster_id === coasterId);
@@ -812,6 +869,9 @@ function StatsPageContent() {
     const { error } = await supabase.from("rides").delete().eq("user_id", userId).eq("coaster_id", coasterId);
     if (!error) {
       applyRideCredit(coasterId, null);
+      if (current?.photo_path) {
+        void removeRidePhoto(supabase, userId, coasterId, current.photo_path);
+      }
       setRides((prev) => prev.filter((r) => r.coaster_id !== coasterId));
       setSelectedCoasterId((currentId) => (currentId === coasterId ? null : currentId));
     }
@@ -994,12 +1054,26 @@ function StatsPageContent() {
       <main className="mx-auto max-w-4xl p-6">
         <AuthGate>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div>
+            <div className="flex items-start gap-3">
+              {!loading && !friendAccessDenied ? (
+                <ProfileAvatar
+                  avatarKey={profileAvatarKey}
+                  imageUrl={profileAvatarUrl}
+                  name={shareDisplayName}
+                  size="lg"
+                  title={shareDisplayName ? `${shareDisplayName}'s photo` : "Profile photo"}
+                />
+              ) : null}
+              <div>
               <h1 className="text-2xl font-bold text-slate-900">
                 {isOwnStatsView ? "My stats" : `${shareDisplayName ?? "Friend"}'s stats`}
               </h1>
               {!isOwnStatsView && (
-                <p className="mt-1 text-sm text-slate-500">Viewing a friend profile from your accepted friends list.</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {viewingPublicProfile
+                    ? "This profile is public, so signed-in users can see ride stats and photos."
+                    : "Viewing a friend profile from your accepted friends list."}
+                </p>
               )}
               {!loading && !friendAccessDenied && (
                 <div className="mt-3 space-y-1 text-sm text-slate-600">
@@ -1013,6 +1087,7 @@ function StatsPageContent() {
                   </p>
                 </div>
               )}
+              </div>
             </div>
             {!loading && isOwnStatsView && filteredUniqueRides.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
@@ -1040,7 +1115,8 @@ function StatsPageContent() {
           )}
           {friendAccessDenied && (
             <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
-              You can only view stats for users in your accepted friends list.
+              This profile is private. You can only view stats for accepted friends, or for users who have made their
+              stats public.
             </p>
           )}
           {!friendAccessDenied && (
@@ -1187,10 +1263,12 @@ function StatsPageContent() {
                       savingRating={savingRating}
                       removing={removing === selectedRide?.coaster_id}
                       loggingRide={loggingRide}
+                      ownerUserId={isOwnStatsView ? userId : null}
                       onClose={closeRideSheet}
                       onRate={rateRide}
                       onRemove={removeRide}
                       onAddRide={isOwnStatsView ? addRide : undefined}
+                      onPhotoChange={isOwnStatsView ? applyPhotoChange : undefined}
                       onHistoryChanged={
                         isOwnStatsView && selectedRide
                           ? (summary) => applyHistoryChange(selectedRide.coaster_id, summary)

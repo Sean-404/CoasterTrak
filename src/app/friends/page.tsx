@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { loadRideCreditSummaries } from "@/lib/ride-log";
+import { signAvatarUrls } from "@/lib/profile-photos";
 
 type FriendshipStatus = "pending" | "accepted" | "declined" | "blocked";
 
@@ -24,9 +25,28 @@ type ProfileRow = {
   display_name: string | null;
   country_code: string | null;
   avatar_key: string | null;
+  avatar_path: string | null;
+  avatarUrl?: string | null;
   favorite_ride_id: number | null;
   favorite_park_id: number | null;
 };
+
+const PROFILE_SELECT =
+  "user_id, display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id";
+
+async function withAvatarUrls(
+  supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+  rows: ProfileRow[],
+): Promise<ProfileRow[]> {
+  const signed = await signAvatarUrls(
+    supabase,
+    rows.map((row) => row.avatar_path),
+  );
+  return rows.map((row) => ({
+    ...row,
+    avatarUrl: row.avatar_path ? signed.get(row.avatar_path) ?? null : null,
+  }));
+}
 
 type ParkRow = {
   id: number;
@@ -308,7 +328,7 @@ export default function FriendsPage() {
     const [{ data: profile }, { data: friendRows, error: friendErr }] = await Promise.all([
       supabase
         .from("profiles")
-        .select("user_id, display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
+        .select(PROFILE_SELECT)
         .eq("user_id", activeUserId)
         .maybeSingle(),
       supabase
@@ -322,7 +342,7 @@ export default function FriendsPage() {
       setToast("Failed to load friends. Please refresh.");
     }
 
-    setMyProfile((profile as ProfileRow | null) ?? null);
+    setMyProfile(((await withAvatarUrls(supabase, profile ? [profile as ProfileRow] : []))[0] ?? null));
     const rows = ((friendRows ?? []) as FriendshipRow[]);
     setFriendships(rows);
 
@@ -340,11 +360,12 @@ export default function FriendsPage() {
 
     const { data: relatedProfiles } = await supabase
       .from("profiles")
-      .select("user_id, display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
+      .select(PROFILE_SELECT)
       .in("user_id", [...relatedIds]);
 
+    const hydratedRelated = await withAvatarUrls(supabase, (relatedProfiles ?? []) as ProfileRow[]);
     const map: Record<string, ProfileRow> = {};
-    for (const p of (relatedProfiles ?? []) as ProfileRow[]) {
+    for (const p of hydratedRelated) {
       map[p.user_id] = p;
     }
     setProfilesById(map);
@@ -558,7 +579,7 @@ export default function FriendsPage() {
     setSearching(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id, display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
+      .select(PROFILE_SELECT)
       .ilike("display_name", `%${q}%`)
       .neq("user_id", userId)
       .limit(20);
@@ -569,7 +590,7 @@ export default function FriendsPage() {
       return;
     }
 
-    setSearchResults((data ?? []) as ProfileRow[]);
+    setSearchResults(await withAvatarUrls(supabase, (data ?? []) as ProfileRow[]));
   }
 
   async function acceptRequest(row: FriendshipRow) {
@@ -668,7 +689,12 @@ export default function FriendsPage() {
                       return (
                         <li key={profile.user_id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
                           <div className="flex min-w-0 items-center gap-3">
-                            <ProfileAvatar avatarKey={profile.avatar_key} name={profile.display_name} size="sm" />
+                            <ProfileAvatar
+                              avatarKey={profile.avatar_key}
+                              imageUrl={profile.avatarUrl}
+                              name={profile.display_name}
+                              size="sm"
+                            />
                             <div className="min-w-0">
                               <p className="truncate font-medium text-slate-900">{profileLabel(profile, profile.user_id)}</p>
                               <p className="text-xs text-slate-500">
@@ -715,7 +741,12 @@ export default function FriendsPage() {
                         return (
                           <li key={row.id} className="rounded-lg border border-slate-200 px-3 py-2">
                             <div className="flex items-center gap-3">
-                              <ProfileAvatar avatarKey={other?.avatar_key} name={other?.display_name} size="sm" />
+                              <ProfileAvatar
+                                avatarKey={other?.avatar_key}
+                                imageUrl={other?.avatarUrl}
+                                name={other?.display_name}
+                                size="sm"
+                              />
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-slate-900">{profileLabel(other, otherId)}</p>
                                 <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
@@ -756,7 +787,12 @@ export default function FriendsPage() {
                         return (
                           <li key={row.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
                             <div className="flex min-w-0 items-center gap-3">
-                              <ProfileAvatar avatarKey={other?.avatar_key} name={other?.display_name} size="sm" />
+                              <ProfileAvatar
+                                avatarKey={other?.avatar_key}
+                                imageUrl={other?.avatarUrl}
+                                name={other?.display_name}
+                                size="sm"
+                              />
                               <div className="min-w-0">
                                 <p className="truncate font-medium text-slate-900">{profileLabel(other, otherId)}</p>
                                 <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
@@ -798,7 +834,12 @@ export default function FriendsPage() {
                           <li key={row.id} className={`rounded-lg border px-3 py-3 ${isSelected ? "border-amber-300 bg-amber-50/40" : "border-slate-200"}`}>
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                               <div className="flex min-w-0 items-center gap-3">
-                                <ProfileAvatar avatarKey={other?.avatar_key} name={other?.display_name} size="md" />
+                                <ProfileAvatar
+                                  avatarKey={other?.avatar_key}
+                                  imageUrl={other?.avatarUrl}
+                                  name={other?.display_name}
+                                  size="md"
+                                />
                                 <div className="min-w-0">
                                   <Link
                                     href={`/stats?user=${encodeURIComponent(otherId)}`}

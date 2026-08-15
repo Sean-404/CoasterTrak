@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { AVATAR_OPTIONS, DEFAULT_AVATAR_KEY, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { validateDisplayName } from "@/lib/display-name";
+import { isStatsVisibility, type StatsVisibility } from "@/lib/ride-photos";
+import { AVATAR_ACCEPT, removeAvatar, signAvatarUrls, uploadAvatar } from "@/lib/profile-photos";
 
 function countryNameFromCode(code: string): string {
   const normalized = code.trim().toUpperCase();
@@ -171,6 +173,11 @@ export default function AccountPage() {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [avatarKey, setAvatarKey] = useState<AvatarKey>(DEFAULT_AVATAR_KEY);
+  const [avatarPath, setAvatarPath] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [countryCode, setCountryCode] = useState("");
   const [favoriteRideQuery, setFavoriteRideQuery] = useState("");
   const [favoriteRideId, setFavoriteRideId] = useState<number | null>(null);
@@ -180,6 +187,7 @@ export default function AccountPage() {
   const [favoriteParkId, setFavoriteParkId] = useState<number | null>(null);
   const [favoriteParkName, setFavoriteParkName] = useState("");
   const [favoriteParkCountry, setFavoriteParkCountry] = useState("");
+  const [statsVisibility, setStatsVisibility] = useState<StatsVisibility>("friends");
   const [favoriteRideResults, setFavoriteRideResults] = useState<RideSearchResult[]>([]);
   const [favoriteRideSearching, setFavoriteRideSearching] = useState(false);
   const [favoriteParkResults, setFavoriteParkResults] = useState<ParkSearchResult[]>([]);
@@ -206,7 +214,7 @@ export default function AccountPage() {
       setEmail(user.email ?? "");
       void supabase
         .from("profiles")
-        .select("display_name, country_code, avatar_key, favorite_ride_id, favorite_park_id")
+        .select("display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility")
         .eq("user_id", user.id)
         .maybeSingle()
         .then(async ({ data, error }) => {
@@ -215,7 +223,15 @@ export default function AccountPage() {
           } else {
             setDisplayName(data?.display_name ?? "");
             setAvatarKey(normalizeAvatarKey(data?.avatar_key));
+            setAvatarPath(typeof data?.avatar_path === "string" ? data.avatar_path : null);
+            if (typeof data?.avatar_path === "string") {
+              const signed = await signAvatarUrls(supabase, [data.avatar_path]);
+              setAvatarUrl(signed.get(data.avatar_path) ?? null);
+            } else {
+              setAvatarUrl(null);
+            }
             setCountryCode((data?.country_code ?? "").toUpperCase());
+            setStatsVisibility(isStatsVisibility(data?.stats_visibility) ? data.stats_visibility : "friends");
             const selectedRideId = (data?.favorite_ride_id as number | null | undefined) ?? null;
             setFavoriteRideId(selectedRideId);
             if (selectedRideId != null) {
@@ -404,9 +420,11 @@ export default function AccountPage() {
           user_id: userId,
           display_name: validation.normalized,
           avatar_key: avatarKey,
+          avatar_path: avatarPath,
           country_code: normalizedCountryCode || null,
           favorite_ride_id: favoriteRideId,
           favorite_park_id: favoriteParkId,
+          stats_visibility: statsVisibility,
         },
         { onConflict: "user_id" },
       );
@@ -481,7 +499,13 @@ export default function AccountPage() {
           <div className="space-y-4">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
-                <ProfileAvatar avatarKey={avatarKey} name={displayName} size="lg" title="Your avatar" />
+                <ProfileAvatar
+                  avatarKey={avatarKey}
+                  imageUrl={avatarUrl}
+                  name={displayName}
+                  size="lg"
+                  title="Your avatar"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Display name</p>
                   <p className="mt-1 text-lg font-semibold text-slate-900">
@@ -529,6 +553,88 @@ export default function AccountPage() {
                 <p className="text-xs text-slate-500">
                   3-24 chars. Letters/numbers, spaces, dot, dash, underscore. Must start/end with a letter or number.
                 </p>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Profile photo</label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <ProfileAvatar
+                    avatarKey={avatarKey}
+                    imageUrl={avatarUrl}
+                    name={displayName}
+                    size="lg"
+                    title="Your profile photo"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-slate-500">
+                      JPEG, PNG, or WebP. Signed-in users can see this with your display name. Colour initials are used
+                      if you do not add a photo.
+                    </p>
+                    {avatarError ? (
+                      <p className="mt-2 text-xs font-medium text-red-500">{avatarError}</p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept={AVATAR_ACCEPT}
+                        className="sr-only"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (!file || !userId) return;
+                          void (async () => {
+                            const supabase = getSupabaseBrowserClient();
+                            if (!supabase) return;
+                            setAvatarError("");
+                            setAvatarBusy(true);
+                            const result = await uploadAvatar(supabase, userId, file);
+                            setAvatarBusy(false);
+                            if (!result.ok) {
+                              setAvatarError(result.message);
+                              return;
+                            }
+                            setAvatarPath(result.avatarPath);
+                            setAvatarUrl(result.avatarUrl || null);
+                            setProfileSuccess("Profile photo saved.");
+                          })();
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={avatarBusy || profileSaving}
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="min-h-10 rounded-lg bg-amber-500 px-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+                      >
+                        {avatarBusy ? "Saving…" : avatarUrl ? "Replace photo" : "Add photo"}
+                      </button>
+                      {avatarUrl ? (
+                        <button
+                          type="button"
+                          disabled={avatarBusy || profileSaving}
+                          onClick={() => {
+                            if (!userId) return;
+                            void (async () => {
+                              const supabase = getSupabaseBrowserClient();
+                              if (!supabase) return;
+                              setAvatarError("");
+                              setAvatarBusy(true);
+                              const result = await removeAvatar(supabase, userId, avatarPath);
+                              setAvatarBusy(false);
+                              if (!result.ok) {
+                                setAvatarError(result.message);
+                                return;
+                              }
+                              setAvatarPath(null);
+                              setAvatarUrl(null);
+                              setProfileSuccess("Profile photo removed.");
+                            })();
+                          }}
+                          className="min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Remove photo
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Avatar colour</label>
                 <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
                   {AVATAR_OPTIONS.map((option) => {
@@ -558,7 +664,7 @@ export default function AccountPage() {
                   })}
                 </div>
                 <p className="text-xs text-slate-500">
-                  Initials come from your display name. Pick a colour for your public profile.
+                  Initials come from your display name. Pick a colour for when you do not have a photo.
                 </p>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">Country</label>
                 <select
@@ -728,6 +834,66 @@ export default function AccountPage() {
                 {favoriteParkQuery.trim().length > 0 && favoriteParkId == null && (
                   <p className="text-xs text-amber-700">Choose one of the suggested parks to save this field.</p>
                 )}
+                <fieldset className="pt-2">
+                  <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Stats &amp; photos
+                  </legend>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Choose who can see your ride stats, ratings, and ride photos. Search engines cannot index this.
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <label
+                      className={[
+                        "cursor-pointer rounded-xl border px-3 py-3 transition",
+                        statsVisibility === "friends"
+                          ? "border-slate-900 bg-slate-50 ring-2 ring-slate-900/15"
+                          : "border-slate-200 bg-white hover:border-slate-300",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="radio"
+                        name="stats_visibility"
+                        value="friends"
+                        checked={statsVisibility === "friends"}
+                        onChange={() => {
+                          setStatsVisibility("friends");
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        className="sr-only"
+                      />
+                      <span className="block text-sm font-semibold text-slate-900">Friends only</span>
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Accepted friends can see your stats and photos. This is the default.
+                      </span>
+                    </label>
+                    <label
+                      className={[
+                        "cursor-pointer rounded-xl border px-3 py-3 transition",
+                        statsVisibility === "public"
+                          ? "border-slate-900 bg-slate-50 ring-2 ring-slate-900/15"
+                          : "border-slate-200 bg-white hover:border-slate-300",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="radio"
+                        name="stats_visibility"
+                        value="public"
+                        checked={statsVisibility === "public"}
+                        onChange={() => {
+                          setStatsVisibility("public");
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        className="sr-only"
+                      />
+                      <span className="block text-sm font-semibold text-slate-900">Public</span>
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Any signed-in CoasterTrak user with your profile link can see your stats and photos.
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
                 {profileError && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{profileError}</p>}
                 {profileSuccess && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{profileSuccess}</p>}
                 <button

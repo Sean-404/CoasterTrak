@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { isNextResponse, requireAdmin, type AdminRequestContext } from "@/lib/admin-api";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
+import { AVATAR_BUCKET, AVATAR_SIGNED_TTL_SECONDS, parseAvatarPath } from "@/lib/profile-photos";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,7 @@ type ProfileRow = {
   display_name: string | null;
   country_code: string | null;
   avatar_key: string | null;
+  avatar_path: string | null;
   banned_at: string | null;
   ban_reason: string | null;
   updated_at: string | null;
@@ -21,6 +23,8 @@ export type AdminUserRow = {
   display_name: string | null;
   country_code: string | null;
   avatar_key: string | null;
+  avatarUrl: string | null;
+  hasAvatar: boolean;
   banned_at: string | null;
   ban_reason: string | null;
   auth_banned: boolean;
@@ -31,7 +35,7 @@ export type AdminUserRow = {
 };
 
 const PROFILE_SELECT =
-  "user_id, display_name, country_code, avatar_key, banned_at, ban_reason, updated_at";
+  "user_id, display_name, country_code, avatar_key, avatar_path, banned_at, ban_reason, updated_at";
 
 const AUTH_PAGE_SIZE = 1000;
 
@@ -41,13 +45,19 @@ function isAuthBanned(bannedUntil?: string | null): boolean {
   return Number.isFinite(until) && until > Date.now();
 }
 
-function mergeAuthAndProfile(authUser: User, profile: ProfileRow | undefined): AdminUserRow {
+function mergeAuthAndProfile(
+  authUser: User,
+  profile: ProfileRow | undefined,
+  avatarUrl: string | null,
+): AdminUserRow {
   return {
     user_id: authUser.id,
     email: authUser.email ?? null,
     display_name: profile?.display_name ?? null,
     country_code: profile?.country_code ?? null,
     avatar_key: profile?.avatar_key ?? null,
+    avatarUrl,
+    hasAvatar: Boolean(profile?.avatar_path),
     banned_at: profile?.banned_at ?? null,
     ban_reason: profile?.ban_reason ?? null,
     auth_banned: isAuthBanned(authUser.banned_until),
@@ -139,8 +149,27 @@ export async function GET(request: Request) {
   }
 
   const profilesById = new Map(profileResult.profiles.map((row) => [row.user_id, row]));
+  const avatarPaths = profileResult.profiles
+    .map((row) => row.avatar_path)
+    .filter((path): path is string => Boolean(parseAvatarPath(path)));
+  const avatarUrlByPath = new Map<string, string>();
+  for (let i = 0; i < avatarPaths.length; i += 100) {
+    const chunk = avatarPaths.slice(i, i + 100);
+    const { data } = await ctx.service.storage
+      .from(AVATAR_BUCKET)
+      .createSignedUrls(chunk, AVATAR_SIGNED_TTL_SECONDS);
+    for (const row of data ?? []) {
+      if (row.path && row.signedUrl && !row.error) {
+        avatarUrlByPath.set(row.path, row.signedUrl);
+      }
+    }
+  }
   let users = authResult.users
-    .map((authUser) => mergeAuthAndProfile(authUser, profilesById.get(authUser.id)))
+    .map((authUser) => {
+      const profile = profilesById.get(authUser.id);
+      const avatarUrl = profile?.avatar_path ? avatarUrlByPath.get(profile.avatar_path) ?? null : null;
+      return mergeAuthAndProfile(authUser, profile, avatarUrl);
+    })
     .sort(sortAdminUsers);
 
   if (q) {

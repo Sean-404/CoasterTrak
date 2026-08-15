@@ -1,7 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { initialsFromName, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 
 type ProfileAvatarProps = {
   avatarKey?: string | null;
+  imageUrl?: string | null;
   name?: string | null;
   size?: "sm" | "md" | "lg";
   className?: string;
@@ -27,6 +31,7 @@ const AVATAR_THEME: Record<AvatarKey, string> = {
 
 export function ProfileAvatar({
   avatarKey,
+  imageUrl,
   name,
   size = "md",
   className = "",
@@ -34,13 +39,19 @@ export function ProfileAvatar({
 }: ProfileAvatarProps) {
   const key = normalizeAvatarKey(avatarKey);
   const initials = initialsFromName(name);
+  const [imageFailed, setImageFailed] = useState(false);
+  const showPhoto = Boolean(imageUrl) && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
 
   return (
     <span
       title={title}
       aria-hidden={title ? undefined : true}
       className={[
-        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold tracking-wide text-white shadow-sm ring-1 ring-black/5",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold tracking-wide text-white shadow-sm ring-1 ring-black/5",
         AVATAR_THEME[key],
         SIZE_CLASS[size],
         className,
@@ -48,7 +59,17 @@ export function ProfileAvatar({
         .filter(Boolean)
         .join(" ")}
     >
-      {initials}
+      {showPhoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl ?? ""}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }

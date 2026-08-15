@@ -50,7 +50,12 @@ create table if not exists rides (
   coaster_id bigint not null references coasters(id) on delete cascade,
   ridden_at timestamptz not null default now(),
   rating smallint check (rating is null or (rating >= 1 and rating <= 5)),
-  unique (user_id, coaster_id)
+  photo_path text,
+  unique (user_id, coaster_id),
+  constraint rides_photo_path_matches_owner check (
+    photo_path is null
+    or photo_path = (user_id::text || '/' || coaster_id::text || '.jpg')
+  )
 );
 
 -- Event-level ride logs. `rides` remains one unique credit (+ rating) per coaster.
@@ -78,12 +83,18 @@ create table if not exists profiles (
   display_name text,
   country_code text,
   avatar_key text,
+  avatar_path text,
   banned_at timestamptz,
   ban_reason text,
   favorite_ride_id bigint references coasters(id) on delete set null,
   favorite_park_id bigint references parks(id) on delete set null,
+  stats_visibility text not null default 'friends' check (stats_visibility in ('friends', 'public')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint profiles_avatar_path_matches_owner check (
+    avatar_path is null
+    or avatar_path = (user_id::text || '/avatar.jpg')
+  )
 );
 
 create table if not exists friendships (
@@ -382,22 +393,49 @@ create policy "public can read parks" on parks for select using (true);
 drop policy if exists "public can read coasters" on coasters;
 create policy "public can read coasters" on coasters for select using (true);
 
+create or replace function public.can_view_user_stats(owner uuid)
+returns boolean
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select
+    (select auth.uid()) is not null
+    and owner is not null
+    and (
+      (select auth.uid()) = owner
+      or exists (
+        select 1
+        from public.profiles p
+        where p.user_id = owner
+          and p.banned_at is null
+          and (
+            p.stats_visibility = 'public'
+            or exists (
+              select 1
+              from public.friendships f
+              where f.status = 'accepted'
+                and (
+                  (f.requester_id = (select auth.uid()) and f.addressee_id = owner)
+                  or (f.addressee_id = (select auth.uid()) and f.requester_id = owner)
+                )
+            )
+          )
+      )
+    );
+$$;
+
+revoke all on function public.can_view_user_stats(uuid) from public;
+grant execute on function public.can_view_user_stats(uuid) to authenticated;
+
 drop policy if exists "users can read own rides" on rides;
 drop policy if exists "users can read own rides and accepted friends rides" on rides;
-create policy "users can read own rides and accepted friends rides"
+drop policy if exists "users can read visible rides" on rides;
+create policy "users can read visible rides"
   on rides for select
-  using (
-    auth.uid() = user_id
-    or exists (
-      select 1
-      from friendships f
-      where f.status = 'accepted'
-        and (
-          (f.requester_id = auth.uid() and f.addressee_id = rides.user_id)
-          or (f.addressee_id = auth.uid() and f.requester_id = rides.user_id)
-        )
-    )
-  );
+  to authenticated
+  using (public.can_view_user_stats(user_id));
 
 drop policy if exists "users can create own rides" on rides;
 create policy "users can create own rides" on rides for insert with check (auth.uid() = user_id);
@@ -412,20 +450,11 @@ drop policy if exists "users can delete own rides" on rides;
 create policy "users can delete own rides" on rides for delete using (auth.uid() = user_id);
 
 drop policy if exists "users can read own ride events and accepted friends ride events" on ride_events;
-create policy "users can read own ride events and accepted friends ride events"
+drop policy if exists "users can read visible ride events" on ride_events;
+create policy "users can read visible ride events"
   on ride_events for select
-  using (
-    auth.uid() = user_id
-    or exists (
-      select 1
-      from friendships f
-      where f.status = 'accepted'
-        and (
-          (f.requester_id = auth.uid() and f.addressee_id = ride_events.user_id)
-          or (f.addressee_id = auth.uid() and f.requester_id = ride_events.user_id)
-        )
-    )
-  );
+  to authenticated
+  using (public.can_view_user_stats(user_id));
 
 drop policy if exists "users can create own ride events" on ride_events;
 create policy "users can create own ride events" on ride_events for insert with check (auth.uid() = user_id);
@@ -489,6 +518,13 @@ begin
   end if;
 
   if auth.uid() = target
+     or exists (
+       select 1
+       from public.profiles p
+       where p.user_id = target
+         and p.banned_at is null
+         and p.stats_visibility = 'public'
+     )
      or exists (
        select 1
        from public.friendships f

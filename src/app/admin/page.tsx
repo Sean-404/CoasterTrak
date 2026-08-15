@@ -13,6 +13,8 @@ type AdminUserRow = {
   display_name: string | null;
   country_code: string | null;
   avatar_key: string | null;
+  avatarUrl: string | null;
+  hasAvatar: boolean;
   banned_at: string | null;
   ban_reason: string | null;
   auth_banned: boolean;
@@ -107,6 +109,24 @@ export default function AdminPage() {
     await loadUsers(query);
   }
 
+  async function clearPhoto(userId: string) {
+    if (!window.confirm("Clear this user's profile photo?")) return;
+    setBusyId(userId);
+    setError("");
+    setMessage("");
+    try {
+      await adminFetch(`/api/admin/users/${userId}/clear-photo`, { method: "POST" });
+      setResults((rows) =>
+        rows.map((row) => (row.user_id === userId ? { ...row, avatarUrl: null, hasAvatar: false } : row)),
+      );
+      setMessage("Profile photo cleared.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not clear photo.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function clearName(userId: string) {
     if (!window.confirm("Clear this user's display name?")) return;
     setBusyId(userId);
@@ -140,6 +160,8 @@ export default function AdminPage() {
             ? {
                 ...row,
                 display_name: null,
+                avatarUrl: null,
+                hasAvatar: false,
                 banned_at: new Date().toISOString(),
                 ban_reason: reason.trim() || null,
                 auth_banned: true,
@@ -186,7 +208,7 @@ export default function AdminPage() {
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Trusted operators only. Clear rude names, ban accounts, or review catalog data.
+          Trusted operators only. Clear rude names or photos, ban accounts, or review catalog data.
         </p>
         <p className="mt-3">
           <Link
@@ -250,7 +272,12 @@ export default function AdminPage() {
                       className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                     >
                       <div className="flex items-start gap-3">
-                        <ProfileAvatar avatarKey={user.avatar_key} name={user.display_name || user.email} size="md" />
+                        <ProfileAvatar
+                          avatarKey={user.avatar_key}
+                          imageUrl={user.avatarUrl}
+                          name={user.display_name || user.email}
+                          size="md"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-slate-900">
                             {user.display_name?.trim() || "(no display name)"}
@@ -277,6 +304,14 @@ export default function AdminPage() {
                               className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                             >
                               Clear name
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyId === user.user_id || !user.hasAvatar}
+                              onClick={() => void clearPhoto(user.user_id)}
+                              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              Clear photo
                             </button>
                             {banned ? (
                               <button

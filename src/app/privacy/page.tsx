@@ -19,7 +19,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 31 July 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 15 August 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -36,8 +36,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Ride and preference data.</strong> Content you add in the app — for example logged rides,
-              wishlist items, friend connections, and unit preferences — is stored so the Service can work across
-              visits and devices.
+              profile photos, ride photos, ratings, wishlist items, friend connections, and unit preferences — is
+              stored so the Service can work across visits and devices.
             </li>
             <li>
               <strong>Usage and device data.</strong> We use privacy-oriented analytics (including Vercel Analytics
@@ -51,10 +51,20 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-2 pl-5">
             <li>Provide, maintain, and improve the Service</li>
             <li>Authenticate you and secure your account</li>
-            <li>Remember your ride history, wishlist, and settings</li>
+            <li>Remember your ride history, wishlist, photos, and settings</li>
             <li>Understand aggregate usage and fix performance issues</li>
             <li>Comply with legal obligations when required</li>
           </ul>
+
+          <h2 className="text-xl font-semibold text-slate-900">Sharing with other users</h2>
+          <p>
+            Ride stats, ratings, and ride photos are visible to you and, by default, to people you have accepted as
+            friends. You can set your account to public in Account settings so any signed-in CoasterTrak user with
+            your profile link can see those stats and photos. Stats pages are not offered to search engines. Ride
+            photos are stored privately and shown only to people who are allowed to view your stats. Profile photos
+            are treated like your display name: signed-in users can see them in social features such as Friends.
+            Location metadata is stripped from photos before they are saved.
+          </p>
 
           <h2 className="text-xl font-semibold text-slate-900">Service providers</h2>
           <p>
@@ -94,7 +104,7 @@ export default function PrivacyPage() {
 
           <h2 className="text-xl font-semibold text-slate-900">Your choices</h2>
           <ul className="list-disc space-y-2 pl-5">
-            <li>Update profile details from your account settings when signed in.</li>
+            <li>Update profile details from your account settings when signed in, including whether your stats and ride photos are friends-only or public to signed-in users.</li>
             <li>Sign out at any time from the site header.</li>
             <li>
               Contact us to request access to or deletion of personal data we hold about you, subject to applicable

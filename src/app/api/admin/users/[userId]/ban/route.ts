@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isNextResponse, requireAdmin } from "@/lib/admin-api";
+import { adminClearProfileAvatar, adminClearRidePhotos } from "@/lib/admin-user-photos";
 
 export const runtime = "nodejs";
 
@@ -33,12 +34,22 @@ export async function POST(request: Request, context: RouteContext) {
       banned_at: new Date().toISOString(),
       ban_reason: reason,
       display_name: null,
+      avatar_path: null,
     },
     { onConflict: "user_id" },
   );
 
   if (profileError) {
     return NextResponse.json({ error: "Could not update ban on profile." }, { status: 500 });
+  }
+
+  const avatarResult = await adminClearProfileAvatar(ctx.service, userId);
+  if (avatarResult.error) {
+    return NextResponse.json({ error: avatarResult.error }, { status: 500 });
+  }
+  const ridePhotoResult = await adminClearRidePhotos(ctx.service, userId);
+  if (ridePhotoResult.error) {
+    return NextResponse.json({ error: ridePhotoResult.error }, { status: 500 });
   }
 
   const { error: authError } = await ctx.service.auth.admin.updateUserById(userId, {

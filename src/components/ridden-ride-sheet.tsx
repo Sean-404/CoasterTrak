@@ -17,6 +17,12 @@ import {
 } from "@/lib/ride-history";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed } from "@/lib/units";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  RIDE_PHOTO_ACCEPT,
+  removeRidePhoto,
+  uploadRidePhoto,
+} from "@/lib/ride-photos";
 
 export type RiddenRideSheetRide = {
   coaster_id: number;
@@ -25,6 +31,8 @@ export type RiddenRideSheetRide = {
   total_rides?: number;
   first_ridden_on?: string | null;
   last_ridden_on?: string | null;
+  photo_path?: string | null;
+  photoUrl?: string | null;
   coasters?: {
     park_id?: number;
     name: string;
@@ -56,6 +64,11 @@ type RiddenRideSheetProps = {
     riddenOn: string,
   ) => Promise<{ ok: true } | { ok: false; message: string } | void> | void;
   onHistoryChanged?: (summary: RideCreditSummary | null) => void;
+  ownerUserId?: string | null;
+  onPhotoChange?: (
+    coasterId: number,
+    next: { photoPath: string | null; photoUrl: string | null },
+  ) => void;
 };
 
 function formatRiddenDate(iso: string | null | undefined): string | null {
@@ -81,21 +94,27 @@ export function RiddenRideSheet({
   onRemove,
   onAddRide,
   onHistoryChanged,
+  ownerUserId,
+  onPhotoChange,
 }: RiddenRideSheetProps) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
   const { units } = useUnits();
   const [quantity, setQuantity] = useState(1);
   const [rideDate, setRideDate] = useState(() => localDateISO());
   const [logError, setLogError] = useState("");
+  const [photoError, setPhotoError] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
-  const busy = savingRating || removing || loggingRide || historyBusy;
+  const busy = savingRating || removing || loggingRide || historyBusy || photoBusy;
 
   useEffect(() => {
     if (!open) return;
     setQuantity(1);
     setRideDate(localDateISO());
     setLogError("");
+    setPhotoError("");
   }, [open, ride?.coaster_id]);
 
   useEffect(() => {
@@ -164,7 +183,7 @@ export function RiddenRideSheet({
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <CoasterThumbnail
               name={coasterName}
-              imageUrl={ride.coasters?.image_url}
+              imageUrl={ride.photoUrl || ride.coasters?.image_url}
               sizeClassName="h-14 w-14"
               showMissingLabel
             />
@@ -195,7 +214,7 @@ export function RiddenRideSheet({
         <div className="overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           <div className="mb-4 rounded-xl bg-green-50 px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-green-700/80">
-              You&apos;ve ridden this
+              {canEdit ? "You've ridden this" : "Rides logged"}
             </p>
             <p className="mt-0.5 text-2xl font-bold tabular-nums text-green-900">
               {formatRideCount(totalRides)}
@@ -223,6 +242,98 @@ export function RiddenRideSheet({
               </dl>
             )}
           </div>
+
+          {(canEdit || ride.photoUrl) && (
+            <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-sm font-medium text-slate-800">Ride photo</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {canEdit
+                  ? "One photo per ride. JPEG, PNG, or WebP. People who can view your stats can see it."
+                  : "Uploaded by this rider."}
+              </p>
+              {ride.photoUrl ? (
+                <div className="mt-3">
+                  <CoasterThumbnail
+                    name={coasterName}
+                    imageUrl={ride.photoUrl}
+                    sizeClassName="h-44 w-full"
+                    showMissingLabel
+                  />
+                </div>
+              ) : null}
+              {photoError ? (
+                <p className="mt-2 text-xs font-medium text-red-500">{photoError}</p>
+              ) : null}
+              {canEdit && ownerUserId && onPhotoChange ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept={RIDE_PHOTO_ACCEPT}
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      if (!file) return;
+                      void (async () => {
+                        const supabase = getSupabaseBrowserClient();
+                        if (!supabase) return;
+                        setPhotoError("");
+                        setPhotoBusy(true);
+                        const result = await uploadRidePhoto(supabase, ownerUserId, ride.coaster_id, file);
+                        setPhotoBusy(false);
+                        if (!result.ok) {
+                          setPhotoError(result.message);
+                          return;
+                        }
+                        onPhotoChange(ride.coaster_id, {
+                          photoPath: result.photoPath,
+                          photoUrl: result.photoUrl || null,
+                        });
+                      })();
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => photoInputRef.current?.click()}
+                    className="min-h-11 rounded-lg bg-amber-500 px-3 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:opacity-50"
+                  >
+                    {photoBusy ? "Saving…" : ride.photoUrl ? "Replace photo" : "Add photo"}
+                  </button>
+                  {ride.photoUrl ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        void (async () => {
+                          const supabase = getSupabaseBrowserClient();
+                          if (!supabase) return;
+                          setPhotoError("");
+                          setPhotoBusy(true);
+                          const result = await removeRidePhoto(
+                            supabase,
+                            ownerUserId,
+                            ride.coaster_id,
+                            ride.photo_path,
+                          );
+                          setPhotoBusy(false);
+                          if (!result.ok) {
+                            setPhotoError(result.message);
+                            return;
+                          }
+                          onPhotoChange(ride.coaster_id, { photoPath: null, photoUrl: null });
+                        })();
+                      }}
+                      className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Remove photo
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {canEdit && onHistoryChanged ? (
             <RideHistoryEditor
