@@ -1,4 +1,5 @@
 import {
+  applyCoasterKnownFixes,
   sanitizeCoasterImageUrl,
   shouldSkipWikidataCoasterId,
 } from "@/lib/coaster-known-fixes";
@@ -59,6 +60,7 @@ const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q319758: "Europa-Park", // Schweizer Bobbahn — not Heide Park
   Q2260635: "Kings Island", // Woodstock Express — not Geauga Lake
   Q22666883: "Shanghai Disney Resort", // Tron Lightcycle Power Run — not Other
+  Q2518728: "Parque de la Ciudad", // Vertigorama — not the Villa Soldati location dump
 };
 
 /** US mainland longitudes are west; some feeds store the absolute value. */
@@ -170,23 +172,35 @@ function majorityParkWikidataId(rows: WikidataCoasterRow[]): string | null {
 function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
   const name = wikidataInsertName(wd);
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
-  const status = wd.status === "defunct" ? "Defunct" : "Operating";
   const openingYear = yearFromDate(wd.openingDate);
   const closingYear = yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate);
-
-  return {
-    park_id: parkId,
+  const fixed = applyCoasterKnownFixes({
     name,
     wikidata_id: wd.wikidataId,
     coaster_type: inferred,
     manufacturer: wd.manufacturerLabel ? normalizeManufacturerLabel(wd.manufacturerLabel) : null,
+    status: wd.status === "defunct" ? "Defunct" : "Operating",
     image_url: sanitizeCoasterImageUrl(wd.imageUrl ?? null),
-    status,
-    ...(wd.lengthFt != null ? { length_ft: Math.round(wd.lengthFt) } : {}),
-    ...(wd.speedMph != null ? { speed_mph: Math.round(wd.speedMph) } : {}),
-    ...(wd.heightFt != null ? { height_ft: Math.round(wd.heightFt) } : {}),
-    ...(wd.inversions != null ? { inversions: wd.inversions } : {}),
-    ...(wd.durationS != null ? { duration_s: Math.round(wd.durationS) } : {}),
+    length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
+    speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
+    height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
+    inversions: wd.inversions,
+    duration_s: wd.durationS != null ? Math.round(wd.durationS) : null,
+  });
+
+  return {
+    park_id: parkId,
+    name: fixed.name,
+    wikidata_id: wd.wikidataId,
+    coaster_type: fixed.coaster_type ?? inferred,
+    manufacturer: fixed.manufacturer ?? null,
+    image_url: sanitizeCoasterImageUrl(fixed.image_url ?? null),
+    status: fixed.status,
+    ...(fixed.length_ft != null ? { length_ft: Math.round(fixed.length_ft) } : {}),
+    ...(fixed.speed_mph != null ? { speed_mph: Math.round(fixed.speed_mph) } : {}),
+    ...(fixed.height_ft != null ? { height_ft: Math.round(fixed.height_ft) } : {}),
+    ...(fixed.inversions != null ? { inversions: fixed.inversions } : {}),
+    ...(fixed.duration_s != null ? { duration_s: Math.round(fixed.duration_s) } : {}),
     ...(openingYear != null ? { opening_year: openingYear } : {}),
     ...(closingYear != null ? { closing_year: closingYear } : {}),
     ...(wd.enwikiTitle?.trim() ? { enwiki_title: wd.enwikiTitle.trim() } : {}),

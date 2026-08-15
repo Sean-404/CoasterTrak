@@ -140,6 +140,15 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     inversions: 0,
     duration_s: 180,
   },
+  // Six Flags America — park closed 2 Nov 2025; Wikidata coords are the Maryland install
+  Q839200: { status: "Defunct" },
+  // Parque de la Ciudad (Buenos Aires) — Intamin racing coaster, never opened (SBNO)
+  Q2518728: {
+    status: "Defunct",
+    coaster_type: "Steel",
+    manufacturer: "Intamin",
+    inversions: 0,
+  },
 };
 
 /**

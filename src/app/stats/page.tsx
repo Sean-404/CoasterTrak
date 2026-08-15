@@ -1060,7 +1060,148 @@ function StatsPageContent() {
                 </div>
               )}
 
-              {/* Stat cards */}
+              {/* Rides ridden — first so users can rate or log more rides */}
+              <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
+                {loading ? (
+                  <p className="text-sm text-slate-400">Loading&hellip;</p>
+                ) : filteredUniqueRides.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    {isOwnStatsView ? (
+                      <>
+                        No rides logged yet. Mark rides as ridden from the map or your{" "}
+                        <Link href="/wishlist" className="font-medium text-amber-700 underline decoration-amber-300 underline-offset-2 hover:text-amber-800">
+                          wishlist
+                        </Link>
+                        .
+                      </>
+                    ) : (
+                      "No rides logged yet."
+                    )}
+                  </p>
+                ) : (
+                  <>
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                      {filteredUniqueRides.length > 3 && (
+                        <input
+                          type="search"
+                          value={rideFilter}
+                          onChange={(e) => setRideFilter(e.target.value)}
+                          placeholder="Filter rides…"
+                          aria-label="Filter rides"
+                          className="min-w-0 w-full flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                        />
+                      )}
+                      <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+                        <select
+                          value={rideCountFilter}
+                          onChange={(e) => setRideCountFilter(e.target.value as RideCountFilter)}
+                          className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
+                          aria-label="Filter by times ridden"
+                        >
+                          <option value="any">Any count</option>
+                          <option value="1">Ridden once</option>
+                          <option value="2+">2+ times</option>
+                          <option value="3+">3+ times</option>
+                          <option value="5+">5+ times</option>
+                          <option value="10+">10+ times</option>
+                        </select>
+                        <select
+                          value={rideSort}
+                          onChange={(e) => setRideSort(e.target.value as RideSort)}
+                          className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
+                          aria-label="Sort rides"
+                        >
+                          <option value="name">Sort: Name</option>
+                          <option value="rating">Sort: Rating</option>
+                          <option value="recent">Sort: Recent</option>
+                          <option value="rides">Sort: Times ridden</option>
+                        </select>
+                      </div>
+                    </div>
+                    {(rideCountFilter !== "any" || rideFilter.trim()) && (
+                      <p className="mb-2 text-xs text-slate-500">
+                        {filteredRides.length === 1
+                          ? "1 match"
+                          : `${filteredRides.length.toLocaleString()} matches`}
+                      </p>
+                    )}
+                    <ul
+                      ref={rideListRef}
+                      onScroll={(event) => {
+                        const nextTop = event.currentTarget.scrollTop;
+                        if (rideListRafRef.current != null) return;
+                        rideListRafRef.current = window.requestAnimationFrame(() => {
+                          setRideListScrollTop(nextTop);
+                          rideListRafRef.current = null;
+                        });
+                      }}
+                      className="max-h-[min(50vh,22rem)] overflow-y-auto overflow-x-hidden overscroll-contain pb-1 [scrollbar-gutter:stable]"
+                    >
+                      {filteredRides.length === 0 && (
+                        <li className="py-2 text-xs text-slate-400">No matches</li>
+                      )}
+                      {virtualizedRideRows.topSpacerHeight > 0 && (
+                        <li
+                          aria-hidden
+                          style={{ height: `${virtualizedRideRows.topSpacerHeight}px` }}
+                        />
+                      )}
+                      {virtualizedRideRows.rows.map((ride) => {
+                        return (
+                          <RiddenRideRow
+                            key={ride.coaster_id}
+                            ride={ride}
+                            selected={selectedCoasterId === ride.coaster_id}
+                            canEdit={isOwnStatsView}
+                            onOpen={openRideSheet}
+                          />
+                        );
+                      })}
+                      {virtualizedRideRows.bottomSpacerHeight > 0 && (
+                        <li
+                          aria-hidden
+                          style={{ height: `${virtualizedRideRows.bottomSpacerHeight}px` }}
+                        />
+                      )}
+                    </ul>
+                    {filteredRides.length > displayedRides.length && (
+                      <div className="mt-3 flex justify-center">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisibleRideCount((count) =>
+                              Math.min(count + LOAD_MORE_RIDES_STEP, filteredRides.length),
+                            )
+                          }
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          Load more rides
+                        </button>
+                      </div>
+                    )}
+                    <RiddenRideSheet
+                      ride={selectedRide}
+                      open={selectedRide != null}
+                      canEdit={isOwnStatsView}
+                      savingRating={savingRating}
+                      removing={removing === selectedRide?.coaster_id}
+                      loggingRide={loggingRide}
+                      onClose={closeRideSheet}
+                      onRate={rateRide}
+                      onRemove={removeRide}
+                      onAddRide={isOwnStatsView ? addRide : undefined}
+                      onHistoryChanged={
+                        isOwnStatsView && selectedRide
+                          ? (summary) => applyHistoryChange(selectedRide.coaster_id, summary)
+                          : undefined
+                      }
+                    />
+                  </>
+                )}
+              </section>
+
+              <h2 className="mt-6 mb-3 font-semibold text-slate-900">Overall stats</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {statCards.map(({ label, value }) => (
                   <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1188,149 +1329,8 @@ function StatsPageContent() {
             </div>
           )}
 
-              {/* Equal gaps on mobile; two-column on desktop with rides spanning the left */}
+              {/* Top parks and countries */}
               <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
-            {/* Rides ridden */}
-            <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:row-span-2">
-              <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
-              {loading ? (
-                <p className="text-sm text-slate-400">Loading&hellip;</p>
-              ) : filteredUniqueRides.length === 0 ? (
-                <p className="text-sm text-slate-500">
-                  {isOwnStatsView ? (
-                    <>
-                      No rides logged yet. Mark rides as ridden from the map or your{" "}
-                      <Link href="/wishlist" className="font-medium text-amber-700 underline decoration-amber-300 underline-offset-2 hover:text-amber-800">
-                        wishlist
-                      </Link>
-                      .
-                    </>
-                  ) : (
-                    "No rides logged yet."
-                  )}
-                </p>
-              ) : (
-                <>
-                  <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-                    {filteredUniqueRides.length > 3 && (
-                      <input
-                        type="search"
-                        value={rideFilter}
-                        onChange={(e) => setRideFilter(e.target.value)}
-                        placeholder="Filter rides…"
-                        aria-label="Filter rides"
-                        className="min-w-0 w-full flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                      />
-                    )}
-                    <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
-                      <select
-                        value={rideCountFilter}
-                        onChange={(e) => setRideCountFilter(e.target.value as RideCountFilter)}
-                        className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
-                        aria-label="Filter by times ridden"
-                      >
-                        <option value="any">Any count</option>
-                        <option value="1">Ridden once</option>
-                        <option value="2+">2+ times</option>
-                        <option value="3+">3+ times</option>
-                        <option value="5+">5+ times</option>
-                        <option value="10+">10+ times</option>
-                      </select>
-                      <select
-                        value={rideSort}
-                        onChange={(e) => setRideSort(e.target.value as RideSort)}
-                        className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
-                        aria-label="Sort rides"
-                      >
-                        <option value="name">Sort: Name</option>
-                        <option value="rating">Sort: Rating</option>
-                        <option value="recent">Sort: Recent</option>
-                        <option value="rides">Sort: Times ridden</option>
-                      </select>
-                    </div>
-                  </div>
-                  {(rideCountFilter !== "any" || rideFilter.trim()) && (
-                    <p className="mb-2 text-xs text-slate-500">
-                      {filteredRides.length === 1
-                        ? "1 match"
-                        : `${filteredRides.length.toLocaleString()} matches`}
-                    </p>
-                  )}
-                  <ul
-                    ref={rideListRef}
-                    onScroll={(event) => {
-                      const nextTop = event.currentTarget.scrollTop;
-                      if (rideListRafRef.current != null) return;
-                      rideListRafRef.current = window.requestAnimationFrame(() => {
-                        setRideListScrollTop(nextTop);
-                        rideListRafRef.current = null;
-                      });
-                    }}
-                    className="max-h-[min(50vh,22rem)] overflow-y-auto overflow-x-hidden overscroll-contain pb-1 [scrollbar-gutter:stable]"
-                  >
-                    {filteredRides.length === 0 && (
-                      <li className="py-2 text-xs text-slate-400">No matches</li>
-                    )}
-                    {virtualizedRideRows.topSpacerHeight > 0 && (
-                      <li
-                        aria-hidden
-                        style={{ height: `${virtualizedRideRows.topSpacerHeight}px` }}
-                      />
-                    )}
-                    {virtualizedRideRows.rows.map((ride) => {
-                      return (
-                        <RiddenRideRow
-                          key={ride.coaster_id}
-                          ride={ride}
-                          selected={selectedCoasterId === ride.coaster_id}
-                          canEdit={isOwnStatsView}
-                          onOpen={openRideSheet}
-                        />
-                      );
-                    })}
-                    {virtualizedRideRows.bottomSpacerHeight > 0 && (
-                      <li
-                        aria-hidden
-                        style={{ height: `${virtualizedRideRows.bottomSpacerHeight}px` }}
-                      />
-                    )}
-                  </ul>
-                  {filteredRides.length > displayedRides.length && (
-                    <div className="mt-3 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setVisibleRideCount((count) =>
-                            Math.min(count + LOAD_MORE_RIDES_STEP, filteredRides.length),
-                          )
-                        }
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                      >
-                        Load more rides
-                      </button>
-                    </div>
-                  )}
-                  <RiddenRideSheet
-                    ride={selectedRide}
-                    open={selectedRide != null}
-                    canEdit={isOwnStatsView}
-                    savingRating={savingRating}
-                    removing={removing === selectedRide?.coaster_id}
-                    loggingRide={loggingRide}
-                    onClose={closeRideSheet}
-                    onRate={rateRide}
-                    onRemove={removeRide}
-                    onAddRide={isOwnStatsView ? addRide : undefined}
-                    onHistoryChanged={
-                      isOwnStatsView && selectedRide
-                        ? (summary) => applyHistoryChange(selectedRide.coaster_id, summary)
-                        : undefined
-                    }
-                  />
-                </>
-              )}
-            </section>
-
               {/* Top parks */}
               <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
                 <h2 className="mb-3 font-semibold text-slate-900">Top parks</h2>

@@ -1,11 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import type { Coaster, Park } from "@/types/domain";
-import {
-  isCoasterCatalogSubstantial,
-  isParkCatalogSubstantial,
-} from "@/lib/catalog-content";
 import { normalizeCatalog, serializeNormalizedCatalog, deserializeNormalizedCatalog } from "@/lib/catalog-normalize";
+import { parkBrandPriorityBonus, selectSitemapCoasters, selectSitemapParks } from "@/lib/catalog-sitemap";
 import { dedupeCoastersForCatalog } from "@/lib/coaster-dedup";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
@@ -141,51 +138,15 @@ export async function getCoasterById(id: number): Promise<CoasterDetail | null> 
 
 export async function listParksForSitemap(): Promise<Pick<Park, "id" | "name">[]> {
   const normalized = await getNormalizedCatalog();
-  const eligible = await Promise.all(
-    normalized.parks.map(async (park) => {
-      const coasters = normalized.coasters.filter((c) => c.park_id === park.id);
-      return isParkCatalogSubstantial(coasters) ? park : null;
-    }),
-  );
-  return eligible.filter(Boolean) as Pick<Park, "id" | "name">[];
+  return selectSitemapParks(normalized.parks, normalized.coasters);
 }
 
 export async function listCoastersForSitemap(): Promise<Pick<Coaster, "id" | "name">[]> {
   const normalized = await getNormalizedCatalog();
-  return normalized.coasters
-    .filter((c) => isCoasterCatalogSubstantial(c, c.summary_text))
-    .map(({ id, name }) => ({ id, name }));
-}
-
-const FEATURED_PARK_BRAND_BONUSES: Array<{ pattern: RegExp; bonus: number }> = [
-  { pattern: /\balton\s*towers\b/i, bonus: 120 },
-  { pattern: /\bdisney/i, bonus: 100 },
-  { pattern: /\buniversal\b/i, bonus: 100 },
-  { pattern: /\bsix\s*flags\b/i, bonus: 90 },
-  { pattern: /\beuropa[\s-]?park\b/i, bonus: 90 },
-  { pattern: /\bcedar\s*point\b/i, bonus: 85 },
-  { pattern: /\bthorpe\s*park\b/i, bonus: 80 },
-  { pattern: /\bphantasialand\b/i, bonus: 80 },
-  { pattern: /\befteling\b/i, bonus: 75 },
-  { pattern: /\benergylandia\b/i, bonus: 75 },
-  { pattern: /\bblackpool\b/i, bonus: 70 },
-  { pattern: /\bbusch\s*gardens\b/i, bonus: 70 },
-  { pattern: /\bseaworld\b/i, bonus: 65 },
-  { pattern: /\blegoland\b/i, bonus: 60 },
-  { pattern: /\bhershey/i, bonus: 55 },
-  { pattern: /\bkings\s*(island|dominion)\b/i, bonus: 55 },
-  { pattern: /\bknoebels\b/i, bonus: 50 },
-  { pattern: /\bport\s*aventura\b/i, bonus: 50 },
-  { pattern: /\btoverland\b/i, bonus: 45 },
-  { pattern: /\bheide[\s-]?park\b/i, bonus: 45 },
-];
-
-function featuredParkBrandBonus(name: string): number {
-  let best = 0;
-  for (const entry of FEATURED_PARK_BRAND_BONUSES) {
-    if (entry.pattern.test(name)) best = Math.max(best, entry.bonus);
-  }
-  return best;
+  const parks = selectSitemapParks(normalized.parks, normalized.coasters);
+  return selectSitemapCoasters(normalized.coasters, {
+    parkIds: new Set(parks.map((row) => row.id)),
+  });
 }
 
 function isExcludedFeaturedParkName(name: string): boolean {
@@ -308,8 +269,8 @@ export async function listFeaturedParks(limit = 12): Promise<ParkDetail[]> {
   }
 
   scored.sort((a, b) => {
-    const scoreA = a.rideCount + featuredParkBrandBonus(a.name);
-    const scoreB = b.rideCount + featuredParkBrandBonus(b.name);
+    const scoreA = a.rideCount + parkBrandPriorityBonus(a.name);
+    const scoreB = b.rideCount + parkBrandPriorityBonus(b.name);
     if (scoreB !== scoreA) return scoreB - scoreA;
     return a.name.localeCompare(b.name);
   });
