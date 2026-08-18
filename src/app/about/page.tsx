@@ -41,11 +41,19 @@ export default function AboutPage() {
           <h2 className="pt-2 text-xl font-semibold text-slate-900">What you can do</h2>
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              Browse parks and coasters on an{" "}
+              Discover parks and coasters on an{" "}
               <Link href="/map" className="font-medium text-amber-700 underline-offset-2 hover:underline">
                 interactive world map
               </Link>
-              .
+              , or browse the{" "}
+              <Link href="/parks" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+                park
+              </Link>{" "}
+              and{" "}
+              <Link href="/coasters" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+                coaster
+              </Link>{" "}
+              lists.
             </li>
             <li>Save rides to a wishlist and check them off after each trip.</li>
             <li>Review personal stats such as ride counts, height totals, and park coverage.</li>

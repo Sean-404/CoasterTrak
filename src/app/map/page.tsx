@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { DiscoverNav } from "@/components/discover-nav";
 import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -1048,17 +1049,20 @@ function MapPageContent() {
     <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-4 py-6 sm:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h1 className="text-2xl font-bold text-slate-900">Coaster map</h1>
-          {!catalogLoading && (selectedCoasterId != null || focusedParkId != null) ? (
-            <button
-              type="button"
-              onClick={resetMapView}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-slate-400"
-            >
-              Reset map
-            </button>
-          ) : null}
+        <div className="mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h1 className="font-bungee text-3xl leading-tight text-slate-900 sm:text-4xl">Coaster map</h1>
+            {!catalogLoading && (selectedCoasterId != null || focusedParkId != null) ? (
+              <button
+                type="button"
+                onClick={resetMapView}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:border-slate-400"
+              >
+                Reset map
+              </button>
+            ) : null}
+          </div>
+          <DiscoverNav className="mt-3" />
         </div>
         {catalogLoading ? (
           <MapPageCatalogSkeleton
@@ -1460,6 +1464,8 @@ export default function MapPage() {
         <div className="min-h-screen bg-slate-50">
           <SiteHeader />
           <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+            <h1 className="font-bungee mb-3 text-3xl leading-tight text-slate-900 sm:text-4xl">Coaster map</h1>
+            <DiscoverNav className="mb-4" />
             <p className="mb-4 text-sm text-slate-500">Loading map…</p>
             <MapAreaSkeleton />
           </main>

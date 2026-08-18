@@ -5,6 +5,7 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogPagination } from "@/components/catalog-pagination";
 import { CatalogSearchForm } from "@/components/catalog-search-form";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
+import { DiscoverNav } from "@/components/discover-nav";
 import { getCatalogIndexCounts, listCoastersForIndex } from "@/lib/catalog-server";
 import { parseCatalogPage, sliceCatalogPage } from "@/lib/catalog-pagination";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
@@ -16,7 +17,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = {
   title: "Roller coasters",
   description:
-    "Browse roller coasters in the CoasterTrak catalog. Open a ride page for stats, find it on the map, or jump to its theme park.",
+    "Browse roller coasters in the CoasterTrak catalog. Open a ride page for stats, browse parks, or explore the world map.",
   alternates: {
     canonical: "/coasters",
   },
@@ -57,9 +58,10 @@ export default async function CoastersIndexPage({ searchParams }: PageProps) {
   } = sliceCatalogPage(allCoasters, requestedPage);
 
   return (
-    <CatalogPageShell breadcrumb={[{ href: "/coasters", label: "Coasters" }]}>
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Catalog</p>
-      <h1 className="font-bungee mt-2 text-4xl leading-tight text-slate-900 sm:text-5xl">
+    <CatalogPageShell breadcrumb={[{ href: "/map", label: "Discover" }, { href: "/coasters", label: "Coasters" }]}>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Discover</p>
+      <DiscoverNav className="mt-3" />
+      <h1 className="font-bungee mt-4 text-4xl leading-tight text-slate-900 sm:text-5xl">
         Roller coasters
       </h1>
 

@@ -47,6 +47,11 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: true,
       },
+      {
+        source: "/discover",
+        destination: "/map",
+        permanent: true,
+      },
     ];
   },
   async headers() {

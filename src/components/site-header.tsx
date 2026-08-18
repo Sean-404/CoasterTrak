@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { isAdminUser } from "@/lib/admin";
+import { DISCOVER_HREF, isDiscoverPath } from "@/lib/discover";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  const discoverActive = isDiscoverPath(pathname);
   const [isAuthed, setIsAuthed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -41,14 +45,15 @@ export function SiteHeader() {
 
   const coreNavLinks = (
     <>
-      <Link href="/map" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Map
-      </Link>
-      <Link href="/parks" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Parks
-      </Link>
-      <Link href="/coasters" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Coasters
+      <Link
+        href={DISCOVER_HREF}
+        onClick={() => setMenuOpen(false)}
+        aria-current={discoverActive ? "page" : undefined}
+        className={`transition ${
+          discoverActive ? "text-white" : "text-slate-400 hover:text-white"
+        }`}
+      >
+        Discover
       </Link>
       <Link href="/wishlist" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Wishlist

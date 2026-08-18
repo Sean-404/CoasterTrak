@@ -109,7 +109,7 @@ export default async function Home() {
             <span className="break-words text-amber-400">Coaster Tracker</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
-            Log every credit, explore parks worldwide on an interactive map, browse the catalog, and watch your
+            Log every credit, discover parks and coasters on the map, browse the catalog, and watch your
             coaster stats grow.
           </p>
           <HomeHeroCtas />
@@ -121,7 +121,7 @@ export default async function Home() {
           <FeatureCard
             icon={<MapIcon />}
             title="World Map"
-            description="Find coasters at parks across every continent on an interactive map."
+            description="Find coasters at parks across every continent, then switch to park or ride lists."
             href="/map"
           />
           <FeatureCard

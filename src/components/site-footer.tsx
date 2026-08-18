@@ -41,14 +41,14 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           <FooterLink href="/coaster-tracker" isDark={isDark}>
             Coaster tracker
           </FooterLink>
+          <FooterLink href="/map" isDark={isDark}>
+            Discover
+          </FooterLink>
           <FooterLink href="/parks" isDark={isDark}>
             Parks
           </FooterLink>
           <FooterLink href="/coasters" isDark={isDark}>
             Coasters
-          </FooterLink>
-          <FooterLink href="/map" isDark={isDark}>
-            Map
           </FooterLink>
         </nav>
       </div>

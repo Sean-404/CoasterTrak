@@ -6,6 +6,7 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogPagination } from "@/components/catalog-pagination";
 import { CatalogSearchForm } from "@/components/catalog-search-form";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
+import { DiscoverNav } from "@/components/discover-nav";
 import { getCatalogIndexCounts, listCatalogParks } from "@/lib/catalog-server";
 import { parseCatalogPage, sliceCatalogPage } from "@/lib/catalog-pagination";
 import { formatParkLabel, matchesSearchQuery } from "@/lib/display";
@@ -17,7 +18,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = {
   title: "Theme parks with roller coasters",
   description:
-    "Browse theme parks in the CoasterTrak catalog, open a park page for its roller coaster list, or explore everything on the world map.",
+    "Browse theme parks in the CoasterTrak catalog, switch to the roller coaster list, or explore everything on the world map.",
   alternates: {
     canonical: "/parks",
   },
@@ -109,9 +110,10 @@ export default async function ParksIndexPage({ searchParams }: PageProps) {
   const countries = [...byCountry.keys()];
 
   return (
-    <CatalogPageShell breadcrumb={[{ href: "/parks", label: "Parks" }]}>
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Catalog</p>
-      <h1 className="font-bungee mt-2 text-4xl leading-tight text-slate-900 sm:text-5xl">
+    <CatalogPageShell breadcrumb={[{ href: "/map", label: "Discover" }, { href: "/parks", label: "Parks" }]}>
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Discover</p>
+      <DiscoverNav className="mt-3" />
+      <h1 className="font-bungee mt-4 text-4xl leading-tight text-slate-900 sm:text-5xl">
         Theme parks
       </h1>
 

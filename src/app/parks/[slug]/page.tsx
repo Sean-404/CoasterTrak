@@ -152,6 +152,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
   return (
     <CatalogPageShell
       breadcrumb={[
+        { href: "/map", label: "Discover" },
         { href: "/parks", label: "Parks" },
         { href: `/parks/${canonicalSlug}`, label: park.name },
       ]}

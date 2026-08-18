@@ -133,6 +133,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   return (
     <CatalogPageShell
       breadcrumb={[
+        { href: "/map", label: "Discover" },
         { href: "/parks", label: "Parks" },
         ...(park
           ? [{ href: `/parks/${parkSlug(park.name, park.id)}`, label: park.name }]

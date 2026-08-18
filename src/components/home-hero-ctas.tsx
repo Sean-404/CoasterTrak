@@ -24,7 +24,7 @@ export function HomeHeroCtas() {
         href="/map"
         className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-amber-400 active:scale-95"
       >
-        Open map &rarr;
+        Discover &rarr;
       </Link>
       <Link
         href="/coaster-tracker"
