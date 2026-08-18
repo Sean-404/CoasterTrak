@@ -19,7 +19,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 15 August 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 18 August 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -104,7 +104,7 @@ export default function PrivacyPage() {
 
           <h2 className="text-xl font-semibold text-slate-900">Your choices</h2>
           <ul className="list-disc space-y-2 pl-5">
-            <li>Update profile details from your account settings when signed in, including whether your stats and ride photos are friends-only or public to signed-in users.</li>
+            <li>Update profile details from your account settings when signed in, including whether your stats and ride photos are private, friends-only, or public to signed-in users. New accounts default to friends-only.</li>
             <li>Sign out at any time from the site header.</li>
             <li>
               Contact us to request access to or deletion of personal data we hold about you, subject to applicable

@@ -839,9 +839,35 @@ export default function AccountPage() {
                     Stats &amp; photos
                   </legend>
                   <p className="mt-1 text-xs text-slate-500">
-                    Choose who can see your ride stats, ratings, and ride photos. Search engines cannot index this.
+                    Choose who can see your ride stats, ratings, and ride photos. New accounts default to Friends only.
+                    Search engines cannot index this.
                   </p>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                    <label
+                      className={[
+                        "cursor-pointer rounded-xl border px-3 py-3 transition",
+                        statsVisibility === "private"
+                          ? "border-slate-900 bg-slate-50 ring-2 ring-slate-900/15"
+                          : "border-slate-200 bg-white hover:border-slate-300",
+                      ].join(" ")}
+                    >
+                      <input
+                        type="radio"
+                        name="stats_visibility"
+                        value="private"
+                        checked={statsVisibility === "private"}
+                        onChange={() => {
+                          setStatsVisibility("private");
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        className="sr-only"
+                      />
+                      <span className="block text-sm font-semibold text-slate-900">Private</span>
+                      <span className="mt-1 block text-xs text-slate-500">
+                        Only you can see your stats and photos. You will not appear in search or in the public directory.
+                      </span>
+                    </label>
                     <label
                       className={[
                         "cursor-pointer rounded-xl border px-3 py-3 transition",
@@ -864,7 +890,7 @@ export default function AccountPage() {
                       />
                       <span className="block text-sm font-semibold text-slate-900">Friends only</span>
                       <span className="mt-1 block text-xs text-slate-500">
-                        Accepted friends can see your stats and photos. This is the default.
+                        People can find you by name. Accepted friends can see your stats and photos. This is the default.
                       </span>
                     </label>
                     <label
@@ -889,7 +915,7 @@ export default function AccountPage() {
                       />
                       <span className="block text-sm font-semibold text-slate-900">Public</span>
                       <span className="mt-1 block text-xs text-slate-500">
-                        Any signed-in CoasterTrak user with your profile link can see your stats and photos.
+                        Signed-in users can find you under Friends → Browse public profiles and open your stats and photos.
                       </span>
                     </label>
                   </div>

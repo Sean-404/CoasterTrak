@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canViewOtherUserStats,
   friendlyRidePhotoError,
   isStatsVisibility,
   parseRidePhotoPath,
@@ -30,11 +31,28 @@ describe("parseRidePhotoPath", () => {
 });
 
 describe("isStatsVisibility", () => {
-  it("allows friends or public", () => {
+  it("allows private, friends, or public", () => {
+    expect(isStatsVisibility("private")).toBe(true);
     expect(isStatsVisibility("friends")).toBe(true);
     expect(isStatsVisibility("public")).toBe(true);
-    expect(isStatsVisibility("private")).toBe(false);
     expect(isStatsVisibility("")).toBe(false);
+  });
+});
+
+describe("canViewOtherUserStats", () => {
+  it("hides private stats from everyone else", () => {
+    expect(canViewOtherUserStats("private", false)).toBe(false);
+    expect(canViewOtherUserStats("private", true)).toBe(false);
+  });
+
+  it("shows friends-only stats to accepted friends", () => {
+    expect(canViewOtherUserStats("friends", false)).toBe(false);
+    expect(canViewOtherUserStats("friends", true)).toBe(true);
+  });
+
+  it("shows public stats to any signed-in user", () => {
+    expect(canViewOtherUserStats("public", false)).toBe(true);
+    expect(canViewOtherUserStats("public", true)).toBe(true);
   });
 });
 

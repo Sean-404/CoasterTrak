@@ -88,7 +88,7 @@ create table if not exists profiles (
   ban_reason text,
   favorite_ride_id bigint references coasters(id) on delete set null,
   favorite_park_id bigint references parks(id) on delete set null,
-  stats_visibility text not null default 'friends' check (stats_visibility in ('friends', 'public')),
+  stats_visibility text not null default 'friends' check (stats_visibility in ('private', 'friends', 'public')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint profiles_avatar_path_matches_owner check (
@@ -412,14 +412,17 @@ as $$
           and p.banned_at is null
           and (
             p.stats_visibility = 'public'
-            or exists (
-              select 1
-              from public.friendships f
-              where f.status = 'accepted'
-                and (
-                  (f.requester_id = (select auth.uid()) and f.addressee_id = owner)
-                  or (f.addressee_id = (select auth.uid()) and f.requester_id = owner)
-                )
+            or (
+              p.stats_visibility = 'friends'
+              and exists (
+                select 1
+                from public.friendships f
+                where f.status = 'accepted'
+                  and (
+                    (f.requester_id = (select auth.uid()) and f.addressee_id = owner)
+                    or (f.addressee_id = (select auth.uid()) and f.requester_id = owner)
+                  )
+              )
             )
           )
       )
@@ -481,7 +484,23 @@ drop policy if exists "users can read own profile" on profiles;
 create policy "users can read own profile" on profiles for select using (auth.uid() = user_id);
 
 drop policy if exists "authenticated can read public profiles" on profiles;
-create policy "authenticated can read public profiles" on profiles for select to authenticated using (display_name is not null and banned_at is null);
+create policy "authenticated can read public profiles" on profiles for select to authenticated
+  using (
+    display_name is not null
+    and banned_at is null
+    and (
+      stats_visibility in ('friends', 'public')
+      or exists (
+        select 1
+        from friendships f
+        where f.status = 'accepted'
+          and (
+            (f.requester_id = (select auth.uid()) and f.addressee_id = user_id)
+            or (f.addressee_id = (select auth.uid()) and f.requester_id = user_id)
+          )
+      )
+    )
+  );
 
 drop policy if exists "users can insert own profile" on profiles;
 create policy "users can insert own profile" on profiles for insert with check (auth.uid() = user_id);
@@ -527,12 +546,16 @@ begin
      )
      or exists (
        select 1
-       from public.friendships f
-       where f.status = 'accepted'
-         and (
-           (f.requester_id = auth.uid() and f.addressee_id = target)
-           or (f.addressee_id = auth.uid() and f.requester_id = target)
-         )
+       from public.profiles p
+       join public.friendships f
+         on f.status = 'accepted'
+        and (
+          (f.requester_id = auth.uid() and f.addressee_id = target)
+          or (f.addressee_id = auth.uid() and f.requester_id = target)
+        )
+       where p.user_id = target
+         and p.banned_at is null
+         and p.stats_visibility = 'friends'
      )
   then
     return (

@@ -10,10 +10,16 @@ export const RIDE_PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/*";
 const PHOTO_PATH_RE =
   /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/(\d+)\.jpg$/i;
 
-export type StatsVisibility = "friends" | "public";
+export type StatsVisibility = "private" | "friends" | "public";
 
 export function isStatsVisibility(value: unknown): value is StatsVisibility {
-  return value === "friends" || value === "public";
+  return value === "private" || value === "friends" || value === "public";
+}
+
+export function canViewOtherUserStats(visibility: unknown, isFriend: boolean): boolean {
+  if (!isStatsVisibility(visibility)) return false;
+  if (visibility === "public") return true;
+  return visibility === "friends" && isFriend;
 }
 
 export function ridePhotoObjectPath(userId: string, coasterId: number): string {

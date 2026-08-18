@@ -29,7 +29,7 @@ import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { loadRideCreditSummaries, logRideEvents, summariesByCoasterId } from "@/lib/ride-log";
 import {
-  isStatsVisibility,
+  canViewOtherUserStats,
   removeRidePhoto,
   signRidePhotoUrls,
 } from "@/lib/ride-photos";
@@ -390,16 +390,17 @@ function StatsPageContent() {
       const [profilePreview, friendshipRes] = await Promise.all([profileQuery, friendshipQuery]);
       if (targetUserId !== user.id) {
         const isFriend = !friendshipRes.error && (friendshipRes.data?.length ?? 0) > 0;
-        const isPublic = isStatsVisibility(profilePreview.data?.stats_visibility)
-          ? profilePreview.data?.stats_visibility === "public"
-          : false;
-        if (!isFriend && !isPublic) {
+        const visibility = profilePreview.data?.stats_visibility;
+        if (!profilePreview.data || !canViewOtherUserStats(visibility, isFriend)) {
+          setShareDisplayName(
+            typeof profilePreview.data?.display_name === "string" ? profilePreview.data.display_name : null,
+          );
           setRides([]);
           setFriendAccessDenied(true);
           setLoading(false);
           return;
         }
-        setViewingPublicProfile(!isFriend && isPublic);
+        setViewingPublicProfile(!isFriend && visibility === "public");
       }
 
       const [ridesRes, friendCountRes, summariesRes] = await Promise.all([
@@ -1115,8 +1116,9 @@ function StatsPageContent() {
           )}
           {friendAccessDenied && (
             <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">
-              This profile is private. You can only view stats for accepted friends, or for users who have made their
-              stats public.
+              {shareDisplayName
+                ? `${shareDisplayName} keeps their stats private.`
+                : "This profile is private or could not be found. You can view stats for accepted friends, or for users who have made their profile public."}
             </p>
           )}
           {!friendAccessDenied && (

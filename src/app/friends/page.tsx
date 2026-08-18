@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { loadRideCreditSummaries } from "@/lib/ride-log";
+import { canViewOtherUserStats } from "@/lib/ride-photos";
 import { signAvatarUrls } from "@/lib/profile-photos";
 
 type FriendshipStatus = "pending" | "accepted" | "declined" | "blocked";
@@ -29,10 +30,11 @@ type ProfileRow = {
   avatarUrl?: string | null;
   favorite_ride_id: number | null;
   favorite_park_id: number | null;
+  stats_visibility?: string | null;
 };
 
 const PROFILE_SELECT =
-  "user_id, display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id";
+  "user_id, display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility";
 
 async function withAvatarUrls(
   supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
@@ -638,10 +640,20 @@ export default function FriendsPage() {
       <main className="mx-auto max-w-4xl p-6">
         <AuthGate>
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">Friends</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Compare stats with friends and keep your coaster crew connected.
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">Friends</h1>
+                <p className="mt-1 text-sm text-slate-500">
+                  Search for people by display name, send requests, and compare stats with friends.
+                </p>
+              </div>
+              <Link
+                href="/users"
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+              >
+                Browse public profiles
+              </Link>
+            </div>
             {!myProfile?.display_name && (
               <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 Set your display name in Account before sending friend requests.
@@ -686,6 +698,10 @@ export default function FriendsPage() {
                     {searchResults.map((profile) => {
                       const relation = relationshipByOtherId.get(profile.user_id);
                       const canAdd = !relation || relation.status === "declined";
+                      const canViewStats = canViewOtherUserStats(
+                        profile.stats_visibility,
+                        relation?.status === "accepted",
+                      );
                       return (
                         <li key={profile.user_id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2">
                           <div className="flex min-w-0 items-center gap-3">
@@ -700,6 +716,7 @@ export default function FriendsPage() {
                               <p className="text-xs text-slate-500">
                                 {countryNameFromCode(profile.country_code)}
                                 {relation?.status === "accepted" ? " · Friend" : ""}
+                                {profile.stats_visibility === "public" ? " · Public stats" : ""}
                                 {relation?.status === "pending"
                                   ? relation.requester_id === userId
                                     ? " · Request sent"
@@ -708,19 +725,29 @@ export default function FriendsPage() {
                               </p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => void sendRequest(profile.user_id)}
-                            disabled={!canAdd || !myProfile?.display_name}
-                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-                          >
-                            {relation?.status === "accepted"
-                              ? "Friends"
-                              : relation?.status === "pending"
-                                ? relation.requester_id === userId
-                                  ? "Sent"
-                                  : "Accept"
-                                : "Add friend"}
-                          </button>
+                          <div className="flex shrink-0 gap-2">
+                            {canViewStats ? (
+                              <Link
+                                href={`/stats?user=${encodeURIComponent(profile.user_id)}`}
+                                className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                              >
+                                Stats
+                              </Link>
+                            ) : null}
+                            <button
+                              onClick={() => void sendRequest(profile.user_id)}
+                              disabled={!canAdd || !myProfile?.display_name}
+                              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {relation?.status === "accepted"
+                                ? "Friends"
+                                : relation?.status === "pending"
+                                  ? relation.requester_id === userId
+                                    ? "Sent"
+                                    : "Accept"
+                                  : "Add friend"}
+                            </button>
+                          </div>
                         </li>
                       );
                     })}
@@ -830,6 +857,8 @@ export default function FriendsPage() {
                         const otherId = row.requester_id === userId ? row.addressee_id : row.requester_id;
                         const other = profilesById[otherId];
                         const isSelected = selectedCompareUserId === otherId;
+                        const canViewStats = canViewOtherUserStats(other?.stats_visibility, true);
+                        const nameContent = profileLabel(other, otherId);
                         return (
                           <li key={row.id} className={`rounded-lg border px-3 py-3 ${isSelected ? "border-amber-300 bg-amber-50/40" : "border-slate-200"}`}>
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -841,38 +870,50 @@ export default function FriendsPage() {
                                   size="md"
                                 />
                                 <div className="min-w-0">
-                                  <Link
-                                    href={`/stats?user=${encodeURIComponent(otherId)}`}
-                                    className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
-                                  >
-                                    {profileLabel(other, otherId)}
-                                  </Link>
+                                  {canViewStats ? (
+                                    <Link
+                                      href={`/stats?user=${encodeURIComponent(otherId)}`}
+                                      className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
+                                    >
+                                      {nameContent}
+                                    </Link>
+                                  ) : (
+                                    <p className="font-medium text-slate-900">{nameContent}</p>
+                                  )}
                                   <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
-                                  <p className="mt-1 text-xs text-slate-600 break-words">
-                                    <span className="font-medium text-slate-700">Fav ride:</span>{" "}
-                                    {coasterLabel(
-                                      other?.favorite_ride_id != null
-                                        ? coastersById[other.favorite_ride_id]
-                                        : null,
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-slate-600 break-words">
-                                    <span className="font-medium text-slate-700">Fav park:</span>{" "}
-                                    {parkLabel(
-                                      other?.favorite_park_id != null
-                                        ? parksById[other.favorite_park_id]
-                                        : null,
-                                    )}
-                                  </p>
+                                  {!canViewStats ? (
+                                    <p className="mt-1 text-xs text-slate-500">This friend keeps their stats private.</p>
+                                  ) : (
+                                    <>
+                                      <p className="mt-1 text-xs text-slate-600 break-words">
+                                        <span className="font-medium text-slate-700">Fav ride:</span>{" "}
+                                        {coasterLabel(
+                                          other?.favorite_ride_id != null
+                                            ? coastersById[other.favorite_ride_id]
+                                            : null,
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-slate-600 break-words">
+                                        <span className="font-medium text-slate-700">Fav park:</span>{" "}
+                                        {parkLabel(
+                                          other?.favorite_park_id != null
+                                            ? parksById[other.favorite_park_id]
+                                            : null,
+                                        )}
+                                      </p>
+                                    </>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex w-full gap-2 sm:w-auto">
-                                <button
-                                  onClick={() => setSelectedCompareUserId((prev) => (prev === otherId ? null : otherId))}
-                                  className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 sm:flex-none"
-                                >
-                                  {isSelected ? "Hide compare" : "Compare stats"}
-                                </button>
+                                {canViewStats ? (
+                                  <button
+                                    onClick={() => setSelectedCompareUserId((prev) => (prev === otherId ? null : otherId))}
+                                    className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 sm:flex-none"
+                                  >
+                                    {isSelected ? "Hide compare" : "Compare stats"}
+                                  </button>
+                                ) : null}
                                 <button
                                   onClick={() => void removeFriend(row)}
                                   disabled={busyId === row.id}
