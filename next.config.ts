@@ -58,6 +58,56 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/coaster-credits-app",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/coaster-credit-logger",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/roller-coaster-credits",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/roller-coaster-credit-tracker",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/coaster-log",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/coaster-logger",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/coaster-tally",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/roller-coaster-tracker",
+        destination: "/coaster-tracker",
+        permanent: true,
+      },
+      {
+        source: "/coaster-track",
+        destination: "/coaster-tracker",
+        permanent: true,
+      },
+      {
+        source: "/coastertrack",
+        destination: "/",
+        permanent: true,
+      },
+      {
         source: "/coastertrak",
         destination: "/",
         permanent: true,

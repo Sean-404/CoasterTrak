@@ -13,7 +13,15 @@ export const metadata: Metadata = {
     "coaster credits",
     "coaster credit tracker",
     "coaster credit app",
+    "coaster credit logger",
     "roller coaster credits",
+    "roller coaster credit tracker",
+    "unique coaster credits",
+    "coaster log",
+    "coaster logger",
+    "coaster tally",
+    "theme park credit tracker",
+    "credit hunter",
     "credit logger",
     "CoasterTrak",
   ],
@@ -39,6 +47,16 @@ const faqs = [
     question: "Is CoasterTrak a coaster credit app?",
     answer:
       "Yes. CoasterTrak is a free web app for logging coaster credits on your phone or computer. You do not need a separate install: open coastertrak.com, create an account, and your tally syncs across devices.",
+  },
+  {
+    question: "What's the difference between unique credits and total rides?",
+    answer:
+      "Unique credits are distinct coasters you have ridden at least once. Total rides includes repeats. CoasterTrak tracks both so you can say 400 credits and 18 rides today.",
+  },
+  {
+    question: "Can I keep a roller coaster log with dates?",
+    answer:
+      "Yes. Each credit can have ride days and quantities. That turns a checkbox list into a coaster log with first ridden and last ridden, while undated older credits still count.",
   },
   {
     question: "Does it count family and kiddie coasters?",
@@ -196,8 +214,9 @@ export default function CoasterCreditsLandingPage() {
           <h2 className="text-2xl font-semibold text-white">Why searchers look for a coaster credit app</h2>
           <p>
             Spreadsheets work until you forget which Corkscrew was which park. A dedicated coaster credit app keeps
-            the catalog, your tally, and trip leftovers in one place. CoasterTrak runs in the browser on iPhone,
-            Android, and desktop, so you can log a credit in the queue without waiting on an app-store review.
+            the catalog, your tally, and trip leftovers in one place — same job as a coaster log or theme park
+            credit tracker. CoasterTrak runs in the browser on iPhone, Android, and desktop, so you can
+            log a credit in the queue without waiting on an app-store review.
           </p>
           <p>
             After you add friends, Compare is built for the question credit hunters actually ask: not &quot;who has
