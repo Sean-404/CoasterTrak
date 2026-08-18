@@ -51,6 +51,12 @@ describe("applyCoasterKnownFixes", () => {
   it("fills #LikeMe Coaster stats from the official Plopsaland page", () => {
     const fixed = applyCoasterKnownFixes({
       name: "#LikeMe Coaster",
+      manufacturer: undefined,
+      height_ft: undefined,
+      speed_mph: undefined,
+      length_ft: undefined,
+      duration_s: undefined,
+      inversions: undefined,
     });
     expect(fixed.manufacturer).toBe("Zierer");
     expect(fixed.height_ft).toBe(26);

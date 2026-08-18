@@ -251,6 +251,7 @@ export function CoasterActions({
   const countLabel = credit ? formatRideCount(credit.totalRides) : null;
   const firstLabel = credit ? formatRideOnDate(credit.firstRiddenOn) : null;
   const lastLabel = credit ? formatRideOnDate(credit.lastRiddenOn) : null;
+  const message = status === "error" ? errorMsg : feedback;
 
   const dateInputClass =
     "mt-1 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400";
