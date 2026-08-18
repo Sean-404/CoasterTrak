@@ -191,7 +191,7 @@ describe("mostRiddenCoaster / copy stats", () => {
       favoriteParkLabel: "Islands of Adventure",
       mostRidden: { name: "VelociCoaster", rides: 12 },
     });
-    expect(text).toContain("Coasters ridden: 3");
+    expect(text).toContain("Coaster credits: 3");
     expect(text).toContain("Total rides: 26");
     expect(text).toContain("Most ridden: VelociCoaster (12 rides)");
     expect(text).toContain("Sheen404's CoasterTrak stats");

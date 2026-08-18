@@ -39,6 +39,26 @@ describe("applyCoasterKnownFixes", () => {
     expect(fixed.image_url).toContain("Blackpool");
     expect(fixed.image_url).not.toMatch(/incident/i);
   });
+
+  it("names the Plopsaland Ardennes Gerstlauer Wickie The Ride", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Q122460556",
+      wikidata_id: "Q122460556",
+    });
+    expect(fixed.name).toBe("Wickie The Ride");
+  });
+
+  it("fills #LikeMe Coaster stats from the official Plopsaland page", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "#LikeMe Coaster",
+    });
+    expect(fixed.manufacturer).toBe("Zierer");
+    expect(fixed.height_ft).toBe(26);
+    expect(fixed.speed_mph).toBe(22);
+    expect(fixed.length_ft).toBe(1181);
+    expect(fixed.duration_s).toBe(80);
+    expect(fixed.inversions).toBe(0);
+  });
 });
 
 describe("shouldSkipWikidataCoasterId", () => {

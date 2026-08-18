@@ -12,6 +12,7 @@ import { RiddenRideSheet } from "@/components/ridden-ride-sheet";
 import { SiteHeader } from "@/components/site-header";
 import { StarRating } from "@/components/star-rating";
 import { StatsShareControls } from "@/components/stats-share-controls";
+import { StatsComparePanel } from "@/components/stats-compare-panel";
 import type { StatsShareCardProps } from "@/components/stats-share-card";
 import {
   ACHIEVEMENT_COUNT,
@@ -44,6 +45,7 @@ import {
 import { useUnits } from "@/components/providers";
 import { fmtLength, fmtHeight, fmtSpeed, fmtDuration } from "@/lib/units";
 import { UnitsToggle } from "@/components/units-toggle";
+import { toCompareCredit } from "@/lib/stats-compare";
 
 type RideCoaster = {
   id?: number;
@@ -239,6 +241,27 @@ function firstPark(park: ParkRow | ParkRow[] | null | undefined): ParkRow | null
   return Array.isArray(park) ? (park[0] ?? null) : park;
 }
 
+function rideToCompareCredit(ride: RideRow) {
+  const c = ride.coasters;
+  const park = firstPark(c?.parks);
+  return toCompareCredit({
+    coasterId: ride.coaster_id,
+    name: c?.name ?? `Coaster ${ride.coaster_id}`,
+    parkId: c?.park_id ?? null,
+    parkName: park?.name ?? null,
+    country: park?.country ?? null,
+    coasterType: c?.coaster_type,
+    manufacturer: c?.manufacturer,
+    lengthFt: c?.length_ft,
+    speedMph: c?.speed_mph,
+    heightFt: c?.height_ft,
+    inversions: c?.inversions,
+    durationS: c?.duration_s,
+    totalRides: ride.total_rides,
+    status: c?.status,
+  });
+}
+
 function imageFallbackKeys(parkId: number, coasterName: string): string[] {
   const base = normalizeCoasterDedupKey(coasterName);
   const keys = new Set<string>([`${parkId}:${base}`]);
@@ -323,6 +346,7 @@ async function fillMissingRideImages(
 function StatsPageContent() {
   const searchParams = useSearchParams();
   const requestedUserId = searchParams.get("user")?.trim() || null;
+  const compareRequested = searchParams.get("compare") === "1";
   const [rides, setRides] = useState<RideRow[]>([]);
   const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [userId, setUserId] = useState<string | null>(null);
@@ -351,6 +375,8 @@ function StatsPageContent() {
   const rideListRafRef = useRef<number | null>(null);
   const { units, setUnits } = useUnits();
   const isOwnStatsView = !activeStatsUserId || (!!userId && userId === activeStatsUserId);
+  const viewingOther = Boolean(userId && requestedUserId && requestedUserId !== userId);
+  const compareMode = viewingOther && compareRequested && !friendAccessDenied;
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -507,6 +533,11 @@ function StatsPageContent() {
       return true;
     });
   }, [rides]);
+
+  const theirCompareCredits = useMemo(
+    () => uniqueRides.map(rideToCompareCredit),
+    [uniqueRides],
+  );
 
   /** Same rules as /achievements: every logged credit counts (including family rides). */
   const unlockedAchievements = useMemo(() => {
@@ -932,7 +963,7 @@ function StatsPageContent() {
   );
 
   const statCards = [
-    { label: "Coasters ridden", value: filteredUniqueRides.length.toLocaleString() },
+    { label: "Coaster credits", value: filteredUniqueRides.length.toLocaleString() },
     { label: "Total rides", value: totalRides.toLocaleString() },
     { label: "Parks visited", value: parksVisited.toLocaleString() },
     { label: "Countries visited", value: countriesVisited.toLocaleString() },
@@ -1135,6 +1166,52 @@ function StatsPageContent() {
           )}
           {!friendAccessDenied && (
             <>
+              {viewingOther && requestedUserId && (
+                <nav
+                  className="mb-4 flex gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"
+                  aria-label="Stats views"
+                >
+                  <Link
+                    href={`/stats?user=${encodeURIComponent(requestedUserId)}`}
+                    scroll={false}
+                    aria-current={!compareMode ? "page" : undefined}
+                    className={`flex-1 rounded-lg px-3 py-2 text-center text-sm font-semibold ${
+                      compareMode
+                        ? "text-slate-600 hover:bg-slate-50"
+                        : "bg-amber-100 text-slate-900"
+                    }`}
+                  >
+                    Stats
+                  </Link>
+                  <Link
+                    href={`/stats?user=${encodeURIComponent(requestedUserId)}&compare=1`}
+                    scroll={false}
+                    aria-current={compareMode ? "page" : undefined}
+                    className={`flex-1 rounded-lg px-3 py-2 text-center text-sm font-semibold ${
+                      compareMode
+                        ? "bg-amber-100 text-slate-900"
+                        : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    Compare
+                  </Link>
+                </nav>
+              )}
+              {viewingOther && !friendAccessDenied && userId && !loading ? (
+                <div hidden={!compareMode} className={compareMode ? "mb-4" : undefined}>
+                  <StatsComparePanel
+                    myUserId={userId}
+                    theirName={shareDisplayName ?? "Friend"}
+                    theirCredits={theirCompareCredits}
+                    includeFamilyRides={includeFamilyRides}
+                    onIncludeFamilyRidesChange={setIncludeFamilyRides}
+                  />
+                </div>
+              ) : compareMode ? (
+                <p className="mb-4 text-sm text-slate-500">Loading comparison…</p>
+              ) : null}
+              {!compareMode && (
+            <>
               {!loading && uniqueRides.length > 0 && (
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                   <p className="text-sm font-medium text-slate-700">Ride filters</p>
@@ -1150,9 +1227,9 @@ function StatsPageContent() {
                 </div>
               )}
 
-              {/* Rides ridden — first so users can rate or log more rides */}
+              {/* Credits list — first so users can rate or log more rides */}
               <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <h2 className="mb-3 font-semibold text-slate-900">Rides ridden</h2>
+                <h2 className="mb-3 font-semibold text-slate-900">Coaster credits</h2>
                 {loading ? (
                   <p className="text-sm text-slate-400">Loading&hellip;</p>
                 ) : filteredUniqueRides.length === 0 ? (
@@ -1551,6 +1628,8 @@ function StatsPageContent() {
               </section>
             )
           )}
+            </>
+              )}
             </>
           )}
         </AuthGate>

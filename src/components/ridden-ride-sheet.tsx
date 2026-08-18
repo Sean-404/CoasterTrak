@@ -370,7 +370,7 @@ export function RiddenRideSheet({
           ) : null}
 
           {canEdit && onAddRide && (
-            <div className="mb-4 rounded-xl bg-slate-50 px-4 py-3">
+            <div className="mb-4 min-w-0 overflow-hidden rounded-xl bg-slate-50 px-4 py-3">
               <p className="text-sm font-medium text-slate-800">Log another ride</p>
               <p className="mt-0.5 text-xs text-slate-500">
                 Adds to your total, even if you already rode this on another day.
@@ -378,7 +378,7 @@ export function RiddenRideSheet({
               {logError ? (
                 <p className="mt-2 text-xs font-medium text-red-500">{logError}</p>
               ) : null}
-              <label className="mt-3 block">
+              <label className="mt-3 block min-w-0">
                 <span className="text-xs font-medium text-slate-600">Ride date</span>
                 <input
                   type="date"
@@ -389,7 +389,7 @@ export function RiddenRideSheet({
                     setLogError("");
                     setRideDate(event.target.value || localDateISO());
                   }}
-                  className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  className="mt-1 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
                 />
               </label>
               <div className="mt-2 flex items-stretch gap-2">

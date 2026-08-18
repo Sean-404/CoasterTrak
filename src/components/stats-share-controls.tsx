@@ -1,7 +1,7 @@
 "use client";
 
 import { getFontEmbedCSS, toBlob } from "html-to-image";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   StatsShareCard,
   STATS_SHARE_CARD_SIZE,
@@ -69,7 +69,29 @@ function isAppleShareClient() {
   return /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent);
 }
 
-export function StatsShareControls({ card, disabled, onFeedback }: StatsShareControlsProps) {
+export function ShareCardCapture({
+  disabled,
+  onFeedback,
+  filename,
+  shareTitle,
+  shareText,
+  successShared,
+  successDownloaded,
+  failMessage,
+  buttonLabel = "Share card",
+  renderCard,
+}: {
+  disabled?: boolean;
+  onFeedback: (message: string) => void;
+  filename: string;
+  shareTitle: string;
+  shareText: string;
+  successShared: string;
+  successDownloaded: string;
+  failMessage: string;
+  buttonLabel?: string;
+  renderCard: (ref: RefObject<HTMLDivElement | null>) => ReactNode;
+}) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -100,7 +122,6 @@ export function StatsShareControls({ card, disabled, onFeedback }: StatsShareCon
     }
 
     const blob = await toBlob(node, {
-      // cacheBust breaks some Safari image embeds; assets are already inlined.
       cacheBust: false,
       pixelRatio: 1,
       width: STATS_SHARE_CARD_SIZE,
@@ -122,7 +143,7 @@ export function StatsShareControls({ card, disabled, onFeedback }: StatsShareCon
     setBusy(true);
     try {
       const blob = await buildBlob();
-      const file = new File([blob], "coastertrak-stats.png", { type: "image/png" });
+      const file = new File([blob], filename, { type: "image/png" });
       const canShareFile =
         typeof navigator !== "undefined" &&
         typeof navigator.share === "function" &&
@@ -130,16 +151,15 @@ export function StatsShareControls({ card, disabled, onFeedback }: StatsShareCon
 
       if (canShareFile) {
         try {
-          // iOS Safari often rejects files+text/title together.
           const shareData: ShareData = isAppleShareClient()
             ? { files: [file] }
             : {
                 files: [file],
-                title: "My CoasterTrak stats",
-                text: "My roller coaster stats on CoasterTrak",
+                title: shareTitle,
+                text: shareText,
               };
           await navigator.share(shareData);
-          onFeedback("Stats card shared.");
+          onFeedback(successShared);
           return;
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") {
@@ -149,14 +169,25 @@ export function StatsShareControls({ card, disabled, onFeedback }: StatsShareCon
         }
       }
 
-      downloadBlob(blob, "coastertrak-stats.png");
-      onFeedback("Stats card downloaded.");
+      downloadBlob(blob, filename);
+      onFeedback(successDownloaded);
     } catch {
-      onFeedback("Could not create the stats card. Please try again.");
+      onFeedback(failMessage);
     } finally {
       setBusy(false);
     }
-  }, [buildBlob, busy, disabled, onFeedback]);
+  }, [
+    buildBlob,
+    busy,
+    disabled,
+    failMessage,
+    filename,
+    onFeedback,
+    shareText,
+    shareTitle,
+    successDownloaded,
+    successShared,
+  ]);
 
   return (
     <>
@@ -166,13 +197,9 @@ export function StatsShareControls({ card, disabled, onFeedback }: StatsShareCon
         onClick={() => void shareOrDownload()}
         className="cursor-pointer rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {busy ? "Creating card…" : "Share card"}
+        {busy ? "Creating card…" : buttonLabel}
       </button>
 
-      {/*
-        Keep the artboard in the viewport (barely visible). Safari often skips
-        decoding images parked at left:-10000px, which drops the logo from PNGs.
-      */}
       <div
         aria-hidden
         className="pointer-events-none fixed top-0 left-0 overflow-hidden"
@@ -183,8 +210,24 @@ export function StatsShareControls({ card, disabled, onFeedback }: StatsShareCon
           zIndex: -1,
         }}
       >
-        <StatsShareCard ref={cardRef} {...card} />
+        {renderCard(cardRef)}
       </div>
     </>
+  );
+}
+
+export function StatsShareControls({ card, disabled, onFeedback }: StatsShareControlsProps) {
+  return (
+    <ShareCardCapture
+      disabled={disabled}
+      onFeedback={onFeedback}
+      filename="coastertrak-stats.png"
+      shareTitle="My CoasterTrak stats"
+      shareText="My roller coaster stats on CoasterTrak"
+      successShared="Stats card shared."
+      successDownloaded="Stats card downloaded."
+      failMessage="Could not create the stats card. Please try again."
+      renderCard={(ref) => <StatsShareCard ref={ref} {...card} />}
+    />
   );
 }

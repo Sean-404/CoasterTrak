@@ -178,6 +178,8 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     manufacturer: "Intamin",
     inversions: 0,
   },
+  // Plopsaland Ardennes (formerly Plopsa Coo) — Wikidata has only a Dutch label
+  Q122460556: { name: "Wickie The Ride" },
 };
 
 /**
@@ -269,6 +271,19 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
   daredeviler: {
     name: "The Fly",
     status: "Operating",
+  },
+  // Plopsaland Belgium — official attraction page (metric → catalog imperial)
+  // https://www.plopsa.com/en/plopsaland-belgium/attractions/likeme-coaster
+  likemecoaster: {
+    name: "#LikeMe Coaster",
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Zierer",
+    height_ft: 26,
+    speed_mph: 22,
+    length_ft: 1181,
+    duration_s: 80,
+    inversions: 0,
   },
 };
 

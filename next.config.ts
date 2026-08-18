@@ -43,6 +43,21 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/coaster-credit",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/coaster-credit-tracker",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
+        source: "/coaster-credit-app",
+        destination: "/coaster-credits",
+        permanent: true,
+      },
+      {
         source: "/coastertrak",
         destination: "/",
         permanent: true,

@@ -19,19 +19,19 @@ describe("catalog-pagination", () => {
   it("slices pages and reports ranges", () => {
     const items = Array.from({ length: 250 }, (_, i) => i + 1);
     const page1 = sliceCatalogPage(items, 1);
-    expect(page1.items).toHaveLength(100);
+    expect(page1.items).toHaveLength(50);
     expect(page1.from).toBe(1);
-    expect(page1.to).toBe(100);
-    expect(page1.totalPages).toBe(3);
+    expect(page1.to).toBe(50);
+    expect(page1.totalPages).toBe(5);
 
-    const page3 = sliceCatalogPage(items, 3);
-    expect(page3.items).toEqual(Array.from({ length: 50 }, (_, i) => i + 201));
-    expect(page3.from).toBe(201);
-    expect(page3.to).toBe(250);
+    const page5 = sliceCatalogPage(items, 5);
+    expect(page5.items).toEqual(Array.from({ length: 50 }, (_, i) => i + 201));
+    expect(page5.from).toBe(201);
+    expect(page5.to).toBe(250);
   });
 
   it("clamps out-of-range pages", () => {
-    expect(clampCatalogPage(99, 250)).toBe(3);
+    expect(clampCatalogPage(99, 250)).toBe(5);
     expect(catalogTotalPages(0)).toBe(1);
   });
 

@@ -85,6 +85,50 @@ describe("normalizeCatalog", () => {
     expect(normalized.idRemap.get(2)).toBe(1);
   });
 
+  it("folds Plopsaland De Panne into Plopsaland Belgium", () => {
+    const parks: Park[] = [
+      {
+        id: 313,
+        name: "Plopsaland Belgium",
+        country: "Belgium",
+        latitude: 51.079722,
+        longitude: 2.596944,
+      },
+      {
+        id: 280,
+        name: "Plopsaland De Panne",
+        country: "France",
+        latitude: 51.081,
+        longitude: 2.5989,
+      },
+    ];
+    const normalized = normalizeCatalog(parks, [
+      {
+        id: 1415,
+        park_id: 280,
+        name: "The Ride to Happiness",
+        coaster_type: "Steel",
+        status: "Operating",
+      },
+      {
+        id: 15700,
+        park_id: 313,
+        name: "#LikeMe Coaster",
+        coaster_type: "Steel",
+        status: "Operating",
+      },
+    ]);
+
+    expect(normalized.parks).toHaveLength(1);
+    expect(normalized.parks[0]!.name).toBe("Plopsaland Belgium");
+    expect(normalized.parks[0]!.id).toBe(313);
+    expect(normalized.coasters.every((c) => c.park_id === 313)).toBe(true);
+    expect(normalized.coasters.map((c) => c.name).sort()).toEqual([
+      "#LikeMe Coaster",
+      "The Ride to Happiness",
+    ]);
+  });
+
   it("round-trips through cache-safe serialization", () => {
     const parks: Park[] = [
       { id: 1, name: "Alton Towers", country: "United Kingdom", latitude: 52.987, longitude: -1.89 },

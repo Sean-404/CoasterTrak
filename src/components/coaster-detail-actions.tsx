@@ -30,7 +30,7 @@ export function CoasterDetailActions({
   }, []);
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="mt-6 min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <p className="text-sm font-semibold text-slate-900">Track this ride</p>
       {signedIn === false ? (
         <p className="mt-1 text-sm text-slate-600">

@@ -30,11 +30,11 @@ const googleVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.rep
 
 export const metadata: Metadata = {
   title: {
-    default: "CoasterTrak | Free Roller Coaster Tracker",
+    default: "CoasterTrak | Free Coaster Credit Tracker",
     template: "%s | CoasterTrak",
   },
   description:
-    "CoasterTrak is a free roller coaster tracker (coaster trak) to log ride credits, explore theme parks on a world map, build a wishlist, and compare coaster stats with friends.",
+    "CoasterTrak is a free coaster credit tracker (coaster trak) to log unique coaster credits, explore theme parks on a world map, build a wishlist, and compare tallies with friends.",
   metadataBase: new URL(SITE_URL),
   applicationName: "CoasterTrak",
   keywords: [
@@ -42,6 +42,9 @@ export const metadata: Metadata = {
     "coaster trak",
     "coaster tracker",
     "roller coaster tracker",
+    "coaster credit",
+    "coaster credit tracker",
+    "coaster credit app",
     "roller coaster credit tracker",
     "coaster credits",
     "theme park tracker",
@@ -66,9 +69,9 @@ export const metadata: Metadata = {
     apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
   },
   openGraph: {
-    title: "CoasterTrak | Free Roller Coaster Tracker",
+    title: "CoasterTrak | Free Coaster Credit Tracker",
     description:
-      "Free roller coaster tracker to log credits, explore parks on a map, build a wishlist, and compare stats with friends.",
+      "Free coaster credit app to log unique credits, explore parks on a map, build a wishlist, and compare tallies with friends.",
     siteName: "CoasterTrak",
     url: "/",
     type: "website",
@@ -78,15 +81,15 @@ export const metadata: Metadata = {
         url: "/coaster-hero.png",
         width: 1200,
         height: 630,
-        alt: "CoasterTrak — free roller coaster tracker",
+        alt: "CoasterTrak — free coaster credit tracker",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "CoasterTrak | Free Roller Coaster Tracker",
+    title: "CoasterTrak | Free Coaster Credit Tracker",
     description:
-      "Free roller coaster tracker to log credits, explore parks on a map, build a wishlist, and compare stats.",
+      "Free coaster credit app to log unique credits, explore parks on a map, build a wishlist, and compare tallies.",
     images: ["/coaster-hero.png"],
   },
   robots: {

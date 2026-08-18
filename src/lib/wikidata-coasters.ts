@@ -4,12 +4,24 @@
  */
 
 import { cleanCoasterName } from "./display";
+import { humanWikidataLabel } from "./wikidata-qid";
+
+export { humanWikidataLabel, isWikidataQidLabel } from "./wikidata-qid";
 
 export const WIKIDATA_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 
 /** Compliant with https://foundation.wikimedia.org/wiki/Policy:User-Agent_policy */
 export const WIKIDATA_USER_AGENT =
   "CoasterTrak/0.1 (roller coaster catalog sync; https://github.com/)";
+
+/**
+ * WDQS label fallback. English-only returns the Q-id when an item has no `en` label
+ * (common for continental European parks/rides). `mul` is the language-independent
+ * official name — prefer it over regional English when `en` is missing.
+ */
+export const WIKIDATA_LABEL_LANGUAGES = "en,mul,en-gb,en-ca,nl,fr,de";
+
+const WIKIDATA_LABEL_SERVICE = `SERVICE wikibase:label { bd:serviceParam wikibase:language "${WIKIDATA_LABEL_LANGUAGES}". }`;
 
 /**
  * Full SPARQL: instances of roller coaster or any subclass of Q204832.
@@ -57,7 +69,7 @@ WHERE {
              schema:isPartOf <https://en.wikipedia.org/> ;
              schema:name ?enwiki .
   }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  ${WIKIDATA_LABEL_SERVICE}
 }
 `;
 
@@ -99,7 +111,7 @@ WHERE {
              schema:isPartOf <https://en.wikipedia.org/> ;
              schema:name ?enwiki .
   }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  ${WIKIDATA_LABEL_SERVICE}
 }
 `;
 
@@ -134,7 +146,7 @@ WHERE {
              schema:isPartOf <https://en.wikipedia.org/> ;
              schema:name ?enwiki .
   }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  ${WIKIDATA_LABEL_SERVICE}
 }
 `;
 
@@ -302,7 +314,7 @@ function bindingsToRow(
   const itemUri = bindingUri(b.item);
   if (!itemUri) return null;
   const wikidataId = parseUriToQid(itemUri);
-  const label = bindingLiteral(b.itemLabel) ?? wikidataId;
+  const label = humanWikidataLabel(bindingLiteral(b.itemLabel)) ?? wikidataId;
   const wkt = bindingLiteral(b.coord);
   const geo = parseWktPoint(wkt ?? undefined);
 
@@ -331,8 +343,8 @@ function bindingsToRow(
   const heightFt = heightM != null ? heightM * 3.28084 : null;
 
   /** Immediate P361 (e.g. themed land) vs parent gate (amusement park), from Wikidata ontology — not app-specific. */
-  const immediateParkLabel = bindingLiteral(b.parkLabel) ?? null;
-  const parentParkLabel = bindingLiteral(b.parkParentLabel) ?? null;
+  const immediateParkLabel = humanWikidataLabel(bindingLiteral(b.parkLabel));
+  const parentParkLabel = humanWikidataLabel(bindingLiteral(b.parkParentLabel));
   const resolvedParkLabel = parentParkLabel ?? immediateParkLabel;
   const parkWikidataId = (() => {
     // Prefer the amusement/theme-park parent Q-id when P361 pointed at a themed land.
@@ -352,7 +364,7 @@ function bindingsToRow(
     countryLabel: bindingLiteral(b.countryLabel) ?? null,
     parkLabel: resolvedParkLabel,
     parkWikidataId,
-    manufacturerLabel: bindingLiteral(b.manufacturerLabel) ?? null,
+    manufacturerLabel: humanWikidataLabel(bindingLiteral(b.manufacturerLabel)),
     lengthM,
     speedMs,
     heightM,

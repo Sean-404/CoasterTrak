@@ -5,6 +5,7 @@
 
 import { cleanCoasterName } from "./display";
 import type { WikidataCoasterRow } from "./wikidata-coasters";
+import { isWikidataQidLabel } from "./wikidata-qid";
 
 /** Manufacturers that exclusively or primarily build wooden coasters. */
 const WOOD_MANUFACTURERS = new Set([
@@ -104,8 +105,8 @@ export function wikidataInsertName(wd: WikidataCoasterRow): string {
   const label = cleanCoasterName(wd.label);
   if (!wd.enwikiTitle) return label;
   const enwiki = cleanCoasterName(wd.enwikiTitle);
-  if (!enwiki) return label;
-  if (looksLikeIncidentArticleTitle(enwiki)) return label;
+  if (!enwiki || isWikidataQidLabel(enwiki)) return label;
+  if (looksLikeIncidentArticleTitle(enwiki) && !isWikidataQidLabel(label)) return label;
   return enwiki;
 }
 

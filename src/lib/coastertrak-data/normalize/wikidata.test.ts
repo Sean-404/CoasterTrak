@@ -69,6 +69,24 @@ describe("normalizeWikidataBindings", () => {
     expect(rows[0]!.heightFt).toBeCloseTo(155, 0);
     expect(rows[0]!.speedMph).toBeCloseTo(70, 0);
   });
+
+  it("drops Q-id fallback labels for parks and manufacturers", () => {
+    const rows = normalizeWikidataBindings([
+      {
+        item: { type: "uri", value: "http://www.wikidata.org/entity/Q122460556" },
+        itemLabel: { type: "literal", value: "Q122460556" },
+        parkLabel: { type: "literal", value: "Q2197655" },
+        park: { type: "uri", value: "http://www.wikidata.org/entity/Q2197655" },
+        manufacturerLabel: { type: "literal", value: "Q162810" },
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.label).toBe("Q122460556");
+    expect(rows[0]!.parkLabel).toBeNull();
+    expect(rows[0]!.parkWikidataId).toBe("Q2197655");
+    expect(rows[0]!.manufacturerLabel).toBeNull();
+  });
 });
 
 describe("deriveWikidataCoasterStats", () => {

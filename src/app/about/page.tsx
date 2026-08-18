@@ -7,14 +7,14 @@ import { CONTACT_EMAIL, INSTAGRAM_URL } from "@/lib/site-url";
 export const metadata: Metadata = {
   title: "About CoasterTrak",
   description:
-    "Learn about CoasterTrak — a free roller coaster tracker for logging rides, exploring parks on a world map, and comparing coaster stats.",
+    "Learn about CoasterTrak — a free coaster credit tracker for logging unique rides, exploring parks on a world map, and comparing tallies.",
   alternates: {
     canonical: "/about",
   },
   openGraph: {
     title: "About CoasterTrak",
     description:
-      "CoasterTrak is a free roller coaster tracker for logging credits, exploring parks, and comparing stats.",
+      "CoasterTrak is a free coaster credit tracker for logging unique rides, exploring parks, and comparing tallies.",
     url: "/about",
     type: "website",
   },
@@ -31,7 +31,7 @@ export default function AboutPage() {
         </h1>
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
-            CoasterTrak is a free roller coaster tracker for logging rides you have done, planning trips with a
+            CoasterTrak is a free coaster credit tracker for logging unique rides you have done, planning trips with a
             worldwide park map, and keeping a wishlist of credits you still want.
           </p>
           <p>
@@ -96,12 +96,15 @@ export default function AboutPage() {
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Who it is for</h2>
           <p>
             CoasterTrak is for casual day-trippers and seasoned credit hunters alike. Create a free account to save
-            your history across devices, or explore the map without signing in. For a walkthrough of the main
-            features, see the{" "}
+            your history across devices, or explore the map without signing in. Start with the{" "}
+            <Link href="/coaster-credits" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              coaster credit tracker
+            </Link>{" "}
+            if you want the tally explained, or the{" "}
             <Link href="/coaster-tracker" className="font-medium text-amber-700 underline-offset-2 hover:underline">
               roller coaster tracker guide
-            </Link>
-            .
+            </Link>{" "}
+            for the full walkthrough.
           </p>
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Contact</h2>
           <p>

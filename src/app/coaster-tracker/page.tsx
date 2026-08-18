@@ -36,6 +36,11 @@ const faqs = [
       "Yes. Core tracking, map browsing, wishlists, and stats are free to use with a standard account.",
   },
   {
+    question: "Is CoasterTrak a coaster credit app?",
+    answer:
+      "Yes. CoasterTrak is a free web app for logging unique coaster credits on your phone or computer. A separate coaster credit tracker page explains unique rides versus total rides.",
+  },
+  {
     question: "Do I need an account to browse?",
     answer:
       "No. Anyone can use Discover to explore the map and catalog. An account is required to save ride history, wishlists, and friend connections.",
@@ -166,7 +171,12 @@ export default function CoasterTrackerLandingPage() {
           </p>
           <p>
             CoasterTrak is built around that habit. Log the rides you have done, keep a wishlist for the ones still
-            ahead, and use stats and achievements to see progress without maintaining a separate spreadsheet.
+            ahead, and use stats and achievements to see progress without maintaining a separate spreadsheet. For a
+            shorter explainer aimed at credit hunters, see the{" "}
+            <Link href="/coaster-credits" className="font-semibold text-amber-400 hover:text-amber-300">
+              coaster credit tracker
+            </Link>
+            .
           </p>
         </section>
 

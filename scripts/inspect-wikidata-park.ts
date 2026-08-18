@@ -64,7 +64,7 @@ WHERE {
   OPTIONAL { ?item p:P2047/psn:P2047/wikibase:quantityAmount ?durationS . }
   OPTIONAL { ?item wdt:P625 ?coord . }
 
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul,en-gb,en-ca,nl,fr,de". }
 }
 ORDER BY ?itemLabel
 `;

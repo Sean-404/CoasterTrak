@@ -1,7 +1,7 @@
 {
   "name": "CoasterTrak",
   "short_name": "CoasterTrak",
-  "description": "Free roller coaster tracker to log credits, explore parks, and compare stats.",
+  "description": "Free coaster credit tracker to log unique credits, explore parks, and compare tallies.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",

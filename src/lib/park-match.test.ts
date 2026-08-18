@@ -6,9 +6,9 @@ import {
 } from "@/lib/park-match";
 
 describe("parkNamesMatch", () => {
-  it("still matches obvious name variants", () => {
-    expect(parkNamesMatch("Europa Park", "Europa-Park")).toBe(true);
-    expect(parkNamesMatch("Six Flags Mexico", "Six Flags México")).toBe(true);
+  it("treats Plopsaland De Panne as Plopsaland Belgium", () => {
+    expect(parkNamesMatch("Plopsaland De Panne", "Plopsaland Belgium")).toBe(true);
+    expect(parkNamesMatch("Plopsaland Belgium", "Plopsaland Deutschland")).toBe(false);
   });
 
   it("does not treat shared place words as the same park", () => {
@@ -20,6 +20,28 @@ describe("parkNamesMatch", () => {
 });
 
 describe("dedupeParksForCatalog", () => {
+  it("hides parks whose name is a bare Wikidata Q-id", () => {
+    const parks = dedupeParksForCatalog([
+      {
+        id: 348,
+        name: "Q2197655",
+        country: "Belgium",
+        latitude: 50.39,
+        longitude: 5.87,
+        rideCount: 2,
+      },
+      {
+        id: 267,
+        name: "Walibi Belgium",
+        country: "Belgium",
+        latitude: 50.7,
+        longitude: 4.59,
+        rideCount: 10,
+      },
+    ]);
+
+    expect(parks.map((p) => p.name)).toEqual(["Walibi Belgium"]);
+  });
   it("keeps Ocean Park and Hong Kong Disneyland as separate parks", () => {
     const parks = dedupeParksForCatalog([
       {

@@ -3,6 +3,7 @@
  */
 
 import { sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
+import { isWikidataQidLabel } from "@/lib/wikidata-qid";
 
 const WIKIPEDIA_USER_AGENT =
   "CoasterTrak/0.1 (roller coaster catalog; https://coastertrak.com/)";
@@ -120,7 +121,7 @@ export async function fetchWikipediaSummaryForPark(
   parkName: string,
 ): Promise<WikipediaSummary | null> {
   const name = parkName.trim();
-  if (!name) return null;
+  if (!name || isWikidataQidLabel(name)) return null;
 
   const candidates = [
     name,

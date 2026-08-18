@@ -252,7 +252,8 @@ export function CoasterActions({
   const firstLabel = credit ? formatRideOnDate(credit.firstRiddenOn) : null;
   const lastLabel = credit ? formatRideOnDate(credit.lastRiddenOn) : null;
 
-  const message = status === "error" ? errorMsg : status === "wishlisted" ? "Added to wishlist" : feedback;
+  const dateInputClass =
+    "mt-1 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400";
 
   const firstRideButton = !alreadyRidden && (
     <button
@@ -267,7 +268,7 @@ export function CoasterActions({
 
   const addAnother = alreadyRidden && (
     prominent ? (
-      <div className="w-full space-y-3">
+      <div className="w-full min-w-0 space-y-3">
         <div className="rounded-xl bg-green-50 px-3 py-3">
           <p className="text-sm font-semibold text-green-800">
             You&apos;ve ridden this {countLabel}
@@ -302,7 +303,7 @@ export function CoasterActions({
             window.setTimeout(() => setFeedback(""), 1800);
           }}
         />
-        <label className="block">
+        <label className="block min-w-0">
           <span className="text-xs font-medium text-slate-600">Ride date</span>
           <input
             type="date"
@@ -310,7 +311,7 @@ export function CoasterActions({
             max={localDateISO()}
             min="1950-01-01"
             onChange={(event) => setRideDate(event.target.value || localDateISO())}
-            className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className={dateInputClass}
           />
         </label>
         <div className="flex items-center gap-2">
@@ -366,14 +367,14 @@ export function CoasterActions({
   );
 
   const body = (
-    <div className={`flex flex-col ${prominent ? "gap-2" : "gap-1.5"}`}>
+    <div className={`flex min-w-0 flex-col ${prominent ? "gap-2" : "gap-1.5"}`}>
       {message ? (
         <p className={`text-xs font-medium ${status === "error" ? "text-red-500" : "text-green-600"}`}>
           {message}
         </p>
       ) : null}
       {prominent && !alreadyRidden && (
-        <label className="block">
+        <label className="block min-w-0">
           <span className="text-xs font-medium text-slate-600">Ride date</span>
           <input
             type="date"
@@ -381,11 +382,11 @@ export function CoasterActions({
             max={localDateISO()}
             min="1950-01-01"
             onChange={(event) => setRideDate(event.target.value || localDateISO())}
-            className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className={dateInputClass}
           />
         </label>
       )}
-      <div className={`flex flex-wrap items-center ${prominent ? "gap-2" : "gap-1.5"}`}>
+      <div className={`flex min-w-0 flex-wrap items-center ${prominent ? "gap-2" : "gap-1.5"}`}>
         {alreadyWishlisted && !alreadyRidden && (
           <span
             className={`inline-flex h-9 items-center rounded-md bg-amber-100 font-semibold text-amber-700 ${
@@ -416,7 +417,7 @@ export function CoasterActions({
   }
 
   return (
-    <div className={prominent ? "mt-4 min-h-[40px]" : "mt-2 min-h-[32px]"} data-store-tick={storeTick}>
+    <div className={prominent ? "mt-4 min-h-[40px] min-w-0" : "mt-2 min-h-[32px]"} data-store-tick={storeTick}>
       {body}
     </div>
   );

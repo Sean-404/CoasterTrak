@@ -23,7 +23,7 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
         <div>
           <p className="font-bungee text-sm tracking-wide text-amber-500">CoasterTrak</p>
           <p className={`mt-1 text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Track roller coasters, explore parks, and build your ride history.
+            Track roller coasters, log coaster credits, and explore parks.
           </p>
         </div>
         <nav
@@ -49,6 +49,9 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           </FooterLink>
           <FooterLink href="/terms" isDark={isDark}>
             Terms
+          </FooterLink>
+          <FooterLink href="/coaster-credits" isDark={isDark}>
+            Coaster credits
           </FooterLink>
           <FooterLink href="/coaster-tracker" isDark={isDark}>
             Coaster tracker

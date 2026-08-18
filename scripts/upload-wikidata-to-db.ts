@@ -22,7 +22,7 @@ import { haversineKm } from "../src/lib/geo";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import { isCatalogHiddenParkName, isLikelyWaterParkName, parkNamesMatch } from "../src/lib/park-match";
 import { resolveParkForWikidataRow } from "../src/lib/relink-placeholder-parks";
-import { normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
+import { isWikidataQidLabel, normalizeNameKey, type WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import {
   inferCoasterType,
   wikidataInsertName,
@@ -308,6 +308,7 @@ function isPlaceholderLikeParkLabel(name: string | null | undefined): boolean {
     n === "n/a" ||
     n === "na" ||
     n === "misc" ||
+    isWikidataQidLabel(name) ||
     /^unknown\s*\/\s*historical park/.test(n)
   );
 }
@@ -399,8 +400,7 @@ function normalizeLoose(s: string): string {
 
 /** Some Wikidata fallback rows use bare entity IDs as labels (e.g. "Q2446903"). */
 function isPlaceholderQidLabel(label: string | null | undefined): boolean {
-  const t = (label ?? "").trim();
-  return /^Q\d+$/i.test(t);
+  return isWikidataQidLabel(label);
 }
 
 function pickBestMatch(

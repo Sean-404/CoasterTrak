@@ -297,12 +297,18 @@ export default function UsersPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex shrink-0 gap-2">
+                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
                           <Link
                             href={`/stats?user=${encodeURIComponent(profile.user_id)}`}
                             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                           >
                             Stats
+                          </Link>
+                          <Link
+                            href={`/stats?user=${encodeURIComponent(profile.user_id)}&compare=1`}
+                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                          >
+                            Compare
                           </Link>
                           <button
                             type="button"

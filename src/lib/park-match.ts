@@ -5,6 +5,7 @@
 import type { Coaster, Park } from "@/types/domain";
 import { haversineKm } from "@/lib/geo";
 import { isJammedMultiLocationParkName, unjamGeoLabel } from "@/lib/geo-country";
+import { isWikidataQidLabel } from "@/lib/wikidata-qid";
 
 /** Lowercase, strip noise words / accents, collapse punctuation for comparison. */
 function normalizeParkNameForMatch(name: string): string {
@@ -21,6 +22,8 @@ function normalizeParkNameForMatch(name: string): string {
     .replace(/\buniversals?\b/gi, "")
     // "Disney's Hollywood Studios" / "Disney Magic Kingdom" brand prefix noise
     .replace(/\bdisneys?\b/gi, "")
+    // Official rename: Plopsaland De Panne → Plopsaland Belgium (same gate)
+    .replace(/\bplopsaland\s+de\s+panne\b/g, "plopsaland belgium")
     .replace(/\s+/g, " ")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
@@ -31,6 +34,7 @@ function normalizeParkNameForMatch(name: string): string {
 export function isLikelyPlaceholderParkName(name: string): boolean {
   const n = name.trim().toLowerCase();
   if (n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc") return true;
+  if (isWikidataQidLabel(name)) return true;
   return isJammedMultiLocationParkName(name);
 }
 

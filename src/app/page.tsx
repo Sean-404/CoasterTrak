@@ -11,17 +11,17 @@ import { parkSlug } from "@/lib/slug";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "CoasterTrak | Free Roller Coaster Tracker",
+    absolute: "CoasterTrak | Free Coaster Credit Tracker",
   },
   description:
-    "CoasterTrak (coaster trak) is a free roller coaster tracker. Log ride credits, explore parks on a world map, browse the catalog, build a wishlist, and compare stats with friends.",
+    "CoasterTrak is a free coaster credit app. Log unique coaster credits, explore parks on a world map, browse the catalog, build a wishlist, and compare tallies with friends.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "CoasterTrak | Free Roller Coaster Tracker",
+    title: "CoasterTrak | Free Coaster Credit Tracker",
     description:
-      "Free roller coaster tracker to log credits, explore parks on a map, and compare stats with friends.",
+      "Free coaster credit tracker to log unique rides, explore parks on a map, and compare leftover credits with friends.",
     url: "/",
     type: "website",
   },
@@ -34,10 +34,10 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "CoasterTrak",
-    alternateName: ["Coaster Trak", "coaster trak", "Coaster Tracker"],
+    alternateName: ["Coaster Trak", "coaster trak", "Coaster Tracker", "Coaster Credit Tracker"],
     url: SITE_URL,
     description:
-      "Free roller coaster tracker to log ride credits, explore parks on a map, build a wishlist, and compare stats.",
+      "Free coaster credit tracker to log unique coaster credits, explore parks on a map, build a wishlist, and compare tallies.",
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -69,12 +69,12 @@ export default async function Home() {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
     name: "CoasterTrak",
-    alternateName: ["Coaster Trak", "coaster trak", "Coaster Tracker"],
+    alternateName: ["Coaster Trak", "coaster trak", "Coaster Tracker", "Coaster Credit Tracker", "coaster credit app"],
     applicationCategory: "LifestyleApplication",
     operatingSystem: "Web",
     url: SITE_URL,
     description:
-      "Free web app to track roller coaster credits, explore theme parks on a world map, manage a wishlist, and compare stats with friends.",
+      "Free coaster credit app to log unique roller coaster credits, explore theme parks on a world map, manage a wishlist, and compare tallies with friends.",
     offers: {
       "@type": "Offer",
       price: "0",
@@ -102,7 +102,7 @@ export default async function Home() {
       <section className="relative overflow-hidden bg-slate-950 pb-20 pt-16 text-white sm:pb-24 sm:pt-20">
         <Image
           src="/coaster-hero.png"
-          alt="Roller coaster track against the sky — CoasterTrak roller coaster tracker"
+          alt="Roller coaster track against the sky — CoasterTrak coaster credit tracker"
           fill
           unoptimized
           className="object-cover object-center opacity-80"
@@ -112,13 +112,12 @@ export default async function Home() {
         <div className="relative z-10 mx-auto max-w-6xl px-6">
           <p className="font-bungee text-2xl tracking-wide text-amber-400 sm:text-3xl">CoasterTrak</p>
           <h1 className="font-bungee mt-3 text-4xl leading-tight text-white sm:text-6xl lg:text-7xl">
-            Free Roller
+            Free Coaster
             <br />
-            <span className="break-words text-amber-400">Coaster Tracker</span>
+            <span className="break-words text-amber-400">Credit Tracker</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
-            Log every credit, discover parks and coasters on the map, browse the catalog, and watch your
-            coaster stats grow.
+            Log unique coaster credits, discover parks on the map, and see what you still need before the next trip.
           </p>
           <HomeHeroCtas />
         </div>
@@ -140,9 +139,9 @@ export default async function Home() {
           />
           <FeatureCard
             icon={<GuideIcon />}
-            title="Coaster guide"
-            description="Learn how credits, wishlists, and stats work before you start logging rides."
-            href="/coaster-tracker"
+            title="Coaster credits"
+            description="What a credit is, how CoasterTrak counts unique rides, and how to log your tally."
+            href="/coaster-credits"
           />
         </div>
 
@@ -186,12 +185,12 @@ export default async function Home() {
         ) : null}
 
         <section className="mt-12">
-          <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A roller coaster tracker built for real trips</h2>
+          <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A coaster credit tracker built for real trips</h2>
           <div className="mt-4 max-w-3xl space-y-4 text-base leading-relaxed text-slate-600">
             <p>
-              CoasterTrak is a free coaster tracker that helps enthusiasts keep a durable record of every credit —
-              from local park day trips to multi-park holidays abroad. Instead of juggling notes and photos, you log
-              rides in one place, then revisit totals, park coverage, and milestones whenever you want.
+              CoasterTrak is a free coaster credit app for keeping a durable record of unique rides — from local park
+              day trips to multi-park holidays abroad. Instead of juggling notes and photos, you log each coaster
+              credit in one place, then revisit totals, park leftovers, and milestones whenever you want.
             </p>
             <p>
               Start on the map or park catalog to browse coasters, star the rides you still need, and create a free
@@ -240,14 +239,20 @@ export default async function Home() {
           <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Build your coaster journey, then share it</h2>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
             Create an account to keep ride history, wishlists, and friend comparisons in sync. New to coaster
-            tracking? Read the guide for a fuller walkthrough of credits, map browsing, and stats.
+            credits? Read how unique rides are counted, then use the full tracker guide for map and stats.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <Link
-              href="/coaster-tracker"
+              href="/coaster-credits"
               className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              Explore the coaster tracker guide
+              Coaster credit tracker
+            </Link>
+            <Link
+              href="/coaster-tracker"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              Full tracker guide
             </Link>
             <Link
               href="/parks"

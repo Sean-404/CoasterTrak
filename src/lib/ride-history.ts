@@ -233,7 +233,7 @@ export function buildStatsCopyText(input: StatsCopyInput): string {
   return [
     shareTitle,
     `- Ride filter: ${input.includeFamilyRides ? "Includes kiddie/family rides" : "Thrill rides only"}`,
-    `- Coasters ridden: ${input.uniqueCoasters}`,
+    `- Coaster credits: ${input.uniqueCoasters}`,
     `- Total rides: ${input.totalRides}`,
     `- Parks visited: ${input.parksVisited}`,
     `- Countries visited: ${input.countriesVisited}`,

@@ -80,7 +80,11 @@ export default function ContactPage() {
 
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Product questions</h2>
           <p>
-            For how credits, wishlists, and stats work on this site, start with the{" "}
+            For how unique coaster credits are counted, start with the{" "}
+            <Link href="/coaster-credits" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              coaster credit tracker
+            </Link>
+            . For map, wishlist, and stats screens, see the{" "}
             <Link href="/coaster-tracker" className="font-medium text-amber-700 underline-offset-2 hover:underline">
               roller coaster tracker guide
             </Link>

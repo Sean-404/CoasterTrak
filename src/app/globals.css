@@ -39,3 +39,25 @@ body {
   font-size: 13px;
   line-height: 1;
 }
+
+/*
+ * iOS Safari sizes native date inputs by their inner datetime-edit + calendar
+ * icon, so w-full still overflows the track card. Force the control to shrink.
+ */
+input[type="date"] {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}

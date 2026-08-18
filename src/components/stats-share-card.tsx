@@ -204,7 +204,7 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
                 color: "#fbbf24",
               }}
             >
-              Coasters
+              Credits
             </p>
             {typeof totalRides === "number" && totalRides > 0 ? (
               <p

@@ -23,6 +23,7 @@ import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { loadWikidataCatalogRows } from "@/lib/wikidata-catalog-source";
 import { mergeRowsByItem, type WikidataCoasterRow } from "@/lib/wikidata-coasters";
+import { humanWikidataLabel, isWikidataQidLabel } from "@/lib/wikidata-qid";
 import {
   planPlaceholderParkRelinks,
   type RelinkCoaster,
@@ -61,6 +62,12 @@ const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q2260635: "Kings Island", // Woodstock Express — not Geauga Lake
   Q22666883: "Shanghai Disney Resort", // Tron Lightcycle Power Run — not Other
   Q2518728: "Parque de la Ciudad", // Vertigorama — not the Villa Soldati location dump
+  Q96996314: "Plopsaland Belgium", // The Ride to Happiness — not the old De Panne duplicate
+};
+
+/** Parks whose Wikidata item has no English label (WDQS would otherwise store the Q-id). */
+const PARK_DISPLAY_NAME_BY_WIKIDATA_ID: Record<string, string> = {
+  Q2197655: "Plopsaland Ardennes", // formerly Plopsa Coo / TéléCoo
 };
 
 /** US mainland longitudes are west; some feeds store the absolute value. */
@@ -169,6 +176,31 @@ function majorityParkWikidataId(rows: WikidataCoasterRow[]): string | null {
   return best;
 }
 
+function canonicalWikidataParkName(name: string): string {
+  const trimmed = name.trim();
+  if (/^plopsaland\s+de\s+panne$/i.test(trimmed)) return "Plopsaland Belgium";
+  return trimmed;
+}
+
+function hasCatalogParkName(row: WikidataCoasterRow): boolean {
+  const qid = row.parkWikidataId?.trim().toUpperCase();
+  if (qid && PARK_DISPLAY_NAME_BY_WIKIDATA_ID[qid]) return true;
+  const label = humanWikidataLabel(row.parkLabel);
+  return Boolean(label && !isCatalogHiddenParkName(canonicalWikidataParkName(label)));
+}
+
+function resolveParkDisplayName(rows: WikidataCoasterRow[]): string | null {
+  const qid = majorityParkWikidataId(rows);
+  if (qid && PARK_DISPLAY_NAME_BY_WIKIDATA_ID[qid]) {
+    return PARK_DISPLAY_NAME_BY_WIKIDATA_ID[qid]!;
+  }
+  for (const r of rows) {
+    const label = humanWikidataLabel(r.parkLabel);
+    if (label && !isCatalogHiddenParkName(label)) return canonicalWikidataParkName(label);
+  }
+  return null;
+}
+
 function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
   const name = wikidataInsertName(wd);
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
@@ -224,9 +256,11 @@ export async function syncCatalogFromWikidata() {
 
     const groups = new Map<string, WikidataCoasterRow[]>();
     for (const row of merged) {
-      const pl = row.parkLabel?.trim();
-      if (!pl) continue;
-      const key = parkGroupKey(pl, row.countryLabel);
+      if (!hasCatalogParkName(row)) continue;
+      const qid = row.parkWikidataId?.trim().toUpperCase();
+      const humanPark = humanWikidataLabel(row.parkLabel);
+      const displayPark = humanPark ? canonicalWikidataParkName(humanPark) : null;
+      const key = qid ? `qid:${qid}` : parkGroupKey(displayPark!, row.countryLabel);
       const list = groups.get(key) ?? [];
       list.push(row);
       groups.set(key, list);
@@ -254,6 +288,10 @@ export async function syncCatalogFromWikidata() {
         parkIdByExternalQid.set(p.external_id.trim().toUpperCase(), p.id);
       } else if (p.external_source === "wikidata_unknown_park" && p.external_id) {
         parkIdByUnknownExternal.set(p.external_id.trim().toLowerCase(), p.id);
+      }
+      // Legacy rows stored the park Q-id as the display name when WDQS had no English label.
+      if (isWikidataQidLabel(p.name)) {
+        parkIdByExternalQid.set(p.name.trim().toUpperCase(), p.id);
       }
     }
 
@@ -315,8 +353,8 @@ export async function syncCatalogFromWikidata() {
         centroid.lat,
         centroid.lng,
       );
-      const parkName = groupRows[0]!.parkLabel!.trim();
-      if (isCatalogHiddenParkName(parkName)) continue;
+      const parkName = resolveParkDisplayName(groupRows);
+      if (!parkName || isCatalogHiddenParkName(parkName)) continue;
       const parkQid = majorityParkWikidataId(groupRows);
       const syncLng = normalizeSyncParkLongitude(centroid.lat, centroid.lng, country);
       const syncCentroid = { lat: centroid.lat, lng: syncLng };
@@ -371,9 +409,11 @@ export async function syncCatalogFromWikidata() {
         parkUpdates += 1;
       } else {
         const row = parkRows.find((p) => p.id === parkId);
+        const renameFromQid = isWikidataQidLabel(row?.name);
         const updateRes = await supabase
           .from("parks")
           .update({
+            ...(renameFromQid ? { name: parkName } : {}),
             country,
             latitude: syncCentroid.lat,
             longitude: syncCentroid.lng,
@@ -384,6 +424,10 @@ export async function syncCatalogFromWikidata() {
           .eq("id", parkId);
         if (updateRes.error) throw updateRes.error;
         if (row) {
+          if (renameFromQid) {
+            parkIdByKey.set(parkGroupKey(parkName, country), parkId);
+            row.name = parkName;
+          }
           row.country = country;
           row.latitude = syncCentroid.lat;
           row.longitude = syncCentroid.lng;
@@ -409,7 +453,7 @@ export async function syncCatalogFromWikidata() {
     // Rows with no park label (common on Wikidata) still have coords — snap to nearest resort.
     const missingParkLabel = merged.filter(
       (r) =>
-        !r.parkLabel?.trim() &&
+        !hasCatalogParkName(r) &&
         r.latitude != null &&
         r.longitude != null &&
         Number.isFinite(r.latitude) &&

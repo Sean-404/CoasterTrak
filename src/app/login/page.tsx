@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { validateDisplayName } from "@/lib/display-name";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { AUTH_ORIGIN, PASSWORD_RESET_HREF, siteHref } from "@/lib/site-url";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,21 +39,17 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<Mode>("signin");
+  const expiredLink = searchParams.get("expired") === "1";
+  const [mode, setMode] = useState<Mode>(expiredLink ? "forgot" : "signin");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    expiredLink ? "That reset link has expired. Request a new one below." : "",
+  );
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get("expired") === "1") {
-      setMode("forgot");
-      setError("That reset link has expired. Request a new one below.");
-    }
-  }, [searchParams]);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -94,7 +91,7 @@ function LoginForm() {
     try {
       if (mode === "forgot") {
         const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/account`,
+          redirectTo: PASSWORD_RESET_HREF,
         });
         setLoading(false);
         if (err) { setError(friendlyAuthError(err)); return; }
@@ -125,7 +122,11 @@ function LoginForm() {
           return;
         }
 
-        const { data: signUpData, error: err } = await supabase.auth.signUp({ email, password });
+        const { data: signUpData, error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: siteHref("/stats", AUTH_ORIGIN) },
+        });
         if (err) { setError(friendlyAuthError(err)); return; }
         if (signUpData.user?.id) {
           const { error: profileErr } = await supabase

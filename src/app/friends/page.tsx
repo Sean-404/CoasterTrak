@@ -8,7 +8,6 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
-import { loadRideCreditSummaries } from "@/lib/ride-log";
 import { canViewOtherUserStats } from "@/lib/ride-photos";
 import { signAvatarUrls } from "@/lib/profile-photos";
 
@@ -63,63 +62,6 @@ type CoasterRow = {
   parks: { name: string | null; country: string | null } | { name: string | null; country: string | null }[] | null;
 };
 
-type RideStatsRow = {
-  user_id: string;
-  coaster_id: number;
-  coasters:
-    | {
-        park_id: number | null;
-        length_ft: number | null;
-        speed_mph: number | null;
-        height_ft: number | null;
-        inversions: number | null;
-        duration_s: number | null;
-        parks: { country: string | null } | { country: string | null }[] | null;
-      }
-    | {
-        park_id: number | null;
-        length_ft: number | null;
-        speed_mph: number | null;
-        height_ft: number | null;
-        inversions: number | null;
-        duration_s: number | null;
-        parks: { country: string | null } | { country: string | null }[] | null;
-      }[]
-    | null;
-};
-
-type UserStats = {
-  coasters: number;
-  totalRides: number;
-  parks: number;
-  countries: number;
-  totalLengthFt: number;
-  totalDurationS: number;
-  totalInversions: number;
-  averageSpeedMph: number;
-  longestFt: number | null;
-  tallestFt: number | null;
-  fastestMph: number | null;
-  mostInversions: number | null;
-  longestDurationS: number | null;
-};
-
-const EMPTY_USER_STATS: UserStats = {
-  coasters: 0,
-  totalRides: 0,
-  parks: 0,
-  countries: 0,
-  totalLengthFt: 0,
-  totalDurationS: 0,
-  totalInversions: 0,
-  averageSpeedMph: 0,
-  longestFt: null,
-  tallestFt: null,
-  fastestMph: null,
-  mostInversions: null,
-  longestDurationS: null,
-};
-
 function profileLabel(profile: ProfileRow | null | undefined, fallbackId: string): string {
   const name = profile?.display_name?.trim();
   if (name) return name;
@@ -155,173 +97,18 @@ function coasterLabel(coaster: CoasterRow | null | undefined): string {
   return name || context || "Not set";
 }
 
-function deltaLabel(delta: number): string {
-  if (delta === 0) return "Same as you";
-  if (delta > 0) return `${delta} more than you`;
-  return `${Math.abs(delta)} fewer than you`;
-}
-
-function asCoasterObject(
-  coasters: RideStatsRow["coasters"],
-): {
-  park_id: number | null;
-  length_ft: number | null;
-  speed_mph: number | null;
-  height_ft: number | null;
-  inversions: number | null;
-  duration_s: number | null;
-  parks: { country: string | null } | { country: string | null }[] | null;
-} | null {
-  if (!coasters) return null;
-  return Array.isArray(coasters) ? (coasters[0] ?? null) : coasters;
-}
-
-function asParkObject(
-  parks: { country: string | null } | { country: string | null }[] | null | undefined,
-): { country: string | null } | null {
-  if (!parks) return null;
-  return Array.isArray(parks) ? (parks[0] ?? null) : parks;
-}
-
-function computeUserStats(rows: RideStatsRow[]): Record<string, UserStats> {
-  const coasterSets = new Map<string, Set<number>>();
-  const parkSets = new Map<string, Set<number>>();
-  const countrySets = new Map<string, Set<string>>();
-  const totalLengthFtByUser = new Map<string, number>();
-  const totalDurationByUser = new Map<string, number>();
-  const totalInversionsByUser = new Map<string, number>();
-  const speedSumByUser = new Map<string, number>();
-  const speedCountByUser = new Map<string, number>();
-  const longestFtByUser = new Map<string, number>();
-  const tallestFtByUser = new Map<string, number>();
-  const fastestMphByUser = new Map<string, number>();
-  const mostInversionsByUser = new Map<string, number>();
-  const longestDurationByUser = new Map<string, number>();
-
-  for (const row of rows) {
-    const coasterSet = coasterSets.get(row.user_id) ?? new Set<number>();
-    coasterSet.add(row.coaster_id);
-    coasterSets.set(row.user_id, coasterSet);
-
-    const coaster = asCoasterObject(row.coasters);
-    const parkId = coaster?.park_id;
-    if (parkId != null) {
-      const parkSet = parkSets.get(row.user_id) ?? new Set<number>();
-      parkSet.add(parkId);
-      parkSets.set(row.user_id, parkSet);
-    }
-
-    const country = asParkObject(coaster?.parks)?.country?.trim();
-    if (country) {
-      const countrySet = countrySets.get(row.user_id) ?? new Set<string>();
-      countrySet.add(country);
-      countrySets.set(row.user_id, countrySet);
-    }
-
-    if (coaster?.length_ft != null) {
-      totalLengthFtByUser.set(row.user_id, (totalLengthFtByUser.get(row.user_id) ?? 0) + coaster.length_ft);
-      const current = longestFtByUser.get(row.user_id);
-      if (current == null || coaster.length_ft > current) longestFtByUser.set(row.user_id, coaster.length_ft);
-    }
-    if (coaster?.height_ft != null) {
-      const current = tallestFtByUser.get(row.user_id);
-      if (current == null || coaster.height_ft > current) tallestFtByUser.set(row.user_id, coaster.height_ft);
-    }
-    if (coaster?.speed_mph != null) {
-      speedSumByUser.set(row.user_id, (speedSumByUser.get(row.user_id) ?? 0) + coaster.speed_mph);
-      speedCountByUser.set(row.user_id, (speedCountByUser.get(row.user_id) ?? 0) + 1);
-      const current = fastestMphByUser.get(row.user_id);
-      if (current == null || coaster.speed_mph > current) fastestMphByUser.set(row.user_id, coaster.speed_mph);
-    }
-    if (coaster?.inversions != null) {
-      totalInversionsByUser.set(row.user_id, (totalInversionsByUser.get(row.user_id) ?? 0) + coaster.inversions);
-      const current = mostInversionsByUser.get(row.user_id);
-      if (current == null || coaster.inversions > current) mostInversionsByUser.set(row.user_id, coaster.inversions);
-    }
-    if (coaster?.duration_s != null) {
-      totalDurationByUser.set(row.user_id, (totalDurationByUser.get(row.user_id) ?? 0) + coaster.duration_s);
-      const current = longestDurationByUser.get(row.user_id);
-      if (current == null || coaster.duration_s > current) longestDurationByUser.set(row.user_id, coaster.duration_s);
-    }
-  }
-
-  const userIds = new Set<string>([...coasterSets.keys(), ...parkSets.keys(), ...countrySets.keys()]);
-  const stats: Record<string, UserStats> = {};
-  for (const id of userIds) {
-    stats[id] = {
-      coasters: coasterSets.get(id)?.size ?? 0,
-      totalRides: coasterSets.get(id)?.size ?? 0,
-      parks: parkSets.get(id)?.size ?? 0,
-      countries: countrySets.get(id)?.size ?? 0,
-      totalLengthFt: totalLengthFtByUser.get(id) ?? 0,
-      totalDurationS: totalDurationByUser.get(id) ?? 0,
-      totalInversions: totalInversionsByUser.get(id) ?? 0,
-      averageSpeedMph: (() => {
-        const count = speedCountByUser.get(id) ?? 0;
-        if (count <= 0) return 0;
-        return (speedSumByUser.get(id) ?? 0) / count;
-      })(),
-      longestFt: longestFtByUser.get(id) ?? null,
-      tallestFt: tallestFtByUser.get(id) ?? null,
-      fastestMph: fastestMphByUser.get(id) ?? null,
-      mostInversions: mostInversionsByUser.get(id) ?? null,
-      longestDurationS: longestDurationByUser.get(id) ?? null,
-    };
-  }
-  return stats;
-}
-
-function metricLabel(value: number | null, unitSuffix?: string): string {
-  if (value == null) return "N/A";
-  const rounded = Number.isInteger(value) ? value : Math.round(value * 10) / 10;
-  if (unitSuffix) return `${rounded.toLocaleString()} ${unitSuffix}`;
-  return rounded.toLocaleString();
-}
-
-function durationLabel(seconds: number | null): string {
-  if (seconds == null) return "N/A";
-  const whole = Math.round(seconds);
-  const hours = Math.floor(whole / 3600);
-  const mins = Math.floor((whole % 3600) / 60);
-  const secs = whole % 60;
-  if (hours > 0) {
-    if (mins > 0) return `${hours}h ${mins}m`;
-    return `${hours}h`;
-  }
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
-}
-
-type StatTrend = "higher" | "faster" | "longer" | "more";
-
-function comparisonTag(
-  sideValue: number | null,
-  otherValue: number | null,
-  trend: StatTrend,
-): string | null {
-  if (sideValue == null || otherValue == null) return null;
-  if (sideValue === otherValue) return "TIED";
-  const better = sideValue > otherValue;
-  if (trend === "faster") return better ? "FASTER" : "SLOWER";
-  if (trend === "longer") return better ? "LONGER" : "SHORTER";
-  if (trend === "more") return better ? "MORE" : "FEWER";
-  return better ? "HIGHER" : "LOWER";
-}
-
 export default function FriendsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [myProfile, setMyProfile] = useState<ProfileRow | null>(null);
   const [profilesById, setProfilesById] = useState<Record<string, ProfileRow>>({});
   const [parksById, setParksById] = useState<Record<number, ParkRow>>({});
   const [coastersById, setCoastersById] = useState<Record<number, CoasterRow>>({});
-  const [statsByUserId, setStatsByUserId] = useState<Record<string, UserStats>>({});
   const [friendships, setFriendships] = useState<FriendshipRow[]>([]);
   const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [busyId, setBusyId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<ProfileRow[]>([]);
-  const [selectedCompareUserId, setSelectedCompareUserId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   async function loadData(activeUserId: string) {
@@ -357,7 +144,6 @@ export default function FriendsPage() {
       setProfilesById({});
       setParksById({});
       setCoastersById({});
-      setStatsByUserId({});
       return;
     }
 
@@ -410,22 +196,6 @@ export default function FriendsPage() {
     } else {
       setCoastersById({});
     }
-
-    const statsUsers = [activeUserId, ...relatedIds];
-    const [{ data: statRows }, summariesRes] = await Promise.all([
-      supabase
-        .from("rides")
-        .select("user_id, coaster_id, coasters(park_id, length_ft, speed_mph, height_ft, inversions, duration_s, parks(country))")
-        .in("user_id", statsUsers),
-      loadRideCreditSummaries(supabase, statsUsers),
-    ]);
-    const stats = computeUserStats((statRows ?? []) as RideStatsRow[]);
-    for (const [id, list] of summariesRes.byUser) {
-      const current = stats[id];
-      if (!current) continue;
-      current.totalRides = list.reduce((sum, row) => sum + row.totalRides, 0);
-    }
-    setStatsByUserId(stats);
   }
 
   useEffect(() => {
@@ -466,21 +236,6 @@ export default function FriendsPage() {
     () => friendships.filter((f) => f.status === "accepted"),
     [friendships],
   );
-  const myStats = useMemo<UserStats>(
-    () => (userId ? statsByUserId[userId] ?? EMPTY_USER_STATS : EMPTY_USER_STATS),
-    [statsByUserId, userId],
-  );
-  const acceptedFriendIds = useMemo(() => {
-    if (!userId) return [] as string[];
-    return acceptedFriends.map((f) => (f.requester_id === userId ? f.addressee_id : f.requester_id));
-  }, [acceptedFriends, userId]);
-  const activeCompareUserId = selectedCompareUserId && acceptedFriendIds.includes(selectedCompareUserId)
-    ? selectedCompareUserId
-    : null;
-  const comparedFriendProfile = activeCompareUserId ? profilesById[activeCompareUserId] : null;
-  const comparedFriendStats: UserStats | null = activeCompareUserId
-    ? (statsByUserId[activeCompareUserId] ?? EMPTY_USER_STATS)
-    : null;
 
   async function runMutation(
     id: number,
@@ -645,7 +400,7 @@ export default function FriendsPage() {
               <div>
                 <AppPageHeading>Friends</AppPageHeading>
                 <p className="mt-1 text-sm text-slate-500">
-                  Search for people by display name, send requests, and compare stats with friends.
+                  Search for people by display name, send requests, and compare credits with friends.
                 </p>
               </div>
               <Link
@@ -844,402 +599,85 @@ export default function FriendsPage() {
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="font-semibold text-slate-900">Your friends</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Comparison includes all logged rides, including kiddie/family rides.
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Click a friend&apos;s name to open their stats and unlocked achievements.
+                  Open a friend&apos;s stats, or compare to see shared credits and what they still have that you don&apos;t.
                 </p>
                 {acceptedFriends.length === 0 ? (
                   <p className="mt-2 text-sm text-slate-500">No friends yet. Send your first request above.</p>
                 ) : (
-                  <>
-                    <ul className="mt-3 space-y-2">
-                      {acceptedFriends.map((row) => {
-                        const otherId = row.requester_id === userId ? row.addressee_id : row.requester_id;
-                        const other = profilesById[otherId];
-                        const isSelected = selectedCompareUserId === otherId;
-                        const canViewStats = canViewOtherUserStats(other?.stats_visibility, true);
-                        const nameContent = profileLabel(other, otherId);
-                        return (
-                          <li key={row.id} className={`rounded-lg border px-3 py-3 ${isSelected ? "border-amber-300 bg-amber-50/40" : "border-slate-200"}`}>
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <ProfileAvatar
-                                  avatarKey={other?.avatar_key}
-                                  imageUrl={other?.avatarUrl}
-                                  name={other?.display_name}
-                                  size="md"
-                                />
-                                <div className="min-w-0">
-                                  {canViewStats ? (
-                                    <Link
-                                      href={`/stats?user=${encodeURIComponent(otherId)}`}
-                                      className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
-                                    >
-                                      {nameContent}
-                                    </Link>
-                                  ) : (
-                                    <p className="font-medium text-slate-900">{nameContent}</p>
-                                  )}
-                                  <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
-                                  {!canViewStats ? (
-                                    <p className="mt-1 text-xs text-slate-500">This friend keeps their stats private.</p>
-                                  ) : (
-                                    <>
-                                      <p className="mt-1 text-xs text-slate-600 break-words">
-                                        <span className="font-medium text-slate-700">Fav ride:</span>{" "}
-                                        {coasterLabel(
-                                          other?.favorite_ride_id != null
-                                            ? coastersById[other.favorite_ride_id]
-                                            : null,
-                                        )}
-                                      </p>
-                                      <p className="text-xs text-slate-600 break-words">
-                                        <span className="font-medium text-slate-700">Fav park:</span>{" "}
-                                        {parkLabel(
-                                          other?.favorite_park_id != null
-                                            ? parksById[other.favorite_park_id]
-                                            : null,
-                                        )}
-                                      </p>
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex w-full gap-2 sm:w-auto">
+                  <ul className="mt-3 space-y-2">
+                    {acceptedFriends.map((row) => {
+                      const otherId = row.requester_id === userId ? row.addressee_id : row.requester_id;
+                      const other = profilesById[otherId];
+                      const canViewStats = canViewOtherUserStats(other?.stats_visibility, true);
+                      const nameContent = profileLabel(other, otherId);
+                      return (
+                        <li key={row.id} className="rounded-lg border border-slate-200 px-3 py-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <ProfileAvatar
+                                avatarKey={other?.avatar_key}
+                                imageUrl={other?.avatarUrl}
+                                name={other?.display_name}
+                                size="md"
+                              />
+                              <div className="min-w-0">
                                 {canViewStats ? (
-                                  <button
-                                    onClick={() => setSelectedCompareUserId((prev) => (prev === otherId ? null : otherId))}
-                                    className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 sm:flex-none"
+                                  <Link
+                                    href={`/stats?user=${encodeURIComponent(otherId)}`}
+                                    className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
                                   >
-                                    {isSelected ? "Hide compare" : "Compare stats"}
-                                  </button>
-                                ) : null}
-                                <button
-                                  onClick={() => void removeFriend(row)}
-                                  disabled={busyId === row.id}
-                                  className="flex-1 rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 sm:flex-none"
+                                    {nameContent}
+                                  </Link>
+                                ) : (
+                                  <p className="font-medium text-slate-900">{nameContent}</p>
+                                )}
+                                <p className="text-xs text-slate-500">{countryNameFromCode(other?.country_code)}</p>
+                                {!canViewStats ? (
+                                  <p className="mt-1 text-xs text-slate-500">This friend keeps their stats private.</p>
+                                ) : (
+                                  <>
+                                    <p className="mt-1 text-xs text-slate-600 break-words">
+                                      <span className="font-medium text-slate-700">Fav ride:</span>{" "}
+                                      {coasterLabel(
+                                        other?.favorite_ride_id != null
+                                          ? coastersById[other.favorite_ride_id]
+                                          : null,
+                                      )}
+                                    </p>
+                                    <p className="text-xs text-slate-600 break-words">
+                                      <span className="font-medium text-slate-700">Fav park:</span>{" "}
+                                      {parkLabel(
+                                        other?.favorite_park_id != null
+                                          ? parksById[other.favorite_park_id]
+                                          : null,
+                                      )}
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex w-full gap-2 sm:w-auto">
+                              {canViewStats ? (
+                                <Link
+                                  href={`/stats?user=${encodeURIComponent(otherId)}&compare=1`}
+                                  className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-center text-sm text-slate-700 hover:bg-slate-50 sm:flex-none"
                                 >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-
-                    {activeCompareUserId && comparedFriendProfile && comparedFriendStats && (
-                      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                        <p className="text-sm font-semibold text-slate-900">
-                          You vs {profileLabel(comparedFriendProfile, activeCompareUserId)}
-                        </p>
-                        <div className="mt-3 grid gap-2 md:grid-cols-2 md:gap-3">
-                          <div className="flex h-full flex-col rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">You</p>
-                            <p className="mt-2 text-sm text-slate-700 break-words">
-                              <span className="font-semibold text-slate-800">Country:</span>{" "}
-                              {countryNameFromCode(myProfile?.country_code)}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">
-                              <span className="font-semibold text-slate-800">Favorite ride:</span>{" "}
-                              {coasterLabel(myProfile?.favorite_ride_id != null ? coastersById[myProfile.favorite_ride_id] : null)}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">
-                              <span className="font-semibold text-slate-800">Favorite park:</span>{" "}
-                              {parkLabel(myProfile?.favorite_park_id != null ? parksById[myProfile.favorite_park_id] : null)}
-                            </p>
-                            <div className="mt-4 space-y-3 md:mt-auto">
-                              <div className="rounded-md bg-slate-50 p-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Core stats</p>
-                                <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
-                                  <span className="font-medium text-slate-500">Coasters</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{myStats.coasters}</span>
-                                    {comparisonTag(myStats.coasters, comparedFriendStats.coasters, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.coasters, comparedFriendStats.coasters, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Total rides</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{myStats.totalRides}</span>
-                                    {comparisonTag(myStats.totalRides, comparedFriendStats.totalRides, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.totalRides, comparedFriendStats.totalRides, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Parks</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{myStats.parks}</span>
-                                    {comparisonTag(myStats.parks, comparedFriendStats.parks, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.parks, comparedFriendStats.parks, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Countries</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{myStats.countries}</span>
-                                    {comparisonTag(myStats.countries, comparedFriendStats.countries, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.countries, comparedFriendStats.countries, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="rounded-md bg-slate-50 p-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Totals</p>
-                                <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
-                                  <span className="font-medium text-slate-500">Track length</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.totalLengthFt, "ft")}</span>
-                                    {comparisonTag(myStats.totalLengthFt, comparedFriendStats.totalLengthFt, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.totalLengthFt, comparedFriendStats.totalLengthFt, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Ride time</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{durationLabel(myStats.totalDurationS)}</span>
-                                    {comparisonTag(myStats.totalDurationS, comparedFriendStats.totalDurationS, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.totalDurationS, comparedFriendStats.totalDurationS, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Inversions</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.totalInversions)}</span>
-                                    {comparisonTag(myStats.totalInversions, comparedFriendStats.totalInversions, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.totalInversions, comparedFriendStats.totalInversions, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Average speed</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.averageSpeedMph || null, "mph")}</span>
-                                    {comparisonTag(myStats.averageSpeedMph, comparedFriendStats.averageSpeedMph, "faster") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.averageSpeedMph, comparedFriendStats.averageSpeedMph, "faster")}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="rounded-md bg-slate-50 p-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Performance records</p>
-                                <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
-                                  <span className="font-medium text-slate-500">Fastest</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.fastestMph, "mph")}</span>
-                                    {comparisonTag(myStats.fastestMph, comparedFriendStats.fastestMph, "faster") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.fastestMph, comparedFriendStats.fastestMph, "faster")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Tallest</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.tallestFt, "ft")}</span>
-                                    {comparisonTag(myStats.tallestFt, comparedFriendStats.tallestFt, "higher") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.tallestFt, comparedFriendStats.tallestFt, "higher")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Longest</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.longestFt, "ft")}</span>
-                                    {comparisonTag(myStats.longestFt, comparedFriendStats.longestFt, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.longestFt, comparedFriendStats.longestFt, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Most inversions</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(myStats.mostInversions)}</span>
-                                    {comparisonTag(myStats.mostInversions, comparedFriendStats.mostInversions, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.mostInversions, comparedFriendStats.mostInversions, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Longest ride</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{durationLabel(myStats.longestDurationS)}</span>
-                                    {comparisonTag(myStats.longestDurationS, comparedFriendStats.longestDurationS, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(myStats.longestDurationS, comparedFriendStats.longestDurationS, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
+                                  Compare stats
+                                </Link>
+                              ) : null}
+                              <button
+                                onClick={() => void removeFriend(row)}
+                                disabled={busyId === row.id}
+                                className="flex-1 rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 sm:flex-none"
+                              >
+                                Remove
+                              </button>
                             </div>
                           </div>
-
-                          <div className="flex h-full flex-col rounded-lg border border-slate-200 bg-white p-3 sm:p-4">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              {profileLabel(comparedFriendProfile, activeCompareUserId)}
-                            </p>
-                            <p className="mt-2 text-sm text-slate-700 break-words">
-                              <span className="font-semibold text-slate-800">Country:</span>{" "}
-                              {countryNameFromCode(comparedFriendProfile.country_code)}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">
-                              <span className="font-semibold text-slate-800">Favorite ride:</span>{" "}
-                              {coasterLabel(comparedFriendProfile.favorite_ride_id != null ? coastersById[comparedFriendProfile.favorite_ride_id] : null)}
-                            </p>
-                            <p className="mt-1 text-sm text-slate-700 break-words">
-                              <span className="font-semibold text-slate-800">Favorite park:</span>{" "}
-                              {parkLabel(comparedFriendProfile.favorite_park_id != null ? parksById[comparedFriendProfile.favorite_park_id] : null)}
-                            </p>
-                            <div className="mt-4 space-y-3 md:mt-auto">
-                              <div className="rounded-md bg-slate-50 p-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Core stats</p>
-                                <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
-                                  <span className="font-medium text-slate-500">Coasters</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{comparedFriendStats.coasters}</span>
-                                    {comparisonTag(comparedFriendStats.coasters, myStats.coasters, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.coasters, myStats.coasters, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Total rides</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{comparedFriendStats.totalRides}</span>
-                                    {comparisonTag(comparedFriendStats.totalRides, myStats.totalRides, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.totalRides, myStats.totalRides, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Parks</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{comparedFriendStats.parks}</span>
-                                    {comparisonTag(comparedFriendStats.parks, myStats.parks, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.parks, myStats.parks, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Countries</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{comparedFriendStats.countries}</span>
-                                    {comparisonTag(comparedFriendStats.countries, myStats.countries, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.countries, myStats.countries, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="rounded-md bg-slate-50 p-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Totals</p>
-                                <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
-                                  <span className="font-medium text-slate-500">Track length</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.totalLengthFt, "ft")}</span>
-                                    {comparisonTag(comparedFriendStats.totalLengthFt, myStats.totalLengthFt, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.totalLengthFt, myStats.totalLengthFt, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Ride time</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{durationLabel(comparedFriendStats.totalDurationS)}</span>
-                                    {comparisonTag(comparedFriendStats.totalDurationS, myStats.totalDurationS, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.totalDurationS, myStats.totalDurationS, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Inversions</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.totalInversions)}</span>
-                                    {comparisonTag(comparedFriendStats.totalInversions, myStats.totalInversions, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.totalInversions, myStats.totalInversions, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Average speed</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.averageSpeedMph || null, "mph")}</span>
-                                    {comparisonTag(comparedFriendStats.averageSpeedMph, myStats.averageSpeedMph, "faster") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.averageSpeedMph, myStats.averageSpeedMph, "faster")}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="rounded-md bg-slate-50 p-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Performance records</p>
-                                <div className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-slate-700">
-                                  <span className="font-medium text-slate-500">Fastest</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.fastestMph, "mph")}</span>
-                                    {comparisonTag(comparedFriendStats.fastestMph, myStats.fastestMph, "faster") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.fastestMph, myStats.fastestMph, "faster")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Tallest</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.tallestFt, "ft")}</span>
-                                    {comparisonTag(comparedFriendStats.tallestFt, myStats.tallestFt, "higher") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.tallestFt, myStats.tallestFt, "higher")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Longest</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.longestFt, "ft")}</span>
-                                    {comparisonTag(comparedFriendStats.longestFt, myStats.longestFt, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.longestFt, myStats.longestFt, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Most inversions</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{metricLabel(comparedFriendStats.mostInversions)}</span>
-                                    {comparisonTag(comparedFriendStats.mostInversions, myStats.mostInversions, "more") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.mostInversions, myStats.mostInversions, "more")}
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="font-medium text-slate-500">Longest ride</span>
-                                  <span className="flex items-center justify-end gap-2">
-                                    <span>{durationLabel(comparedFriendStats.longestDurationS)}</span>
-                                    {comparisonTag(comparedFriendStats.longestDurationS, myStats.longestDurationS, "longer") && (
-                                      <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
-                                        {comparisonTag(comparedFriendStats.longestDurationS, myStats.longestDurationS, "longer")}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </section>
             </div>

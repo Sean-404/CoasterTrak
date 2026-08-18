@@ -1,4 +1,4 @@
-export const CATALOG_PAGE_SIZE = 100;
+export const CATALOG_PAGE_SIZE = 50;
 
 export function parseCatalogPage(raw: string | string[] | undefined): number {
   const value = Array.isArray(raw) ? raw[0] : raw;
