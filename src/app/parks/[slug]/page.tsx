@@ -16,13 +16,11 @@ import {
   listParksForSitemap,
   resolveCatalogParkId,
 } from "@/lib/catalog-server";
-import { formatParkLabel } from "@/lib/display";
+import { formatParkLabel, cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
+import { SITE_URL } from "@/lib/site-url";
 import { clampSummaryText, fetchWikipediaSummaryForPark } from "@/lib/wikipedia-summary";
-import { cleanCoasterName } from "@/lib/display";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export const revalidate = 86400;
 export const dynamicParams = true;

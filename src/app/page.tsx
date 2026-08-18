@@ -6,9 +6,8 @@ import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { listFeaturedParks } from "@/lib/catalog-server";
+import { SITE_URL } from "@/lib/site-url";
 import { parkSlug } from "@/lib/slug";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export const metadata: Metadata = {
   title: {

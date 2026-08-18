@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
 import { listCoastersForSitemap, listParksForSitemap } from "@/lib/catalog-server";
+import { SITE_URL as BASE_URL } from "@/lib/site-url";
 import { coasterSlug, parkSlug } from "@/lib/slug";
-
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
 
 export const revalidate = 86400;
 export const maxDuration = 60;

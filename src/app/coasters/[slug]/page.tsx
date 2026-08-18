@@ -14,6 +14,7 @@ import {
 import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/lib/catalog-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
+import { SITE_URL } from "@/lib/site-url";
 import {
   clampSummaryText,
   fetchWikipediaSummaryForCoaster,
@@ -106,7 +107,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   });
   const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com";
+  const siteUrl = SITE_URL;
   const bodyIntro =
     wikiSummary?.extract ?? buildCoasterEditorialIntro(coaster, parkLabel || null);
 

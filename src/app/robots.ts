@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL as BASE_URL } from "@/lib/site-url";
 
-const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://coastertrak.com").replace(/\/+$/, "");
 const ROBOTS_HOST = (() => {
   try {
     return new URL(BASE_URL).host;
