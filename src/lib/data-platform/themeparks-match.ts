@@ -11,7 +11,12 @@ import {
   type AliasLookup,
   type DbAliasRow,
 } from "./coaster-aliases";
-import { stripThemeParksTrademarkArtifacts } from "./themeparks-match-normalize";
+import {
+  isLikelyCoasterAttractionName,
+  stripThemeParksFeedDecorations,
+  stripThemeParksTrademarkArtifacts,
+  themeParksNameMatchVariants,
+} from "./themeparks-match-normalize";
 
 export type CatalogParkRow = {
   id: number;
@@ -98,18 +103,10 @@ export type ThemeParksMatchReport = {
 
 export { buildAliasLookup, type AliasLookup, type DbAliasRow };
 
-export { stripThemeParksTrademarkArtifacts };
+export { isLikelyCoasterAttractionName, stripThemeParksTrademarkArtifacts };
 
 export function themeParksAttractionMatchKey(name: string): string {
-  return normalizeCoasterDedupKey(stripThemeParksTrademarkArtifacts(name));
-}
-
-export function isLikelyCoasterAttractionName(name: string): boolean {
-  const n = stripThemeParksTrademarkArtifacts(name).toLowerCase();
-  if (/\b(coaster|hyper|giga|launch|inverted|bobsled)/.test(n)) return true;
-  if (/\b(velocicoaster|rock.?n.?roller|space mountain|big thunder)\b/.test(n)) return true;
-  if (/\bmatterhorn\b/.test(n) && /\bbobsled/.test(n)) return true;
-  return false;
+  return normalizeCoasterDedupKey(stripThemeParksFeedDecorations(name));
 }
 
 function diceCoefficient(a: string, b: string): number {
@@ -153,7 +150,24 @@ function findAttractionByKeys(
 }
 
 function keysForName(name: string, lookup: AliasLookup, parkId: number): string[] {
-  return coasterAliasKeys(name, lookup, parkId);
+  const keys = new Set<string>();
+  for (const variant of themeParksNameMatchVariants(name)) {
+    for (const key of coasterAliasKeys(variant, lookup, parkId)) {
+      if (key) keys.add(key);
+    }
+  }
+  return [...keys];
+}
+
+const PREFIX_MIN_LENGTH = 8;
+
+function isPrefixOrContainmentMatch(catalogKey: string, feedKey: string): boolean {
+  if (!catalogKey || !feedKey) return false;
+  if (catalogKey === feedKey) return true;
+  const shorter = catalogKey.length <= feedKey.length ? catalogKey : feedKey;
+  const longer = catalogKey.length <= feedKey.length ? feedKey : catalogKey;
+  if (shorter.length < PREFIX_MIN_LENGTH) return false;
+  return longer.startsWith(shorter) || longer.includes(shorter);
 }
 
 export function matchParkCoastersToThemeParks(opts: {
@@ -189,6 +203,7 @@ export function matchParkCoastersToThemeParks(opts: {
   const localOnly: UnmatchedLocalCoaster[] = [];
   const nameMismatchCandidates: ParkMatchResult["nameMismatchCandidates"] = [];
   const usedAttractionIds = new Set<string>();
+  const usedAttractionKeys = new Set<string>();
 
   const orderedCoasters = [...coasters].sort((a, b) => {
     const rank = (status: string) => {
@@ -212,24 +227,21 @@ export function matchParkCoastersToThemeParks(opts: {
     let confidence = 1;
 
     if (!attr) {
-      const primary = localKeys[0] ?? "";
-      if (primary.length >= 10) {
-        let best: ThemeParksChildEntity | null = null;
-        for (const candidate of attractions) {
-          if (usedAttractionIds.has(candidate.id)) continue;
-          const ck = themeParksAttractionMatchKey(candidate.name);
-          if (!ck) continue;
-          if (ck.startsWith(primary) || primary.startsWith(ck) || ck.includes(primary)) {
-            if (!best || ck.length < themeParksAttractionMatchKey(best.name).length) {
-              best = candidate;
-            }
-          }
+      let best: ThemeParksChildEntity | null = null;
+      for (const candidate of attractions) {
+        if (usedAttractionIds.has(candidate.id)) continue;
+        const ck = themeParksAttractionMatchKey(candidate.name);
+        if (!ck) continue;
+        const hit = localKeys.some((lk) => isPrefixOrContainmentMatch(lk, ck));
+        if (!hit) continue;
+        if (!best || ck.length < themeParksAttractionMatchKey(best.name).length) {
+          best = candidate;
         }
-        if (best) {
-          attr = best;
-          method = "prefix";
-          confidence = 0.92;
-        }
+      }
+      if (best) {
+        attr = best;
+        method = "prefix";
+        confidence = 0.92;
       }
     }
 
@@ -256,6 +268,8 @@ export function matchParkCoastersToThemeParks(opts: {
 
     if (attr && !usedAttractionIds.has(attr.id)) {
       usedAttractionIds.add(attr.id);
+      for (const key of keysForName(attr.name, aliasLookup, park.id)) usedAttractionKeys.add(key);
+      for (const key of localKeys) usedAttractionKeys.add(key);
       const matchRow: MatchedCoaster = {
         coasterId: coaster.id,
         coasterName: coaster.name,
@@ -298,11 +312,15 @@ export function matchParkCoastersToThemeParks(opts: {
 
   const sourceOnly: UnmatchedSourceAttraction[] = attractions
     .filter((a) => !usedAttractionIds.has(a.id))
-    .map((a) => ({
-      themeParksId: a.id,
-      themeParksName: a.name,
-      likelyCoaster: isLikelyCoasterAttractionName(a.name),
-    }))
+    .map((a) => {
+      const keys = keysForName(a.name, aliasLookup, park.id);
+      const duplicateOfMatched = keys.some((k) => usedAttractionKeys.has(k));
+      return {
+        themeParksId: a.id,
+        themeParksName: a.name,
+        likelyCoaster: !duplicateOfMatched && isLikelyCoasterAttractionName(a.name),
+      };
+    })
     .sort(
       (a, b) =>
         Number(b.likelyCoaster) - Number(a.likelyCoaster) ||
@@ -324,10 +342,45 @@ export function matchParkCoastersToThemeParks(opts: {
   };
 }
 
+/**
+ * ThemeParks sometimes repeats the same attraction UUID on the wrong park.
+ * Drop those from source-only so the admin queue does not ask us to add Crush's
+ * Coaster to Adventure World, Pipeline to every SeaWorld, etc.
+ */
+export function suppressLeakedThemeParksAttractions(parks: ParkMatchResult[]): ParkMatchResult[] {
+  const parksByAttractionId = new Map<string, Set<number>>();
+  const matchedIds = new Set<string>();
+
+  const remember = (id: string, parkId: number) => {
+    const set = parksByAttractionId.get(id) ?? new Set<number>();
+    set.add(parkId);
+    parksByAttractionId.set(id, set);
+  };
+
+  for (const park of parks) {
+    for (const row of park.matched) {
+      matchedIds.add(row.themeParksId);
+      remember(row.themeParksId, park.parkId);
+    }
+    for (const row of park.sourceOnly) {
+      remember(row.themeParksId, park.parkId);
+    }
+  }
+
+  return parks.map((park) => ({
+    ...park,
+    sourceOnly: park.sourceOnly.filter((row) => {
+      if (matchedIds.has(row.themeParksId)) return false;
+      return (parksByAttractionId.get(row.themeParksId)?.size ?? 0) <= 1;
+    }),
+  }));
+}
+
 export function buildThemeParksMatchReport(
   parkResults: ParkMatchResult[],
   parkStats?: { auto: number; review: number; unmapped: number },
 ): ThemeParksMatchReport {
+  const parks = suppressLeakedThemeParksAttractions(parkResults);
   let localCoasters = 0;
   let matched = 0;
   let localOnly = 0;
@@ -335,7 +388,7 @@ export function buildThemeParksMatchReport(
   let sourceOnlyLikelyCoaster = 0;
   let nameMismatchCandidates = 0;
 
-  for (const p of parkResults) {
+  for (const p of parks) {
     localCoasters += p.matched.length + p.localOnly.length;
     matched += p.matched.length;
     localOnly += p.localOnly.length;
@@ -359,6 +412,6 @@ export function buildThemeParksMatchReport(
       sourceOnlyLikelyCoaster,
       nameMismatchCandidates,
     },
-    parks: parkResults,
+    parks,
   };
 }

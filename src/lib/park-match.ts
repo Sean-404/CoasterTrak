@@ -87,7 +87,7 @@ const NON_DISTINCTIVE_PARK_NAME_TOKENS = new Set([
   "and",
 ]);
 
-function distinctiveParkNameTokens(name: string): Set<string> {
+export function distinctiveParkNameTokens(name: string): Set<string> {
   return new Set(
     normalizeParkNameForMatch(name)
       .split(" ")
@@ -264,6 +264,8 @@ export function isLikelyWaterParkName(name: string | null | undefined): boolean 
     /\baquatica\b/.test(n) ||
     /\bvolcano\s+bay\b/.test(n) ||
     /\bwet['\s-]*n['\s-]*wild\b/.test(n) ||
+    /\badventure island tampa\b/.test(n) ||
+    /\bwild\s*water\b/.test(n) ||
     /\bsplash\b/.test(n) ||
     /\baqua\b/.test(n)
   );
