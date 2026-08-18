@@ -61,9 +61,8 @@ export default function ResetPasswordPage() {
         markReady();
         return;
       }
-      if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) {
-        const type = hashParams.get("type");
-        if (type === "recovery" || event === "PASSWORD_RECOVERY") markReady();
+      if (session && (event === "SIGNED_IN" || event === "INITIAL_SESSION") && hashParams.get("type") === "recovery") {
+        markReady();
       }
     });
 
