@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { INSTAGRAM_URL } from "@/lib/site-url";
 
 type SiteFooterProps = {
   variant?: "light" | "dark";
@@ -32,6 +33,17 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           <FooterLink href="/about" isDark={isDark}>
             About
           </FooterLink>
+          <FooterLink href="/contact" isDark={isDark}>
+            Contact
+          </FooterLink>
+          <a
+            href={INSTAGRAM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={isDark ? "transition hover:text-white" : "transition hover:text-slate-900"}
+          >
+            Instagram
+          </a>
           <FooterLink href="/privacy" isDark={isDark}>
             Privacy
           </FooterLink>

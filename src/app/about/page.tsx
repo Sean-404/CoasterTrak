@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { CONTACT_EMAIL, INSTAGRAM_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "About CoasterTrak",
@@ -59,11 +60,38 @@ export default function AboutPage() {
             <li>Review personal stats such as ride counts, height totals, and park coverage.</li>
             <li>Connect with friends to compare credits and milestones.</li>
           </ul>
-          <h2 className="pt-2 text-xl font-semibold text-slate-900">Data sources</h2>
+          <h2 className="pt-2 text-xl font-semibold text-slate-900">Who runs it</h2>
           <p>
-            Park and coaster catalog data is compiled from third-party and community-maintained sources. We work to
-            keep it useful for planning and tracking, but some entries can be incomplete or outdated. If something
-            looks wrong, treat the map as a starting point and verify details with the park before you travel.
+            CoasterTrak is an independent fan project — not a park, manufacturer, or ticket seller. We are not
+            affiliated with or endorsed by the parks in the catalog. The app is free to use; optional advertising,
+            when enabled, helps cover hosting.
+          </p>
+          <p>
+            Occasional updates and trip photos are on{" "}
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-amber-700 underline-offset-2 hover:underline"
+            >
+              Instagram
+            </a>
+            .
+          </p>
+          <h2 className="pt-2 text-xl font-semibold text-slate-900">How the catalog is maintained</h2>
+          <p>
+            Park and coaster records are compiled from third-party and community-maintained sources, then matched and
+            cleaned so map, park, and ride pages stay aligned. We apply known corrections when a source page is an
+            incident, a duplicate, or a clearly wrong park link. Entries can still be incomplete or outdated. Treat
+            the catalog as a planning aid and confirm hours, closures, and restrictions with the park before you
+            travel.
+          </p>
+          <p>
+            If a listing looks wrong,{" "}
+            <Link href="/contact" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              tell us
+            </Link>{" "}
+            — park name, ride name, and what should change.
           </p>
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Who it is for</h2>
           <p>
@@ -72,6 +100,25 @@ export default function AboutPage() {
             features, see the{" "}
             <Link href="/coaster-tracker" className="font-medium text-amber-700 underline-offset-2 hover:underline">
               roller coaster tracker guide
+            </Link>
+            .
+          </p>
+          <h2 className="pt-2 text-xl font-semibold text-slate-900">Contact</h2>
+          <p>
+            Email{" "}
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="font-medium text-amber-700 underline-offset-2 hover:underline"
+            >
+              {CONTACT_EMAIL}
+            </a>{" "}
+            or use the{" "}
+            <Link href="/contact" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              contact page
+            </Link>
+            . Privacy and account requests are covered in the{" "}
+            <Link href="/privacy" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              Privacy Policy
             </Link>
             .
           </p>

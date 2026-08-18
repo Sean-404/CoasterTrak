@@ -6,7 +6,7 @@ import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { listFeaturedParks } from "@/lib/catalog-server";
-import { SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 import { parkSlug } from "@/lib/slug";
 
 export const metadata: Metadata = {
@@ -55,6 +55,14 @@ export default async function Home() {
     alternateName: ["Coaster Trak", "coaster trak"],
     url: SITE_URL,
     logo: `${SITE_URL}/coastertrak-logo.png`,
+    email: CONTACT_EMAIL,
+    sameAs: [INSTAGRAM_URL],
+    contactPoint: {
+      "@type": "ContactPoint",
+      email: CONTACT_EMAIL,
+      contactType: "customer support",
+      url: `${SITE_URL}/contact`,
+    },
   };
 
   const softwareJsonLd = {
@@ -258,6 +266,12 @@ export default async function Home() {
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
             >
               About CoasterTrak
+            </Link>
+            <Link
+              href="/contact"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              Contact
             </Link>
           </div>
         </section>

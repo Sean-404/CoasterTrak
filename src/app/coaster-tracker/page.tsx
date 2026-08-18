@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Roller Coaster Tracker (Coaster Trak)",
@@ -49,6 +49,11 @@ const faqs = [
     question: "Where does the park data come from?",
     answer:
       "From third-party and community-maintained datasets. We aim for useful coverage, but entries can be wrong or outdated — verify important details with the park.",
+  },
+  {
+    question: "How do I report a missing or wrong ride?",
+    answer:
+      `Email ${CONTACT_EMAIL} with the park, ride name, page URL, and what should change. We cannot promise an instant catalog edit.`,
   },
 ] as const;
 
@@ -192,6 +197,64 @@ export default function CoasterTrackerLandingPage() {
         </section>
 
         <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">How CoasterTrak counts credits</h2>
+          <p>
+            A credit here is a distinct catalog coaster you have marked ridden at least once. If you ride Nemesis
+            three times in a day, that is still one credit and three rides. Stats show both: unique coasters, and a
+            ×N count when you have logged repeats.
+          </p>
+          <p>
+            You can attach calendar dates to those logs. That is useful when you go back to a park years later and
+            want first-ridden and last-ridden dates, not just a yes/no checkbox. Undated credits from older saves
+            still count; they just will not appear on a specific day.
+          </p>
+          <p>
+            Stats default to a thrill-ride focus and hide family coasters until you turn that filter on. Achievements
+            still count every logged credit, including family rides, so unlocking a milestone and filtering the list
+            can show different totals. That is intentional: many enthusiasts keep two numbers.
+          </p>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Discover: map, parks, and coasters</h2>
+          <p>
+            Discover opens on the{" "}
+            <Link href="/map" className="font-semibold text-amber-400 hover:text-amber-300">
+              world map
+            </Link>
+            . From there you can switch to the{" "}
+            <Link href="/parks" className="font-semibold text-amber-400 hover:text-amber-300">
+              parks
+            </Link>{" "}
+            or{" "}
+            <Link href="/coasters" className="font-semibold text-amber-400 hover:text-amber-300">
+              coasters
+            </Link>{" "}
+            lists. Those three views share the same catalog: a park page lists that park&apos;s rides, a ride page
+            links back to its park, and the map is the geographic index.
+          </p>
+          <p>
+            Search and country filters on the lists are for planning, not for padding a credit count. If a park is
+            closed or a ride has been removed, the catalog may still keep a historical record — check the status on
+            the page, then confirm with the park.
+          </p>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Privacy, photos, and friends</h2>
+          <p>
+            New accounts keep stats friends-only. You can switch to private (only you) or public to signed-in
+            CoasterTrak users. Public profiles can appear in a signed-in directory; that directory is not offered to
+            search engines. Friends comparisons hide another rider&apos;s numbers when they have chosen private.
+          </p>
+          <p>
+            You can attach one ride photo per coaster. Location metadata is stripped before upload. People who are
+            allowed to view your stats can see that photo; nobody else can. Profile photos work like your display
+            name: signed-in users may see them in Friends.
+          </p>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
           <h2 className="text-2xl font-semibold text-white">Why use a dedicated coaster tracker?</h2>
           <p>
             Spreadsheets and notes apps work until the catalog grows. A dedicated roller coaster tracker like
@@ -238,6 +301,12 @@ export default function CoasterTrackerLandingPage() {
               className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
             >
               About the project
+            </Link>
+            <Link
+              href="/contact"
+              className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
+            >
+              Contact
             </Link>
           </div>
         </section>

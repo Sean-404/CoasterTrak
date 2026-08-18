@@ -3,3 +3,6 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://coastertra
   /\/+$/,
   "",
 );
+
+export const CONTACT_EMAIL = "hello@coastertrak.com";
+export const INSTAGRAM_URL = "https://www.instagram.com/coastertrak/";
