@@ -5,6 +5,8 @@ import {
   isStatsVisibility,
   parseRidePhotoPath,
   ridePhotoObjectPath,
+  ridePhotoThumbPath,
+  ridePhotoThumbPathFor,
 } from "./ride-photos";
 
 const USER = "11111111-1111-4111-8111-111111111111";
@@ -12,6 +14,12 @@ const USER = "11111111-1111-4111-8111-111111111111";
 describe("ridePhotoObjectPath", () => {
   it("stores one jpeg per user and coaster", () => {
     expect(ridePhotoObjectPath(USER, 511)).toBe(`${USER}/511.jpg`);
+  });
+
+  it("stores a matching list thumbnail beside the full photo", () => {
+    expect(ridePhotoThumbPath(USER, 511)).toBe(`${USER}/511.thumb.jpg`);
+    expect(ridePhotoThumbPathFor(`${USER}/511.jpg`)).toBe(`${USER}/511.thumb.jpg`);
+    expect(ridePhotoThumbPathFor("bad")).toBeNull();
   });
 });
 

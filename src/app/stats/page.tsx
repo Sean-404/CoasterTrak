@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { applyRideCredit } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -25,13 +26,14 @@ import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { isThrillCoaster, normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
+import { compactImageUrl } from "@/lib/image-url";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { loadRideCreditSummaries, logRideEvents, summariesByCoasterId } from "@/lib/ride-log";
 import {
   canViewOtherUserStats,
   removeRidePhoto,
-  signRidePhotoUrls,
+  signRidePhotoVariants,
 } from "@/lib/ride-photos";
 import { signAvatarUrls } from "@/lib/profile-photos";
 import {
@@ -72,6 +74,7 @@ type RideRow = {
   last_ridden_on: string | null;
   photo_path?: string | null;
   photoUrl?: string | null;
+  photoThumbUrl?: string | null;
   coasters?: RideCoaster | null;
 };
 
@@ -149,7 +152,7 @@ const RiddenRideRow = memo(function RiddenRideRow({
     fmtDuration(c?.duration_s),
   ].filter(Boolean);
   return (
-    <li className="border-b border-slate-100 last:border-b-0">
+    <li className="border-b border-slate-100 last:border-b-0 [content-visibility:auto] [contain-intrinsic-size:84px]">
       <button
         type="button"
         onClick={() => onOpen(ride.coaster_id)}
@@ -168,7 +171,7 @@ const RiddenRideRow = memo(function RiddenRideRow({
       >
         <CoasterThumbnail
           name={coasterName}
-          imageUrl={ride.photoUrl || ride.coasters?.image_url}
+          imageUrl={compactImageUrl(ride.photoThumbUrl || ride.photoUrl || ride.coasters?.image_url)}
           sizeClassName="h-10 w-10"
           showMissingLabel
           allowPreview={false}
@@ -434,14 +437,18 @@ function StatsPageContent() {
           coasters: r.coasters ? applyCoasterKnownFixes(r.coasters) : null,
         };
       });
-      const photoUrls = await signRidePhotoUrls(
+      const photoUrls = await signRidePhotoVariants(
         supabase,
         mapped.map((ride) => ride.photo_path),
       );
-      const withPhotos = mapped.map((ride) => ({
-        ...ride,
-        photoUrl: ride.photo_path ? photoUrls.get(ride.photo_path) ?? null : null,
-      }));
+      const withPhotos = mapped.map((ride) => {
+        const signed = ride.photo_path ? photoUrls.get(ride.photo_path) : undefined;
+        return {
+          ...ride,
+          photoUrl: signed?.fullUrl ?? null,
+          photoThumbUrl: signed?.thumbUrl ?? signed?.fullUrl ?? null,
+        };
+      });
       const hydrated = await fillMissingRideImages(withPhotos, supabase);
       setRides(hydrated);
 
@@ -843,11 +850,16 @@ function StatsPageContent() {
   }, []);
 
   const applyPhotoChange = useCallback(
-    (coasterId: number, next: { photoPath: string | null; photoUrl: string | null }) => {
+    (coasterId: number, next: { photoPath: string | null; photoUrl: string | null; photoThumbUrl?: string | null }) => {
       setRides((prev) =>
         prev.map((ride) =>
           ride.coaster_id === coasterId
-            ? { ...ride, photo_path: next.photoPath, photoUrl: next.photoUrl }
+            ? {
+                ...ride,
+                photo_path: next.photoPath,
+                photoUrl: next.photoUrl,
+                photoThumbUrl: next.photoThumbUrl ?? next.photoUrl,
+              }
             : ride,
         ),
       );
@@ -1066,9 +1078,9 @@ function StatsPageContent() {
                 />
               ) : null}
               <div>
-              <h1 className="text-2xl font-bold text-slate-900">
+              <AppPageHeading>
                 {isOwnStatsView ? "My stats" : `${shareDisplayName ?? "Friend"}'s stats`}
-              </h1>
+              </AppPageHeading>
               {!isOwnStatsView && (
                 <p className="mt-1 text-sm text-slate-500">
                   {viewingPublicProfile

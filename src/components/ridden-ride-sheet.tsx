@@ -67,7 +67,7 @@ type RiddenRideSheetProps = {
   ownerUserId?: string | null;
   onPhotoChange?: (
     coasterId: number,
-    next: { photoPath: string | null; photoUrl: string | null },
+    next: { photoPath: string | null; photoUrl: string | null; photoThumbUrl?: string | null },
   ) => void;
 };
 
@@ -289,6 +289,7 @@ export function RiddenRideSheet({
                         onPhotoChange(ride.coaster_id, {
                           photoPath: result.photoPath,
                           photoUrl: result.photoUrl || null,
+                          photoThumbUrl: result.photoThumbUrl || result.photoUrl || null,
                         });
                       })();
                     }}
@@ -322,7 +323,11 @@ export function RiddenRideSheet({
                             setPhotoError(result.message);
                             return;
                           }
-                          onPhotoChange(ride.coaster_id, { photoPath: null, photoUrl: null });
+                          onPhotoChange(ride.coaster_id, {
+                            photoPath: null,
+                            photoUrl: null,
+                            photoThumbUrl: null,
+                          });
                         })();
                       }}
                       className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
