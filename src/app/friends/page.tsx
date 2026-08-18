@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
@@ -642,7 +643,7 @@ export default function FriendsPage() {
           <div className="mb-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900">Friends</h1>
+                <AppPageHeading>Friends</AppPageHeading>
                 <p className="mt-1 text-sm text-slate-500">
                   Search for people by display name, send requests, and compare stats with friends.
                 </p>

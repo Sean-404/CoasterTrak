@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { applyRideCredit } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
@@ -408,7 +409,7 @@ export default function WishlistPage() {
         <AuthGate>
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Your wishlist</h1>
+              <AppPageHeading>Your wishlist</AppPageHeading>
             </div>
             <Link href="/map" className="inline-flex w-fit rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400">
               Find more &rarr;

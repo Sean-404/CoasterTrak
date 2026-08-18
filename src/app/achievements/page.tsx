@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { SiteHeader } from "@/components/site-header";
 import {
   ACHIEVEMENT_COUNT,
@@ -211,7 +212,7 @@ export default function AchievementsPage() {
       <SiteHeader />
       <main className="mx-auto max-w-4xl p-6">
         <AuthGate>
-          <h1 className="mb-2 text-2xl font-bold text-slate-900">Achievements</h1>
+          <AppPageHeading className="mb-2">Achievements</AppPageHeading>
           <p className="mb-6 max-w-2xl text-sm text-slate-600">
             Achievements are self-reported for fun — there is no verification. They count unique
             coaster credits, not how many times you ride the same one. Family and kiddie rides still

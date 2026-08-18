@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { SiteHeader } from "@/components/site-header";
 import { isAdminUser } from "@/lib/admin";
 import { isCoasterDefunct } from "@/lib/coaster-status";
@@ -223,7 +224,7 @@ export default function AdminDataPage() {
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Data review</h1>
+            <AppPageHeading>Data review</AppPageHeading>
             <p className="mt-1 text-sm text-slate-500">
               ThemeParks.wiki match queue — start with aliases, then clear expected noise.
             </p>

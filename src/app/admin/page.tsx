@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { isAdminUser } from "@/lib/admin";
@@ -206,7 +207,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
+        <AppPageHeading>Admin</AppPageHeading>
         <p className="mt-1 text-sm text-slate-500">
           Trusted operators only. Clear rude names or photos, ban accounts, or review catalog data.
         </p>

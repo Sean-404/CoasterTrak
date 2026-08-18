@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { AVATAR_OPTIONS, DEFAULT_AVATAR_KEY, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
@@ -492,7 +493,7 @@ export default function AccountPage() {
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
       <main className="mx-auto max-w-2xl p-6">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Account</h1>
+        <AppPageHeading className="mb-6">Account</AppPageHeading>
         {loading ? (
           <p className="text-slate-500">Loading&hellip;</p>
         ) : (

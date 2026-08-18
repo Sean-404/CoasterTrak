@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AuthGate } from "@/components/auth-gate";
+import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { signAvatarUrls } from "@/lib/profile-photos";
@@ -215,7 +216,7 @@ export default function UsersPage() {
             <Link href="/friends" className="text-sm font-medium text-amber-700 underline-offset-2 hover:underline">
               ← Friends
             </Link>
-            <h1 className="mt-2 text-2xl font-bold text-slate-900">Public profiles</h1>
+            <AppPageHeading className="mt-2">Public profiles</AppPageHeading>
             <p className="mt-1 text-sm text-slate-500">
               People who made their stats public. Open a profile to see ride stats and photos, or add them as a friend.
               Change this in{" "}

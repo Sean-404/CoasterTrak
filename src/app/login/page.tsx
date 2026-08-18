@@ -185,7 +185,7 @@ function LoginForm() {
       <SiteHeader />
       <main className="mx-auto max-w-md px-4 py-16">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-xl font-bold text-slate-900">{heading}</h1>
+          <h1 className="font-bungee text-2xl leading-tight text-slate-900">{heading}</h1>
           <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
 
           <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-3">
