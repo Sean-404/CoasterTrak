@@ -1,17 +1,40 @@
 import type { Coaster } from "@/types/domain";
 import { normalizeManufacturerLabel } from "@/lib/display";
 
-/** Generic guard: suppress incident/disaster-style image URLs from Wikidata/Commons. */
-export function isLikelyIncidentImageUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
+const INCIDENT_IMAGE_TOKENS = new Set([
+  "incident",
+  "accident",
+  "derailment",
+  "collision",
+  "crash",
+  "explosion",
+  "fatal",
+  "fatality",
+]);
+
+function imageUrlTokens(url: string): string[] {
   let decoded = url;
   try {
     decoded = decodeURIComponent(url);
   } catch {
     /* keep raw */
   }
-  const u = `${url} ${decoded}`.toLowerCase();
-  return /\b(incident|disaster|derailment|collision|crash|explosion|fatal)\b/.test(u);
+  return `${url} ${decoded}`
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/** Generic guard: suppress incident/disaster-style image URLs from Wikidata/Commons. */
+export function isLikelyIncidentImageUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  const tokens = imageUrlTokens(url);
+  if (tokens.some((token) => INCIDENT_IMAGE_TOKENS.has(token))) return true;
+  // "disaster" alone is a real ride name (Disaster Transport); only drop accident photos.
+  return (
+    tokens.includes("disaster") &&
+    (tokens.includes("funfair") || tokens.includes("battersea") || tokens.includes("before"))
+  );
 }
 
 /** Use when persisting or displaying `image_url` so known-bad Commons files never stick. */
@@ -46,7 +69,13 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   // Blackpool — rebranded from Zipper Dipper; park signage & enwiki use "Blue Flyer"
   Q885702: { name: "Blue Flyer", status: "Operating" },
   // Blackpool classic wood out-and-back; inversions must stay 0 (bad imports sometimes confuse with train count)
-  Q265733: { inversions: 0 },
+  Q265733: {
+    inversions: 0,
+    status: "Operating",
+    coaster_type: "Wood",
+    image_url:
+      "https://commons.wikimedia.org/wiki/Special:FilePath/Big%20Dipper%20(Pleasure%20Beach,%20Blackpool)%2002.jpg",
+  },
   // DCA rethemes
   Q1026847: { name: "Incredicoaster", status: "Operating" },
   Q3327600: { name: "Goofy's Sky School", status: "Operating" },
@@ -157,7 +186,11 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
  * e.g. Skyscraper Polercoaster for Skyplex on I-Drive — not Epic Universe.
  * @see https://en.wikipedia.org/wiki/Skyscraper_(roller_coaster)
  */
-const SKIP_WIKIDATA_COASTER_IDS = new Set<string>(["Q18378567"]);
+const SKIP_WIKIDATA_COASTER_IDS = new Set<string>([
+  "Q18378567",
+  // Battersea Park funfair disaster (1972) — event article, not a catalog ride
+  "Q22000267",
+]);
 
 export function shouldSkipWikidataCoasterId(wikidataId: string | null | undefined): boolean {
   const q = wikidataId?.trim().toUpperCase();

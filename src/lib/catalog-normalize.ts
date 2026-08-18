@@ -4,7 +4,8 @@
  */
 
 import type { Coaster, Park } from "@/types/domain";
-import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { isLikelyNonRideEventName } from "@/lib/coaster-dedup";
+import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   absorbReverseGeocodeParks,
@@ -221,7 +222,8 @@ export function normalizeCatalog(parks: Park[], coasters: Coaster[]): Normalized
     }),
     deduplicated.parks,
     rawParkById,
-  ).map(applyCoasterKnownFixes);
+  ).map(applyCoasterKnownFixes)
+    .filter((c) => !shouldSkipWikidataCoasterId(c.wikidata_id) && !isLikelyNonRideEventName(c.name));
 
   return {
     parks: deduplicated.parks,

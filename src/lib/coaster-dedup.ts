@@ -153,9 +153,11 @@ function hasCoasterishType(t: string): boolean {
 }
 
 /** Exclude incident/event pages that can leak in via broad Wikidata class links. */
-function isLikelyNonRideEventName(raw: string): boolean {
+export function isLikelyNonRideEventName(raw: string): boolean {
   const n = cleanCoasterName(raw).toLowerCase();
-  return /\b(disaster|accident|derailment|fatality|catastrophe|tragedy)\b/.test(n);
+  if (/\b(accident|derailment|fatality|catastrophe|tragedy|incident)\b/.test(n)) return true;
+  if (/\bfunfair\s+disaster\b/.test(n)) return true;
+  return /\bdisaster\b/.test(n) && /\b(funfair|park|crash|fire)\b/.test(n);
 }
 
 /** Broad "is this a coaster row at all?" gate used before thrill/family filtering. */

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   coastersShareDedupBucket,
   dedupeCoastersForCatalog,
+  isLikelyCoasterEntry,
   normalizeCoasterDedupKey,
 } from "./coaster-dedup";
 import type { Coaster } from "@/types/domain";
@@ -67,5 +68,32 @@ describe("dedupeCoastersForCatalog", () => {
     const out = dedupeCoastersForCatalog(rows);
     expect(out).toHaveLength(1);
     expect(out[0]?.id).toBe(186);
+  });
+});
+
+describe("isLikelyCoasterEntry", () => {
+  it("keeps Disaster Transport", () => {
+    expect(
+      isLikelyCoasterEntry(
+        coaster({
+          id: 4369,
+          name: "Disaster Transport",
+          wikidata_id: "Q1228345",
+          coaster_type: "Steel",
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("drops Battersea Park funfair disaster", () => {
+    expect(
+      isLikelyCoasterEntry(
+        coaster({
+          id: 78,
+          name: "Battersea Park funfair disaster",
+          wikidata_id: "Q22000267",
+        }),
+      ),
+    ).toBe(false);
   });
 });
