@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Roller Coaster Tracker (Coaster Trak)",
   description:
-    "CoasterTrak is a free roller coaster tracker — also known as coaster trak — to log ride credits, explore parks on a world map, build a wishlist, and compare coaster stats with friends.",
+    "CoasterTrak is a free roller coaster tracker — also known as coaster trak — to log ride credits, discover parks on the map, build a wishlist, and compare coaster stats with friends.",
   keywords: [
     "roller coaster tracker",
     "coaster tracker",
@@ -38,7 +38,7 @@ const faqs = [
   {
     question: "Do I need an account to browse?",
     answer:
-      "No. Anyone can explore the map and catalog. An account is required to save ride history, wishlists, and friend connections.",
+      "No. Anyone can use Discover to explore the map and catalog. An account is required to save ride history, wishlists, and friend connections.",
   },
   {
     question: "What is the difference between CoasterTrak and coaster trak?",
@@ -100,7 +100,7 @@ export default function CoasterTrackerLandingPage() {
       {
         "@type": "HowToStep",
         name: "Explore parks and coasters",
-        text: "Open the world map or browse the parks and coasters catalog to find rides.",
+        text: "Open Discover in the header — the world map by default — or switch to the parks and coasters lists to find rides.",
         url: `${SITE_URL}/map`,
       },
       {
@@ -144,8 +144,8 @@ export default function CoasterTrackerLandingPage() {
             description="Keep a clean record of every roller coaster you have ridden and revisit your totals anytime."
           />
           <ValueCard
-            title="Explore by map"
-            description="Use the world map to discover parks and plan your next coaster trip faster."
+            title="Discover parks"
+            description="Start on the world map, then switch to park or coaster lists from the same Discover tab."
           />
           <ValueCard
             title="Build your wishlist"
@@ -171,20 +171,36 @@ export default function CoasterTrackerLandingPage() {
         </section>
 
         <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
-          <h2 className="text-2xl font-semibold text-white">Using the world map</h2>
+          <h2 className="text-2xl font-semibold text-white">Discover: map, parks, and coasters</h2>
           <p>
-            The map is the fastest way to browse parks and coasters. Zoom into a region, search by name, and open
-            ride details when you are planning a trip. You can explore without an account; signing in unlocks saving
-            rides and wishlists so your plans persist across sessions.
+            <Link href="/map" className="font-semibold text-amber-400 hover:text-amber-300">
+              Discover
+            </Link>{" "}
+            in the header opens the{" "}
+            <Link href="/map" className="font-semibold text-amber-400 hover:text-amber-300">
+              world map
+            </Link>
+            . Use the tabs on that page to switch to the{" "}
+            <Link href="/parks" className="font-semibold text-amber-400 hover:text-amber-300">
+              parks
+            </Link>{" "}
+            or{" "}
+            <Link href="/coasters" className="font-semibold text-amber-400 hover:text-amber-300">
+              coasters
+            </Link>{" "}
+            lists. All three views share the same catalog: a park page lists that park&apos;s rides, a ride page links
+            back to its park, and the map is the geographic index.
+          </p>
+          <p>
+            Zoom into a region, search by name, and open ride details when you are planning a trip. You can browse
+            without an account; signing in unlocks saving rides and wishlists so your plans persist across sessions.
+            Search and country filters on the lists are for planning, not for padding a credit count.
           </p>
           <p>
             Catalog data is compiled from third-party and community sources. Treat it as a planning aid: park lineups
             change, temporary closures happen, and a few records may be incomplete. Confirm operating status and
             restrictions with the park before you travel.
           </p>
-          <Link href="/map" className="inline-flex text-sm font-semibold text-amber-400 hover:text-amber-300">
-            Open the interactive map →
-          </Link>
         </section>
 
         <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
@@ -193,6 +209,28 @@ export default function CoasterTrackerLandingPage() {
             After you create an account, add coasters to your wishlist while browsing, then mark them ridden when you
             get the credit. The stats view summarises how many rides you have logged and related totals. Friends
             features are for comparing progress with people you actually ride with — not a public social network.
+          </p>
+          <p>
+            On{" "}
+            <Link href="/friends" className="font-semibold text-amber-400 hover:text-amber-300">
+              Friends
+            </Link>
+            , search by display name to send requests, or choose{" "}
+            <strong className="font-semibold text-white">Browse public profiles</strong> to see riders who set their
+            stats to public. That directory is only for signed-in users and is not indexed by search engines.
+          </p>
+        </section>
+
+        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
+          <h2 className="text-2xl font-semibold text-white">Achievements</h2>
+          <p>
+            The{" "}
+            <Link href="/achievements" className="font-semibold text-amber-400 hover:text-amber-300">
+              Achievements
+            </Link>{" "}
+            page turns your logged credits into milestones — ride counts, park coverage, height totals, and similar
+            goals. Progress uses your full ride history, including family coasters, even when your stats list is
+            filtered to thrill rides only. Achievements are self-reported for fun; there is no verification step.
           </p>
         </section>
 
@@ -216,36 +254,12 @@ export default function CoasterTrackerLandingPage() {
         </section>
 
         <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
-          <h2 className="text-2xl font-semibold text-white">Discover: map, parks, and coasters</h2>
-          <p>
-            Discover opens on the{" "}
-            <Link href="/map" className="font-semibold text-amber-400 hover:text-amber-300">
-              world map
-            </Link>
-            . From there you can switch to the{" "}
-            <Link href="/parks" className="font-semibold text-amber-400 hover:text-amber-300">
-              parks
-            </Link>{" "}
-            or{" "}
-            <Link href="/coasters" className="font-semibold text-amber-400 hover:text-amber-300">
-              coasters
-            </Link>{" "}
-            lists. Those three views share the same catalog: a park page lists that park&apos;s rides, a ride page
-            links back to its park, and the map is the geographic index.
-          </p>
-          <p>
-            Search and country filters on the lists are for planning, not for padding a credit count. If a park is
-            closed or a ride has been removed, the catalog may still keep a historical record — check the status on
-            the page, then confirm with the park.
-          </p>
-        </section>
-
-        <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
           <h2 className="text-2xl font-semibold text-white">Privacy, photos, and friends</h2>
           <p>
             New accounts keep stats friends-only. You can switch to private (only you) or public to signed-in
-            CoasterTrak users. Public profiles can appear in a signed-in directory; that directory is not offered to
-            search engines. Friends comparisons hide another rider&apos;s numbers when they have chosen private.
+            CoasterTrak users. Public profiles appear under Friends → Browse public profiles; that list is not
+            offered to search engines. Friends comparisons hide another rider&apos;s numbers when they have chosen
+            private.
           </p>
           <p>
             You can attach one ride photo per coaster. Location metadata is stripped before upload. People who are
@@ -262,15 +276,17 @@ export default function CoasterTrackerLandingPage() {
             trip and updating your credit count stay connected.
           </p>
           <p>
-            Browse the{" "}
-            <Link href="/parks" className="font-semibold text-amber-400 hover:text-amber-300">
-              parks catalog
-            </Link>{" "}
-            or{" "}
-            <Link href="/coasters" className="font-semibold text-amber-400 hover:text-amber-300">
-              coaster list
-            </Link>{" "}
-            anytime, then jump back to the map when you are ready to explore a region.
+            Browse Discover anytime, then jump back to the map when you are ready to explore a region. Trip photos
+            and occasional updates are on{" "}
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-amber-400 hover:text-amber-300"
+            >
+              Instagram
+            </a>
+            .
           </p>
         </section>
 
@@ -288,7 +304,7 @@ export default function CoasterTrackerLandingPage() {
               href="/map"
               className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
             >
-              Open the map
+              Open Discover
             </Link>
             <Link
               href="/login"
