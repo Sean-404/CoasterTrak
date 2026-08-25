@@ -51,7 +51,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^6",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "@babel/core": "^8.0.1",
