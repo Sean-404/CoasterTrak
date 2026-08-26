@@ -14,9 +14,11 @@ import {
 type Props = {
   coasters: Coaster[];
   parkName?: string;
+  /** When set, only these coaster IDs get followable links (sitemap-eligible rides). */
+  crawlFollowIds?: number[];
 };
 
-export function ParkCoasterList({ coasters, parkName }: Props) {
+export function ParkCoasterList({ coasters, parkName, crawlFollowIds }: Props) {
   const [sort, setSort] = useState<CoasterSortKey>("name");
   const [statusFilter, setStatusFilter] = useState<CoasterStatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -27,6 +29,10 @@ export function ParkCoasterList({ coasters, parkName }: Props) {
     [coasters],
   );
   const defunctCount = coasters.length - operatingCount;
+  const crawlFollowSet = useMemo(
+    () => (crawlFollowIds ? new Set(crawlFollowIds) : null),
+    [crawlFollowIds],
+  );
 
   const visible = useMemo(
     () => filterAndSortCoasters(coasters, { sort, statusFilter, typeFilter }),
@@ -112,7 +118,11 @@ export function ParkCoasterList({ coasters, parkName }: Props) {
       ) : (
         <ul className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {visible.map((coaster) => (
-            <ParkCoasterRow key={coaster.id} coaster={coaster} />
+            <ParkCoasterRow
+              key={coaster.id}
+              coaster={coaster}
+              nofollow={crawlFollowSet != null && !crawlFollowSet.has(coaster.id)}
+            />
           ))}
         </ul>
       )}

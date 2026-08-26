@@ -30,6 +30,9 @@ export function isParkCatalogSubstantial(coasters: Coaster[], summaryText?: stri
   return coasters.some((c) => isCoasterCatalogSubstantial(c));
 }
 
+/** Thin catalog stubs: keep them out of the index and stop passing crawl equity onward. */
+export const CATALOG_THIN_ROBOTS = { index: false, follow: false } as const;
+
 export type ParkHighlightStats = {
   operatingCount: number;
   defunctCount: number;

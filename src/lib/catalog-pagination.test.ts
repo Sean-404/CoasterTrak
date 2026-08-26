@@ -3,6 +3,7 @@ import {
   catalogHref,
   catalogTotalPages,
   clampCatalogPage,
+  isCatalogIndexCrawlVariant,
   parseCatalogPage,
   sliceCatalogPage,
 } from "./catalog-pagination";
@@ -44,5 +45,14 @@ describe("catalog-pagination", () => {
     expect(catalogHref("/parks", { q: "alton", country: "United Kingdom" })).toBe(
       "/parks?q=alton&country=United+Kingdom",
     );
+  });
+
+  it("flags faceted / paginated index URLs for noindex", () => {
+    expect(isCatalogIndexCrawlVariant({})).toBe(false);
+    expect(isCatalogIndexCrawlVariant({ page: 1 })).toBe(false);
+    expect(isCatalogIndexCrawlVariant({ page: 2 })).toBe(true);
+    expect(isCatalogIndexCrawlVariant({ q: "nemesis" })).toBe(true);
+    expect(isCatalogIndexCrawlVariant({ country: "United Kingdom" })).toBe(true);
+    expect(isCatalogIndexCrawlVariant({ q: "  " })).toBe(false);
   });
 });

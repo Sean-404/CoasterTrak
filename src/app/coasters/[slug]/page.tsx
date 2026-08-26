@@ -6,7 +6,11 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { CoasterDetailActions } from "@/components/coaster-detail-actions";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
-import { isCoasterCatalogSubstantial, buildCoasterEditorialIntro } from "@/lib/catalog-content";
+import {
+  buildCoasterEditorialIntro,
+  CATALOG_THIN_ROBOTS,
+  isCoasterCatalogSubstantial,
+} from "@/lib/catalog-content";
 import {
   buildCoasterMeasurementPills,
   buildCoasterMetaPills,
@@ -59,7 +63,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical },
-    ...(indexable ? {} : { robots: { index: false, follow: true } }),
+    ...(indexable ? {} : { robots: CATALOG_THIN_ROBOTS }),
     openGraph: {
       title: `${title} | CoasterTrak`,
       description,

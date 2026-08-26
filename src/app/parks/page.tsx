@@ -7,29 +7,17 @@ import { CatalogPagination } from "@/components/catalog-pagination";
 import { CatalogSearchForm } from "@/components/catalog-search-form";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { DiscoverNav } from "@/components/discover-nav";
-import { getCatalogIndexCounts, listCatalogParks } from "@/lib/catalog-server";
-import { parseCatalogPage, sliceCatalogPage } from "@/lib/catalog-pagination";
+import {
+  getCatalogIndexCounts,
+  listCatalogParks,
+  listParksForSitemap,
+} from "@/lib/catalog-server";
+import { isCatalogIndexCrawlVariant, parseCatalogPage, sliceCatalogPage } from "@/lib/catalog-pagination";
 import { formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { parkSlug } from "@/lib/slug";
 import type { Park } from "@/types/domain";
 
 export const revalidate = 86400;
-
-export const metadata: Metadata = {
-  title: "Theme parks with roller coasters",
-  description:
-    "Browse theme parks in the CoasterTrak catalog, switch to the roller coaster list, or explore everything on the world map.",
-  alternates: {
-    canonical: "/parks",
-  },
-  openGraph: {
-    title: "Theme parks with roller coasters | CoasterTrak",
-    description:
-      "Browse theme parks worldwide and open park pages to see roller coasters tracked on CoasterTrak.",
-    url: "/parks",
-    type: "website",
-  },
-};
 
 type PageProps = {
   searchParams: Promise<{
@@ -56,15 +44,42 @@ function sortParksForIndex(parks: Park[]): Park[] {
   });
 }
 
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const query = firstParam(params.q).trim();
+  const country = firstParam(params.country).trim();
+  const page = parseCatalogPage(params.page);
+  const variant = isCatalogIndexCrawlVariant({ page, q: query, country });
+
+  return {
+    title: "Theme parks with roller coasters",
+    description:
+      "Browse theme parks in the CoasterTrak catalog, switch to the roller coaster list, or explore everything on the world map.",
+    alternates: {
+      canonical: "/parks",
+    },
+    ...(variant ? { robots: { index: false, follow: true } } : {}),
+    openGraph: {
+      title: "Theme parks with roller coasters | CoasterTrak",
+      description:
+        "Browse theme parks worldwide and open park pages to see roller coasters tracked on CoasterTrak.",
+      url: "/parks",
+      type: "website",
+    },
+  };
+}
+
 export default async function ParksIndexPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const query = firstParam(params.q).trim();
   const countryParam = firstParam(params.country).trim();
   const requestedPage = parseCatalogPage(params.page);
-  const [allParks, counts] = await Promise.all([
+  const [allParks, counts, sitemapParks] = await Promise.all([
     listCatalogParks(),
     getCatalogIndexCounts(),
+    listParksForSitemap(),
   ]);
+  const crawlFollowIds = new Set(sitemapParks.map((park) => park.id));
 
   const searchedParks =
     query.length > 0
@@ -157,6 +172,13 @@ export default async function ParksIndexPage({ searchParams }: PageProps) {
             <Link href="/map" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
               interactive map
             </Link>
+            . New to credit tracking? Start with the{" "}
+            <Link
+              href="/coaster-tracker"
+              className="font-semibold text-amber-700 underline-offset-2 hover:underline"
+            >
+              coaster tracker guide
+            </Link>
             .
           </>
         )}
@@ -225,6 +247,7 @@ export default async function ParksIndexPage({ searchParams }: PageProps) {
                       <li key={park.id} className="mb-1.5 break-inside-avoid">
                         <Link
                           href={`/parks/${parkSlug(park.name, park.id)}`}
+                          rel={crawlFollowIds.has(park.id) ? undefined : "nofollow"}
                           className="text-sm text-slate-700 underline-offset-2 hover:text-amber-800 hover:underline"
                         >
                           {formatParkLabel(park.name, park.country) || park.name}

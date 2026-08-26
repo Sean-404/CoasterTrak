@@ -49,3 +49,18 @@ export function catalogHref(
   const qs = params.toString();
   return qs ? `${path}?${qs}` : path;
 }
+
+/**
+ * Search / country / page>1 variants of /parks and /coasters should stay out of the index
+ * (canonical still points at the clean listing URL).
+ */
+export function isCatalogIndexCrawlVariant(opts: {
+  page?: number;
+  q?: string;
+  country?: string;
+}): boolean {
+  if (opts.page != null && opts.page > 1) return true;
+  if (opts.q?.trim()) return true;
+  if (opts.country?.trim()) return true;
+  return false;
+}

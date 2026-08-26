@@ -6,29 +6,17 @@ import { CatalogPagination } from "@/components/catalog-pagination";
 import { CatalogSearchForm } from "@/components/catalog-search-form";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { DiscoverNav } from "@/components/discover-nav";
-import { getCatalogIndexCounts, listCoastersForIndex } from "@/lib/catalog-server";
-import { parseCatalogPage, sliceCatalogPage } from "@/lib/catalog-pagination";
+import {
+  getCatalogIndexCounts,
+  listCoastersForIndex,
+  listCoastersForSitemap,
+} from "@/lib/catalog-server";
+import { isCatalogIndexCrawlVariant, parseCatalogPage, sliceCatalogPage } from "@/lib/catalog-pagination";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug } from "@/lib/slug";
 
 export const revalidate = 86400;
-
-export const metadata: Metadata = {
-  title: "Roller coasters",
-  description:
-    "Browse roller coasters in the CoasterTrak catalog. Open a ride page for stats, browse parks, or explore the world map.",
-  alternates: {
-    canonical: "/coasters",
-  },
-  openGraph: {
-    title: "Roller coasters | CoasterTrak",
-    description:
-      "Browse roller coasters worldwide and open ride pages with stats, park links, and map deep links.",
-    url: "/coasters",
-    type: "website",
-  },
-};
 
 type PageProps = {
   searchParams: Promise<{ q?: string | string[]; page?: string | string[] }>;
@@ -39,14 +27,40 @@ function firstParam(value: string | string[] | undefined): string {
   return value ?? "";
 }
 
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const params = await searchParams;
+  const query = firstParam(params.q).trim();
+  const page = parseCatalogPage(params.page);
+  const variant = isCatalogIndexCrawlVariant({ page, q: query });
+
+  return {
+    title: "Roller coasters",
+    description:
+      "Browse roller coasters in the CoasterTrak catalog. Open a ride page for stats, browse parks, or explore the world map.",
+    alternates: {
+      canonical: "/coasters",
+    },
+    ...(variant ? { robots: { index: false, follow: true } } : {}),
+    openGraph: {
+      title: "Roller coasters | CoasterTrak",
+      description:
+        "Browse roller coasters worldwide and open ride pages with stats, park links, and map deep links.",
+      url: "/coasters",
+      type: "website",
+    },
+  };
+}
+
 export default async function CoastersIndexPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const query = firstParam(params.q).trim();
   const requestedPage = parseCatalogPage(params.page);
-  const [allCoasters, counts] = await Promise.all([
+  const [allCoasters, counts, sitemapCoasters] = await Promise.all([
     listCoastersForIndex(query || undefined),
     getCatalogIndexCounts(),
+    listCoastersForSitemap(),
   ]);
+  const crawlFollowIds = new Set(sitemapCoasters.map((coaster) => coaster.id));
   const searching = query.length > 0;
   const {
     items: coasters,
@@ -97,7 +111,14 @@ export default async function CoastersIndexPage({ searchParams }: PageProps) {
             <Link href="/map" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
               interactive map
             </Link>
-            .
+            . Learn how{" "}
+            <Link
+              href="/coaster-credits"
+              className="font-semibold text-amber-700 underline-offset-2 hover:underline"
+            >
+              coaster credits
+            </Link>{" "}
+            work on CoasterTrak.
           </>
         )}
       </p>
@@ -146,6 +167,7 @@ export default async function CoastersIndexPage({ searchParams }: PageProps) {
                 <li key={coaster.id}>
                   <Link
                     href={`/coasters/${coasterSlug(coaster.name, coaster.id)}`}
+                    rel={crawlFollowIds.has(coaster.id) ? undefined : "nofollow"}
                     className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50"
                   >
                     <div className="min-w-0">

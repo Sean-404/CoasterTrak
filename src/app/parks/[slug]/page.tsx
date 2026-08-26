@@ -7,6 +7,7 @@ import { ParkCoasterList } from "@/components/park-coaster-list";
 import { ParkStatusBadge } from "@/components/park-status-badge";
 import {
   buildParkEditorialIntro,
+  CATALOG_THIN_ROBOTS,
   computeParkHighlights,
   isParkCatalogSubstantial,
 } from "@/lib/catalog-content";
@@ -16,6 +17,7 @@ import {
   listParksForSitemap,
   resolveCatalogParkId,
 } from "@/lib/catalog-server";
+import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
 import { formatParkLabel, cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
@@ -57,7 +59,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${park.name} roller coasters`,
     description: intro,
     alternates: { canonical },
-    ...(indexable ? {} : { robots: { index: false, follow: true } }),
+    ...(indexable ? {} : { robots: CATALOG_THIN_ROBOTS }),
     openGraph: {
       title: `${park.name} roller coasters | CoasterTrak`,
       description: intro,
@@ -212,7 +214,11 @@ export default async function ParkDetailPage({ params }: PageProps) {
         </section>
       ) : (
         <div className="mt-10">
-          <ParkCoasterList coasters={coasters} parkName={park.name} />
+          <ParkCoasterList
+            coasters={coasters}
+            parkName={park.name}
+            crawlFollowIds={coasters.filter(isCoasterSitemapEligible).map((c) => c.id)}
+          />
         </div>
       )}
 
