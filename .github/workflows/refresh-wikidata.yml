@@ -49,6 +49,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run data:publish-catalog -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --fail-on-duplicates --min-rows 800 --apply
 
+      - name: Relink coasters off placeholder parks (DB)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npx tsx scripts/relink-placeholder-parks.ts --snapshot data/wikidata_coasters.json --apply
+
       - name: Upload pipeline artifacts
         if: always()
         uses: actions/upload-artifact@v4

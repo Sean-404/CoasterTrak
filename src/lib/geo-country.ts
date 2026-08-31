@@ -21,6 +21,10 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   if ((lat >= 30 && lat <= 46 && lng >= 129 && lng <= 146) || (lat >= 24 && lat <= 31 && lng >= 122 && lng <= 132)) {
     return "Japan";
   }
+  // Southern Canada — Quebec / Ontario / Maritimes (La Ronde, Canada's Wonderland corridor).
+  if (lat >= 43 && lat <= 47.5 && lng >= -80 && lng <= -57) return "Canada";
+  // Lower mainland BC (Playland / Greater Vancouver parks).
+  if (lat >= 48 && lat <= 49.6 && lng >= -125 && lng <= -122.5) return "Canada";
   return null;
 }
 
@@ -130,6 +134,12 @@ export function reconcileCountryWithCoords(
   if (hint === "India" && (chinaLike || cl === "hong kong")) return hint;
   if (hint === "South Korea" && (cl === "japan" || chinaLike || cl === "hong kong")) return hint;
   if (hint === "Japan" && (cl === "south korea" || cl === "north korea" || chinaLike || cl === "hong kong")) {
+    return hint;
+  }
+  if (
+    hint === "Canada" &&
+    (cl === "united states" || cl === "usa" || cl === "us" || cl === "u.s." || cl === "u.s.a.")
+  ) {
     return hint;
   }
   return c;

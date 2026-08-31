@@ -68,6 +68,7 @@ const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
 /** Parks whose Wikidata item has no English label (WDQS would otherwise store the Q-id). */
 const PARK_DISPLAY_NAME_BY_WIKIDATA_ID: Record<string, string> = {
   Q2197655: "Plopsaland Ardennes", // formerly Plopsa Coo / TéléCoo
+  Q1164525: "La Ronde", // Montreal — avoid duplicate / wrong-country stubs
 };
 
 /** US mainland longitudes are west; some feeds store the absolute value. */

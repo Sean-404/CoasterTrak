@@ -6,7 +6,7 @@
 import type { Coaster, Park } from "@/types/domain";
 import { isLikelyNonRideEventName } from "@/lib/coaster-dedup";
 import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
-import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   absorbReverseGeocodeParks,
   hasSharedDistinctiveParkToken,
@@ -204,8 +204,18 @@ export function buildCombinedParkIdRemap(
   return combined;
 }
 
+function parksWithReconciledCountries(parks: Park[]): Park[] {
+  return parks.map((park) => {
+    const country =
+      reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
+      canonicalCountryLabel(park.country) ||
+      park.country;
+    return country === park.country ? park : { ...park, country };
+  });
+}
+
 export function normalizeCatalog(parks: Park[], coasters: Coaster[]): NormalizedCatalog {
-  const geoAbsorb = absorbReverseGeocodeParks(parks);
+  const geoAbsorb = absorbReverseGeocodeParks(parksWithReconciledCountries(parks));
   const deduplicated = deduplicateParksForDisplay(geoAbsorb.parks);
   const rawParkById = new Map(parks.map((p) => [p.id, p]));
 

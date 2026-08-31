@@ -42,3 +42,15 @@ describe("Taiwan country labels", () => {
     expect(reconcileCountryWithCoords("China", 24.48, 118.08)).toBe("China");
   });
 });
+
+describe("Canada country labels", () => {
+  it("corrects US-labeled parks in southern Quebec", () => {
+    // La Ronde, Montreal
+    expect(reconcileCountryWithCoords("United States", 45.503, -73.534)).toBe("Canada");
+  });
+
+  it("does not re-label northern US parks as Canada", () => {
+    // Kings Island, Ohio
+    expect(reconcileCountryWithCoords("United States", 39.344, -84.268)).toBe("United States");
+  });
+});

@@ -38,11 +38,17 @@ export type CoasterDetail = Coaster & {
 };
 
 export async function getParkById(id: number): Promise<ParkDetail | null> {
-  const supabase = getSupabaseAnonServerClient();
-  if (!supabase) return null;
-  const { data, error } = await supabase.from("parks").select(PARK_COLUMNS).eq("id", id).maybeSingle();
-  if (error || !data) return null;
-  return data as ParkDetail;
+  const canonicalId = await resolveCatalogParkId(id);
+  const normalized = await getNormalizedCatalog();
+  const park = normalized.parks.find((row) => row.id === canonicalId);
+  if (!park || isCatalogHiddenParkName(park.name)) return null;
+  return {
+    id: park.id,
+    name: park.name,
+    country: displayCountryForPark(park),
+    latitude: park.latitude,
+    longitude: park.longitude,
+  };
 }
 
 async function fetchAllParksRaw(): Promise<Park[]> {
@@ -79,7 +85,7 @@ const getNormalizedCatalogCached = unstable_cache(
     const [parks, coasters] = await Promise.all([fetchAllParksRaw(), fetchAllCoastersRaw()]);
     return serializeNormalizedCatalog(normalizeCatalog(parks, coasters));
   },
-  ["catalog-normalized-v2"],
+  ["catalog-normalized-v3"],
   { revalidate: 3600 },
 );
 
@@ -108,32 +114,24 @@ export async function getCoastersForPark(parkId: number): Promise<Coaster[]> {
 }
 
 export async function getCoasterById(id: number): Promise<CoasterDetail | null> {
-  const supabase = getSupabaseAnonServerClient();
-  if (!supabase) return null;
+  const normalized = await getNormalizedCatalog();
+  const coaster = normalized.coasters.find((row) => row.id === id);
+  if (!coaster) return null;
 
-  const trySelect = async (columns: string) =>
-    supabase
-      .from("coasters")
-      .select(`${columns}, parks(${PARK_COLUMNS})`)
-      .eq("id", id)
-      .maybeSingle();
+  const park = normalized.parks.find((row) => row.id === coaster.park_id) ?? null;
+  if (!park || isCatalogHiddenParkName(park.name)) return null;
 
-  let { data, error } = await trySelect(activeCoasterColumns());
-  if (error && isMissingColumnError(error) && !coasterSelectFallback) {
-    coasterSelectFallback = true;
-    ({ data, error } = await trySelect(COASTER_COLUMNS_CORE));
-  }
-  if (error || !data) return null;
-
-  const row = data as unknown as Coaster & {
-    parks:
-      | Pick<Park, "id" | "name" | "country" | "latitude" | "longitude">
-      | Pick<Park, "id" | "name" | "country" | "latitude" | "longitude">[]
-      | null;
+  const fixed = applyCoasterKnownFixes(coaster);
+  return {
+    ...fixed,
+    parks: {
+      id: park.id,
+      name: park.name,
+      country: displayCountryForPark(park),
+      latitude: park.latitude,
+      longitude: park.longitude,
+    },
   };
-  const park = Array.isArray(row.parks) ? (row.parks[0] ?? null) : row.parks;
-  const fixed = applyCoasterKnownFixes(row);
-  return { ...fixed, parks: park };
 }
 
 export async function listParksForSitemap(): Promise<Pick<Park, "id" | "name">[]> {
@@ -155,6 +153,68 @@ function isExcludedFeaturedParkName(name: string): boolean {
   return /[a-z][A-Z]/.test(name) && /\b(florida|california|georgia|united states)\b/i.test(name);
 }
 
+function displayCountryForPark(park: Park): string {
+  return (
+    reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
+    canonicalCountryLabel(park.country) ||
+    park.country ||
+    "Unknown"
+  );
+}
+
+function buildPublicCoasterIndexRows(
+  normalized: Awaited<ReturnType<typeof getNormalizedCatalog>>,
+): CoasterIndexRow[] {
+  const parkById = new Map(normalized.parks.map((park) => [park.id, park]));
+
+  return dedupeCoastersForCatalog(normalized.coasters)
+    .filter((coaster) => {
+      const park = parkById.get(coaster.park_id);
+      return park && !isCatalogHiddenParkName(park.name);
+    })
+    .map((coaster) => {
+      const park = parkById.get(coaster.park_id)!;
+      return {
+        id: coaster.id,
+        name: coaster.name,
+        coaster_type: coaster.coaster_type,
+        manufacturer: coaster.manufacturer,
+        park_id: coaster.park_id,
+        status: coaster.status,
+        closing_year: coaster.closing_year,
+        parks: {
+          id: park.id,
+          name: park.name,
+          country: displayCountryForPark(park),
+        },
+      };
+    });
+}
+
+function buildPublicCatalogParks(
+  normalized: Awaited<ReturnType<typeof getNormalizedCatalog>>,
+): Park[] {
+  const parkById = new Map(normalized.parks.map((park) => [park.id, park]));
+  const parkIdsWithCoasters = new Set<number>();
+  for (const coaster of normalized.coasters) {
+    const park = parkById.get(coaster.park_id);
+    if (park && !isCatalogHiddenParkName(park.name)) {
+      parkIdsWithCoasters.add(coaster.park_id);
+    }
+  }
+
+  return normalized.parks
+    .filter((park) => !isCatalogHiddenParkName(park.name) && parkIdsWithCoasters.has(park.id))
+    .map((park) => ({
+      id: park.id,
+      name: park.name,
+      country: displayCountryForPark(park),
+      latitude: park.latitude,
+      longitude: park.longitude,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Lightweight coaster rows for the public /coasters index (name + park). */
 export type CoasterIndexRow = Pick<
   Coaster,
@@ -163,40 +223,20 @@ export type CoasterIndexRow = Pick<
   parks: Pick<Park, "id" | "name" | "country"> | null;
 };
 
-function escapeIlikePattern(raw: string): string {
-  return raw.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
+/** Lightweight coaster rows for the public /coasters index (name + park). Full catalog, no hard cap. */
+export async function listCoastersForIndex(search?: string): Promise<CoasterIndexRow[]> {
+  const normalized = await getNormalizedCatalog();
+  let rows = buildPublicCoasterIndexRows(normalized);
 
-function normalizeCoasterIndexRows(
-  data: Array<
-    Coaster & {
-      parks:
-        | Pick<Park, "id" | "name" | "country">
-        | Pick<Park, "id" | "name" | "country">[]
-        | null;
-    }
-  >,
-): CoasterIndexRow[] {
-  const rows = data.map((row) => {
-    const fixed = applyCoasterKnownFixes(row);
-    return {
-      ...fixed,
-      parks: Array.isArray(row.parks) ? (row.parks[0] ?? null) : row.parks,
-    };
-  });
+  const q = search?.trim() ?? "";
+  if (q) {
+    rows = rows.filter((row) => {
+      const haystack = `${row.name} ${row.parks?.name ?? ""} ${row.parks?.country ?? ""}`;
+      return matchesSearchQuery(haystack, q);
+    });
+  }
 
-  return dedupeCoastersForCatalog(rows).map(
-    ({ id, name, coaster_type, manufacturer, park_id, status, closing_year, parks }) => ({
-      id,
-      name,
-      coaster_type,
-      manufacturer,
-      park_id,
-      status,
-      closing_year,
-      parks,
-    }),
-  );
+  return rows.sort(compareCoastersOperatingFirst);
 }
 
 /**
@@ -205,24 +245,7 @@ function normalizeCoasterIndexRows(
  */
 export async function listCatalogParks(search?: string): Promise<Park[]> {
   const normalized = await getNormalizedCatalog();
-  const parkIdsWithCoasters = new Set(normalized.coasters.map((c) => c.park_id));
-
-  const parks = normalized.parks
-    .filter((park) => !isCatalogHiddenParkName(park.name) && parkIdsWithCoasters.has(park.id))
-    .map((park) => {
-      const country =
-        reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
-        canonicalCountryLabel(park.country) ||
-        park.country;
-      return {
-        id: park.id,
-        name: park.name,
-        country,
-        latitude: park.latitude,
-        longitude: park.longitude,
-      };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const parks = buildPublicCatalogParks(normalized);
 
   const q = search?.trim() ?? "";
   if (!q) return parks;
@@ -236,34 +259,28 @@ export async function listCatalogParks(search?: string): Promise<Park[]> {
 type ParkWithRideCount = ParkDetail & { rideCount: number };
 
 export async function listFeaturedParks(limit = 12): Promise<ParkDetail[]> {
-  const supabase = getSupabaseAnonServerClient();
-  if (!supabase) return [];
+  const normalized = await getNormalizedCatalog();
+  const parkById = new Map(normalized.parks.map((park) => [park.id, park]));
+  const rideCounts = new Map<number, number>();
 
-  // Prefer parks with many rides + well-known brands (Disney, Universal, Six Flags, Alton Towers…).
-  const { data, error } = await supabase
-    .from("parks")
-    .select(`${PARK_COLUMNS}, coasters(count)`)
-    .not("country", "is", null)
-    .neq("country", "")
-    .not("latitude", "is", null)
-    .not("longitude", "is", null)
-    .limit(500);
-  if (error || !data) return [];
+  for (const coaster of normalized.coasters) {
+    const park = parkById.get(coaster.park_id);
+    if (!park || isCatalogHiddenParkName(park.name)) continue;
+    rideCounts.set(coaster.park_id, (rideCounts.get(coaster.park_id) ?? 0) + 1);
+  }
 
   const scored: ParkWithRideCount[] = [];
-  for (const row of data as Array<
-    ParkDetail & { coasters: { count: number }[] | { count: number } | null }
-  >) {
-    if (isExcludedFeaturedParkName(row.name)) continue;
-    const countRaw = Array.isArray(row.coasters) ? row.coasters[0]?.count : row.coasters?.count;
-    const rideCount = typeof countRaw === "number" ? countRaw : 0;
+  for (const park of buildPublicCatalogParks(normalized)) {
+    if (isExcludedFeaturedParkName(park.name)) continue;
+    if (park.latitude == null || park.longitude == null) continue;
+    const rideCount = rideCounts.get(park.id) ?? 0;
     if (rideCount < 3) continue;
     scored.push({
-      id: row.id,
-      name: row.name,
-      country: row.country,
-      latitude: row.latitude,
-      longitude: row.longitude,
+      id: park.id,
+      name: park.name,
+      country: park.country,
+      latitude: park.latitude,
+      longitude: park.longitude,
       rideCount,
     });
   }
@@ -316,93 +333,6 @@ export async function listFeaturedParks(limit = 12): Promise<ParkDetail[]> {
   return featured;
 }
 
-/** Lightweight coaster rows for the public /coasters index (name + park). Full catalog, no hard cap. */
-export async function listCoastersForIndex(search?: string): Promise<CoasterIndexRow[]> {
-  const supabase = getSupabaseAnonServerClient();
-  if (!supabase) return [];
-
-  const q = search?.trim() ?? "";
-  const selectCols =
-    "id,name,coaster_type,manufacturer,park_id,status,closing_year,wikidata_id,image_url,length_ft,speed_mph,height_ft,inversions,duration_s, parks(id,name,country)";
-
-  if (!q) {
-    const data = await fetchAllIds<
-      Coaster & {
-        parks:
-          | Pick<Park, "id" | "name" | "country">
-          | Pick<Park, "id" | "name" | "country">[]
-          | null;
-      }
-    >("coasters", selectCols);
-    return normalizeCoasterIndexRows(data).sort(compareCoastersOperatingFirst);
-  }
-
-  // Search: match coaster name and/or park name, then refine with punctuation-insensitive filter.
-  const pattern = `%${escapeIlikePattern(q)}%`;
-  const fetchLimit = 2000;
-
-  const [{ data: byName, error: nameErr }, { data: matchingParks, error: parkErr }] =
-    await Promise.all([
-      supabase
-        .from("coasters")
-        .select(selectCols)
-        .ilike("name", pattern)
-        .order("name", { ascending: true })
-        .limit(fetchLimit),
-      supabase.from("parks").select("id").ilike("name", pattern).limit(400),
-    ]);
-
-  if (nameErr && parkErr) return [];
-
-  const byId = new Map<number, CoasterIndexRow>();
-  for (const row of normalizeCoasterIndexRows(
-    (byName ?? []) as Array<
-      Coaster & {
-        parks:
-          | Pick<Park, "id" | "name" | "country">
-          | Pick<Park, "id" | "name" | "country">[]
-          | null;
-      }
-    >,
-  )) {
-    byId.set(row.id, row);
-  }
-
-  const parkIds = (matchingParks ?? [])
-    .map((p) => (p as { id: number }).id)
-    .filter((id) => Number.isFinite(id));
-
-  // Chunk park_id filters to stay within PostgREST URL limits.
-  for (let i = 0; i < parkIds.length; i += 80) {
-    const chunk = parkIds.slice(i, i + 80);
-    const { data: byPark } = await supabase
-      .from("coasters")
-      .select(selectCols)
-      .in("park_id", chunk)
-      .order("name", { ascending: true })
-      .limit(fetchLimit);
-    for (const row of normalizeCoasterIndexRows(
-      (byPark ?? []) as Array<
-        Coaster & {
-          parks:
-            | Pick<Park, "id" | "name" | "country">
-            | Pick<Park, "id" | "name" | "country">[]
-            | null;
-        }
-      >,
-    )) {
-      byId.set(row.id, row);
-    }
-  }
-
-  return [...byId.values()]
-    .filter((row) => {
-      const haystack = `${row.name} ${row.parks?.name ?? ""} ${row.parks?.country ?? ""}`;
-      return matchesSearchQuery(haystack, q);
-    })
-    .sort(compareCoastersOperatingFirst);
-}
-
 async function fetchAllIds<T>(table: "parks" | "coasters", columns: string): Promise<T[]> {
   const supabase = getSupabaseAnonServerClient();
   if (!supabase) return [];
@@ -433,17 +363,8 @@ export type CatalogIndexCounts = {
 /** Totals for catalog index pages (after park/coaster normalization, matching public lists). */
 export async function getCatalogIndexCounts(): Promise<CatalogIndexCounts> {
   const normalized = await getNormalizedCatalog();
-  const parkIdsWithCoasters = new Set(normalized.coasters.map((c) => c.park_id));
-  const parks = normalized.parks
-    .filter((park) => !isCatalogHiddenParkName(park.name) && parkIdsWithCoasters.has(park.id))
-    .map((park) => ({
-      ...park,
-      country:
-        reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
-        canonicalCountryLabel(park.country) ||
-        park.country,
-    }));
-  const coasters = dedupeCoastersForCatalog(normalized.coasters);
+  const parks = buildPublicCatalogParks(normalized);
+  const coasters = buildPublicCoasterIndexRows(normalized);
   const countries = new Set(
     parks.map((park) => (park.country || "Unknown").trim() || "Unknown"),
   ).size;
