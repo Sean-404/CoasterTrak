@@ -14,6 +14,9 @@ import { join, resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 
 import { applyCatalogAutoRepairs } from "../src/lib/catalog-auto-repair";
+import { loadLocalEnvIfPresent } from "./lib/load-local-env";
+
+loadLocalEnvIfPresent();
 
 const coastertrakDataDir =
   process.env.COASTERTRAK_DATA_DIR?.trim() ||
@@ -43,39 +46,48 @@ function runCli(args: string[]): void {
   }
 }
 
-if (!existsSync(join(coastertrakDataDir, "package.json"))) {
-  console.error(
-    `coastertrak-data not found at ${coastertrakDataDir}. ` +
-      "Clone it as a sibling repo or set COASTERTRAK_DATA_DIR.",
+async function main(): Promise<void> {
+  if (!existsSync(join(coastertrakDataDir, "package.json"))) {
+    console.error(
+      `coastertrak-data not found at ${coastertrakDataDir}. ` +
+        "Clone it as a sibling repo or set COASTERTRAK_DATA_DIR.",
+    );
+    process.exit(1);
+  }
+
+  console.log(`Running catalog quality pipeline in ${coastertrakDataDir}`);
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (supabaseUrl && supabaseKey) {
+    console.log("Applying catalog auto-repairs…");
+    const repair = await applyCatalogAutoRepairs(createClient(supabaseUrl, supabaseKey));
+    console.log(
+      `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
+        `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
+        `${repair.parkLinksUpdated} park links`,
+    );
+  } else {
+    console.log("Skipping auto-repair (Supabase env not set).");
+  }
+
+  runCli(["analyze:supabase"]);
+
+  const hasAiKey = Boolean(
+    process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim(),
   );
+  if (!skipAi && hasAiKey) {
+    runCli(["ai:review", "--limit", aiLimit]);
+  } else if (!skipAi) {
+    console.log("Skipping AI review (set AI_GATEWAY_API_KEY to enable).");
+  }
+
+  runCli(["publish"]);
+
+  console.log("Catalog quality pipeline complete.");
+}
+
+void main().catch((error) => {
+  console.error(error);
   process.exit(1);
-}
-
-console.log(`Running catalog quality pipeline in ${coastertrakDataDir}`);
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-if (supabaseUrl && supabaseKey) {
-  console.log("Applying catalog auto-repairs…");
-  const repair = await applyCatalogAutoRepairs(createClient(supabaseUrl, supabaseKey));
-  console.log(
-    `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
-      `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
-      `${repair.parkLinksUpdated} park links`,
-  );
-} else {
-  console.log("Skipping auto-repair (Supabase env not set).");
-}
-
-runCli(["analyze:supabase"]);
-
-const hasAiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim());
-if (!skipAi && hasAiKey) {
-  runCli(["ai:review", "--limit", aiLimit]);
-} else if (!skipAi) {
-  console.log("Skipping AI review (set AI_GATEWAY_API_KEY to enable).");
-}
-
-runCli(["publish"]);
-
-console.log("Catalog quality pipeline complete.");
+});

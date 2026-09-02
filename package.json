@@ -25,7 +25,7 @@
     "data:publish-catalog": "tsx scripts/data/publish-catalog.ts",
     "data:relink-placeholder-parks": "tsx --env-file=.env.local scripts/relink-placeholder-parks.ts",
     "data:auto-repair": "tsx scripts/apply-catalog-auto-repairs.ts",
-    "data:catalog-quality": "tsx --env-file=.env.local scripts/post-sync-catalog-quality.ts"
+    "data:catalog-quality": "tsx scripts/post-sync-catalog-quality.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
