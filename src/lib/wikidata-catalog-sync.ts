@@ -63,12 +63,15 @@ const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q22666883: "Shanghai Disney Resort", // Tron Lightcycle Power Run — not Other
   Q2518728: "Parque de la Ciudad", // Vertigorama — not the Villa Soldati location dump
   Q96996314: "Plopsaland Belgium", // The Ride to Happiness — not the old De Panne duplicate
+  Q483513: "Gold Reef City", // Anaconda — not Walygator Parc (France)
+  Q2446903: "Gold Reef City", // Tower of Terror — not Tokyo DisneySea
 };
 
 /** Parks whose Wikidata item has no English label (WDQS would otherwise store the Q-id). */
 const PARK_DISPLAY_NAME_BY_WIKIDATA_ID: Record<string, string> = {
   Q2197655: "Plopsaland Ardennes", // formerly Plopsa Coo / TéléCoo
   Q1164525: "La Ronde", // Montreal — avoid duplicate / wrong-country stubs
+  Q1483280: "Gold Reef City",
 };
 
 /** US mainland longitudes are west; some feeds store the absolute value. */

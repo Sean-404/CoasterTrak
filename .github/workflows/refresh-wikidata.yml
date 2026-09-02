@@ -86,3 +86,24 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/backfill-wikipedia-summaries.ts --limit 2000 --delay-ms 200
+
+      # Post-sync: analyze live Supabase catalog, optional AI review, publish admin report.
+      # Requires Sean-404/coastertrak-data repo + AI_GATEWAY_API_KEY secret (AI step skipped if unset).
+      - name: Checkout coastertrak-data
+        uses: actions/checkout@v5
+        with:
+          repository: Sean-404/coastertrak-data
+          path: coastertrak-data
+
+      - name: Install coastertrak-data dependencies
+        working-directory: coastertrak-data
+        run: npm ci
+
+      - name: Catalog quality (analyze, AI review, publish)
+        env:
+          COASTERTRAK_DATA_DIR: ${{ github.workspace }}/coastertrak-data
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          AI_REVIEW_LIMIT: "20"
+        run: npx tsx scripts/post-sync-catalog-quality.ts

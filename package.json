@@ -23,7 +23,8 @@
     "data:validate-wikidata": "tsx scripts/data/validate-wikidata.ts",
     "data:analyze-catalog": "tsx scripts/data/analyze-catalog.ts",
     "data:publish-catalog": "tsx scripts/data/publish-catalog.ts",
-    "data:relink-placeholder-parks": "tsx --env-file=.env.local scripts/relink-placeholder-parks.ts"
+    "data:relink-placeholder-parks": "tsx --env-file=.env.local scripts/relink-placeholder-parks.ts",
+    "data:catalog-quality": "tsx --env-file=.env.local scripts/post-sync-catalog-quality.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",

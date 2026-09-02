@@ -229,9 +229,14 @@ export default function AdminDataPage() {
               ThemeParks.wiki match queue — start with aliases, then clear expected noise.
             </p>
           </div>
-          <Link href="/admin" className="text-sm font-semibold text-amber-700 hover:underline">
-            ← Admin
-          </Link>
+          <div className="flex flex-col items-end gap-1 text-sm font-semibold">
+            <Link href="/admin/data/catalog" className="text-amber-700 hover:underline">
+              Catalog quality →
+            </Link>
+            <Link href="/admin" className="text-amber-700 hover:underline">
+              ← Admin
+            </Link>
+          </div>
         </div>
 
         {loading ? (

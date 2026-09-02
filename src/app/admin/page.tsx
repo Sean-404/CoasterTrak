@@ -211,12 +211,18 @@ export default function AdminPage() {
         <p className="mt-1 text-sm text-slate-500">
           Trusted operators only. Clear rude names or photos, ban accounts, or review catalog data.
         </p>
-        <p className="mt-3">
+        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
           <Link
             href="/admin/data"
             className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
           >
-            Data review queue →
+            ThemeParks data review →
+          </Link>
+          <Link
+            href="/admin/data/catalog"
+            className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
+          >
+            Catalog quality dashboard →
           </Link>
         </p>
 
