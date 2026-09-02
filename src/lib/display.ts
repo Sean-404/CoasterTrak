@@ -40,15 +40,23 @@ export function formatParkLabel(
   return `${n} · ${c}`;
 }
 
+/** Fold text for search: strip accents (ü → u), case, and punctuation. */
+function foldSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /**
- * Loose substring match for search inputs: ignores case, apostrophes, and punctuation
- * so queries like "Falcon's Flight" still match stored names like "Falcons Flight".
+ * Loose substring match for search inputs: ignores case, diacritics, apostrophes, and punctuation
+ * so "nurburgring" matches "Nürburgring" and "Falcon's Flight" matches "Falcons Flight".
  */
 export function matchesSearchQuery(haystack: string, query: string): boolean {
   const q = query.trim();
   if (!q) return true;
-  const needle = q.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const needle = foldSearchText(q);
   if (!needle) return false;
-  const h = haystack.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return h.includes(needle);
+  return foldSearchText(haystack).includes(needle);
 }

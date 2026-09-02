@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
+import { DateField } from "@/components/date-field";
 import { useUnits } from "@/components/providers";
 import { RideHistoryEditor } from "@/components/ride-history-editor";
 import { StarRating } from "@/components/star-rating";
@@ -378,20 +379,15 @@ export function RiddenRideSheet({
               {logError ? (
                 <p className="mt-2 text-xs font-medium text-red-500">{logError}</p>
               ) : null}
-              <label className="mt-3 block min-w-0">
-                <span className="text-xs font-medium text-slate-600">Ride date</span>
-                <input
-                  type="date"
-                  value={rideDate}
-                  max={localDateISO()}
-                  min="1950-01-01"
-                  onChange={(event) => {
-                    setLogError("");
-                    setRideDate(event.target.value || localDateISO());
-                  }}
-                  className="mt-1 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-              </label>
+              <DateField
+                className="mt-3"
+                value={rideDate}
+                disabled={busy}
+                onChange={(next) => {
+                  setLogError("");
+                  setRideDate(next);
+                }}
+              />
               <div className="mt-2 flex items-stretch gap-2">
                 <div className="inline-flex h-11 shrink-0 items-center rounded-lg border border-slate-200 bg-white">
                   <button

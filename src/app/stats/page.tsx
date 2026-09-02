@@ -355,7 +355,7 @@ function StatsPageContent() {
   const [savingRating, setSavingRating] = useState(false);
   const [loggingRide, setLoggingRide] = useState(false);
   const [selectedCoasterId, setSelectedCoasterId] = useState<number | null>(null);
-  const [rideSort, setRideSort] = useState<RideSort>("name");
+  const [rideSort, setRideSort] = useState<RideSort>("recent");
   const [rideCountFilter, setRideCountFilter] = useState<RideCountFilter>("any");
   const [fetchError, setFetchError] = useState(false);
   const [friendAccessDenied, setFriendAccessDenied] = useState(false);
@@ -1279,9 +1279,9 @@ function StatsPageContent() {
                           className="min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:w-auto"
                           aria-label="Sort rides"
                         >
+                          <option value="recent">Sort: Recent</option>
                           <option value="name">Sort: Name</option>
                           <option value="rating">Sort: Rating</option>
-                          <option value="recent">Sort: Recent</option>
                           <option value="rides">Sort: Times ridden</option>
                         </select>
                       </div>

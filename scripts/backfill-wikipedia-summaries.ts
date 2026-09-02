@@ -11,9 +11,7 @@ import { createServiceRoleClient } from "./lib/supabase-service";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import {
   clampSummaryText,
-  fetchEnwikiTitleFromWikidata,
-  fetchWikipediaSummary,
-  type WikipediaSummary,
+  resolveCoasterWikipediaSummary,
 } from "../src/lib/wikipedia-summary";
 
 type DbRow = {
@@ -22,42 +20,14 @@ type DbRow = {
   wikidata_id: string | null;
   enwiki_title: string | null;
   summary_text: string | null;
+  parks: { name: string } | { name: string }[] | null;
 };
 
-/** Reject park/disaster/person articles that Wikipedia redirects can land on. */
-function isLikelyCoasterSummary(rideName: string, summary: WikipediaSummary): boolean {
-  const extract = summary.extract.toLowerCase();
-  const title = summary.title.toLowerCase();
-  if (
-    /\b(disaster|accident|incident|derailment|collision)\b/.test(title) ||
-    /\b(disaster|accident|incident)\b/.test(extract.slice(0, 160))
-  ) {
-    return false;
-  }
-
-  const rideTokens = rideName
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 3 && !["the", "and", "with", "from", "roller", "coaster"].includes(t));
-  const titleHits = rideTokens.filter((t) => title.includes(t)).length;
-  const extractHits = rideTokens.filter((t) => extract.includes(t)).length;
-  const strongHits = rideTokens.filter(
-    (t) => t.length >= 6 && (title.includes(t) || extract.includes(t)),
-  ).length;
-  const nameOverlap = strongHits >= 1 || titleHits + extractHits >= 2;
-
-  if (/\b(roller coaster|steel coaster|wooden coaster|launched roller coaster|mine train)\b/.test(extract)) {
-    // Allow generic model articles only when the ride name is short/generic (e.g. "Toboggan").
-    return nameOverlap || rideTokens.length === 0;
-  }
-  if (/\bcoaster\b/.test(extract)) {
-    if (/\b(amusement park|theme park|summer resort|water park)\b/.test(extract.slice(0, 120))) {
-      return false;
-    }
-    return nameOverlap;
-  }
-  return titleHits >= Math.min(2, Math.max(rideTokens.length, 1));
+function parkNameFromRow(row: DbRow): string | null {
+  const p = row.parks;
+  if (!p) return null;
+  if (Array.isArray(p)) return p[0]?.name?.trim() || null;
+  return p.name?.trim() || null;
 }
 
 async function main() {
@@ -72,7 +42,7 @@ async function main() {
     (from, to) =>
       supabase
         .from("coasters")
-        .select("id, name, wikidata_id, enwiki_title, summary_text")
+        .select("id, name, wikidata_id, enwiki_title, summary_text, parks(name)")
         .or("summary_text.is.null,summary_text.eq.")
         .order("id", { ascending: true })
         .range(from, to),
@@ -85,7 +55,7 @@ async function main() {
   const candidates = (rows ?? []).filter(
     (r) =>
       !(r.summary_text && r.summary_text.trim().length > 40) &&
-      (Boolean(r.enwiki_title?.trim()) || Boolean(r.wikidata_id?.trim())),
+      (Boolean(r.enwiki_title?.trim()) || Boolean(r.wikidata_id?.trim()) || Boolean(r.name?.trim())),
   );
   console.error(
     `${candidates.length} candidates (processing up to ${limit})${dryRun ? " [dry-run]" : ""}`,
@@ -99,33 +69,28 @@ async function main() {
     if (processed >= limit) break;
     processed += 1;
 
-    let title = row.enwiki_title?.trim() || null;
-    if (!title && row.wikidata_id) {
-      title = await fetchEnwikiTitleFromWikidata(row.wikidata_id);
-      if (delayMs > 0) await new Promise((r) => setTimeout(r, Math.min(delayMs, 150)));
-    }
-    if (!title) {
-      skipped += 1;
-      continue;
-    }
-
-    const summary = await fetchWikipediaSummary(title);
+    const summary = await resolveCoasterWikipediaSummary({
+      rideName: row.name,
+      parkName: parkNameFromRow(row),
+      enwikiTitle: row.enwiki_title,
+      wikidataId: row.wikidata_id,
+    });
     const extract = summary?.extract?.trim() || null;
-    if (!summary || !extract || extract.length < 40 || !isLikelyCoasterSummary(row.name, summary)) {
+    if (!summary || !extract || extract.length < 40) {
       skipped += 1;
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
       continue;
     }
 
     const summaryText = clampSummaryText(extract, 1200);
-    console.error(`  #${row.id} ${row.name} ← ${summaryText.slice(0, 72)}…`);
+    console.error(`  #${row.id} ${row.name} ← ${summary.title}: ${summaryText.slice(0, 72)}…`);
 
     if (!dryRun) {
       const { error: upErr } = await supabase
         .from("coasters")
         .update({
           summary_text: summaryText,
-          ...(row.enwiki_title?.trim() ? {} : { enwiki_title: summary?.title || title }),
+          enwiki_title: summary.title,
           last_synced_at: new Date().toISOString(),
         })
         .eq("id", row.id);

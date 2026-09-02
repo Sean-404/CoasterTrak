@@ -27,6 +27,11 @@ export const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q86663690: "Happy Valley Beijing",
 };
 
+/** Correct country when Wikidata P17 or legacy CSV is wrong for a known park name. */
+export const PARK_COUNTRY_BY_NAME: Record<string, string> = {
+  Nürburgring: "Germany",
+};
+
 /** Parks whose Wikidata item has no English label (WDQS would otherwise store the Q-id). */
 export const PARK_DISPLAY_NAME_BY_WIKIDATA_ID: Record<string, string> = {
   Q2197655: "Plopsaland Ardennes",

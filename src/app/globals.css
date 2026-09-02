@@ -42,22 +42,58 @@ body {
 
 /*
  * iOS Safari sizes native date inputs by their inner datetime-edit + calendar
- * icon, so w-full still overflows the track card. Force the control to shrink.
+ * icon, so w-full still overflows narrow cards. Shrink the edit fields and pin
+ * the calendar icon inside the control.
  */
-input[type="date"] {
+input[type="date"].date-field {
   display: block;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-input[type="date"]::-webkit-datetime-edit,
-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+input[type="date"].date-field::-webkit-date-and-time-value {
   min-width: 0;
+  text-align: start;
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator {
-  margin-inline-start: auto;
-  flex-shrink: 0;
+input[type="date"].date-field::-webkit-datetime-edit,
+input[type="date"].date-field::-webkit-datetime-edit-fields-wrapper {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+
+input[type="date"].date-field::-webkit-datetime-edit-year-field,
+input[type="date"].date-field::-webkit-datetime-edit-month-field,
+input[type="date"].date-field::-webkit-datetime-edit-day-field {
+  min-width: 0;
+  padding: 0;
+}
+
+input[type="date"].date-field::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+/* Legacy date inputs without .date-field — keep basic shrink behavior. */
+input[type="date"]:not(.date-field) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }

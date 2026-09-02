@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DateField } from "@/components/date-field";
 import { RideHistoryEditor } from "@/components/ride-history-editor";
 import {
   formatRideCount,
@@ -253,9 +254,6 @@ export function CoasterActions({
   const lastLabel = credit ? formatRideOnDate(credit.lastRiddenOn) : null;
   const message = status === "error" ? errorMsg : feedback;
 
-  const dateInputClass =
-    "mt-1 min-h-11 w-full min-w-0 max-w-full rounded-lg border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400";
-
   const firstRideButton = !alreadyRidden && (
     <button
       type="button"
@@ -304,17 +302,7 @@ export function CoasterActions({
             window.setTimeout(() => setFeedback(""), 1800);
           }}
         />
-        <label className="block min-w-0">
-          <span className="text-xs font-medium text-slate-600">Ride date</span>
-          <input
-            type="date"
-            value={rideDate}
-            max={localDateISO()}
-            min="1950-01-01"
-            onChange={(event) => setRideDate(event.target.value || localDateISO())}
-            className={dateInputClass}
-          />
-        </label>
+        <DateField value={rideDate} onChange={setRideDate} disabled={busy} />
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white">
             <button
@@ -375,17 +363,7 @@ export function CoasterActions({
         </p>
       ) : null}
       {prominent && !alreadyRidden && (
-        <label className="block min-w-0">
-          <span className="text-xs font-medium text-slate-600">Ride date</span>
-          <input
-            type="date"
-            value={rideDate}
-            max={localDateISO()}
-            min="1950-01-01"
-            onChange={(event) => setRideDate(event.target.value || localDateISO())}
-            className={dateInputClass}
-          />
-        </label>
+        <DateField value={rideDate} onChange={setRideDate} disabled={busy} />
       )}
       <div className={`flex min-w-0 flex-wrap items-center ${prominent ? "gap-2" : "gap-1.5"}`}>
         {alreadyWishlisted && !alreadyRidden && (

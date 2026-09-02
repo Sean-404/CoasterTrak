@@ -46,6 +46,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const name = cleanCoasterName(coaster.name);
   const parkLabel = formatParkLabel(coaster.parks?.name, coaster.parks?.country);
   const wikiSummary = await fetchWikipediaSummaryForCoaster({
+    rideName: name,
+    parkName: coaster.parks?.name,
     enwikiTitle: coaster.enwiki_title,
     wikidataId: coaster.wikidata_id,
     storedSummary: coaster.summary_text,
@@ -104,6 +106,8 @@ export default async function CoasterDetailPage({ params }: PageProps) {
     : [];
 
   const wikiSummary = await fetchWikipediaSummaryForCoaster({
+    rideName: name,
+    parkName: coaster.parks?.name,
     enwikiTitle: coaster.enwiki_title,
     wikidataId: coaster.wikidata_id,
     storedSummary: coaster.summary_text,

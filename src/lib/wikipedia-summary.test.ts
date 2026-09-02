@@ -6,6 +6,49 @@ vi.mock("@/lib/coaster-known-fixes", async (importOriginal) => {
   return actual;
 });
 
+describe("coaster Wikipedia helpers", () => {
+  it("builds common title candidates with park disambiguation", async () => {
+    const { buildCoasterEnwikiTitleCandidates } = await import("@/lib/wikipedia-summary");
+    expect(buildCoasterEnwikiTitleCandidates("Bat", "Lagoon")).toEqual([
+      "Bat",
+      "Bat (roller coaster)",
+      "Bat (Lagoon)",
+    ]);
+  });
+
+  it("accepts roller-coaster articles that mention the ride name", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    expect(
+      isLikelyCoasterSummary("Ring Racer", {
+        title: "Ring Racer",
+        extract: "Ring Racer was a Formula One-themed roller coaster at the Nürburgring.",
+        url: "https://en.wikipedia.org/wiki/Ring_Racer",
+        imageUrl: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects unrelated articles", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    expect(
+      isLikelyCoasterSummary("Big Thunder Mountain Railroad", {
+        title: "Tsukiji fish market",
+        extract: "Tsukiji fish market was a major wholesale seafood market in Tokyo.",
+        url: "https://en.wikipedia.org/wiki/Tsukiji_fish_market",
+        imageUrl: null,
+      }),
+    ).toBe(false);
+    expect(
+      isLikelyCoasterSummary("Cyclone", {
+        title: "Cyclone",
+        extract: "In meteorology, a cyclone is a large air mass that rotates around a strong center of low pressure.",
+        url: "https://en.wikipedia.org/wiki/Cyclone",
+        imageUrl: null,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("fetchWikipediaSummary image fallback", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

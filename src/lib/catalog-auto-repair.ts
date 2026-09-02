@@ -9,6 +9,7 @@ import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import {
   COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID,
   ENSURE_PARKS,
+  PARK_COUNTRY_BY_NAME,
   type EnsureParkSpec,
 } from "@/lib/catalog-overrides";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
@@ -73,7 +74,9 @@ function parkRepairPatch(park: ParkRow): Partial<ParkRow> | null {
   if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
   const normalizedLng = normalizeParkLongitude(lat, lng, park.country);
+  const nameOverride = PARK_COUNTRY_BY_NAME[park.name.trim()];
   const country =
+    nameOverride ||
     reconcileCountryWithCoords(park.country, lat, normalizedLng) ||
     canonicalCountryLabel(park.country) ||
     park.country;

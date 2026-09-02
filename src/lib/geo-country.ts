@@ -25,6 +25,8 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   if (lat >= 43 && lat <= 47.5 && lng >= -80 && lng <= -57) return "Canada";
   // Lower mainland BC (Playland / Greater Vancouver parks).
   if (lat >= 48 && lat <= 49.6 && lng >= -125 && lng <= -122.5) return "Canada";
+  // Germany (mainland). Lower bound lat 49.5 keeps Alsace / Europa-Park (France) out of this band.
+  if (lat >= 49.5 && lat <= 55.1 && lng >= 6.5 && lng <= 15.0) return "Germany";
   return null;
 }
 
@@ -142,6 +144,8 @@ export function reconcileCountryWithCoords(
   ) {
     return hint;
   }
+  // Wikidata sometimes labels German parks (e.g. Nürburgring) as France despite DE coordinates.
+  if (hint === "Germany" && cl === "france") return hint;
   return c;
 }
 

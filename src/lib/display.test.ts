@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { normalizeManufacturerLabel } from "./display";
+import { matchesSearchQuery, normalizeManufacturerLabel } from "./display";
+
+describe("matchesSearchQuery", () => {
+  it("matches names without umlauts to stored German spellings", () => {
+    expect(matchesSearchQuery("Nürburgring", "nurburgring")).toBe(true);
+    expect(matchesSearchQuery("Gröna Lund", "grona lund")).toBe(true);
+  });
+
+  it("still ignores apostrophes and punctuation", () => {
+    expect(matchesSearchQuery("Falcons Flight", "Falcon's Flight")).toBe(true);
+  });
+});
 
 describe("normalizeManufacturerLabel", () => {
   it("inserts separators when Wikipedia drops <br> between makers", () => {

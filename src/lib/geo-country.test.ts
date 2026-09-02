@@ -55,6 +55,18 @@ describe("Canada country labels", () => {
   });
 });
 
+describe("Germany country labels", () => {
+  it("corrects France-labeled parks in the Rhineland", () => {
+    // Nürburgring — Wikidata P17 is sometimes France
+    expect(reconcileCountryWithCoords("France", 50.3361, 6.9492)).toBe("Germany");
+  });
+
+  it("does not re-label French parks south of the Germany hint band", () => {
+    // Europa-Park, Rust
+    expect(reconcileCountryWithCoords("France", 48.2683, 7.7208)).toBe("France");
+  });
+});
+
 describe("normalizeParkLongitude", () => {
   it("flips negative east longitudes for India", () => {
     // Adlabs Imagica — legacy CSV stored 73°E as -73
