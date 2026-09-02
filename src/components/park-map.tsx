@@ -9,6 +9,7 @@ import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
+import { getMapTileLayer } from "@/lib/map-tiles";
 import type { Units } from "@/lib/units";
 
 const icon = L.icon({
@@ -195,6 +196,8 @@ export function ParkMap({
     return coasters.find((c) => c.id === selectedCoasterId) ?? null;
   }, [coasters, selectedCoasterId]);
 
+  const tileLayer = useMemo(() => getMapTileLayer(), []);
+
   const selectedRidePin = useMemo(() => {
     if (!selectedCoaster || !flyTargetPark) return null;
     if (selectedCoaster.park_id !== flyTargetPark.id) return null;
@@ -233,8 +236,9 @@ export function ParkMap({
         onClearAll={onClearAllSelection}
       />
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        attribution={tileLayer.attribution}
+        url={tileLayer.url}
+        maxZoom={tileLayer.maxZoom}
       />
       <MarkerClusterGroup chunkedLoading>
         {parks.map((park) => {

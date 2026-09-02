@@ -144,3 +144,36 @@ export function reconcileCountryWithCoords(
   }
   return c;
 }
+
+/**
+ * Correct common longitude sign errors from legacy CSV / geocoder feeds.
+ * - US parks sometimes store west longitudes as positive (e.g. 97 instead of -97).
+ * - Eastern-hemisphere parks sometimes store east longitudes as negative (e.g. India at -73).
+ */
+export function normalizeParkLongitude(
+  lat: number,
+  lng: number,
+  country?: string | null,
+): number {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return lng;
+
+  const c = (country ?? "").toLowerCase();
+  const us =
+    c.includes("united states") || c === "usa" || c === "us" || c.endsWith(", us");
+  if (us && lat > 24 && lat < 50 && lng > 65 && lng < 130) {
+    return -Math.abs(lng);
+  }
+
+  if (lng < 0) {
+    const eastHint = countryHintFromLatLng(lat, Math.abs(lng));
+    if (eastHint) {
+      const cl = c.toLowerCase();
+      const reconciledPositive = reconcileCountryWithCoords(country, lat, Math.abs(lng));
+      if (reconciledPositive === eastHint || cl === eastHint.toLowerCase() || !c || cl === "unknown") {
+        return Math.abs(lng);
+      }
+    }
+  }
+
+  return lng;
+}

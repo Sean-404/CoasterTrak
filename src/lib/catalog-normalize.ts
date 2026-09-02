@@ -6,7 +6,7 @@
 import type { Coaster, Park } from "@/types/domain";
 import { isLikelyNonRideEventName } from "@/lib/coaster-dedup";
 import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
-import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
+import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
   absorbReverseGeocodeParks,
   hasSharedDistinctiveParkToken,
@@ -206,11 +206,20 @@ export function buildCombinedParkIdRemap(
 
 function parksWithReconciledCountries(parks: Park[]): Park[] {
   return parks.map((park) => {
+    const lat = park.latitude ?? null;
+    const lng = park.longitude ?? null;
+    const normalizedLng =
+      lat != null && lng != null ? normalizeParkLongitude(lat, lng, park.country) : lng;
     const country =
-      reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
+      reconcileCountryWithCoords(park.country, lat, normalizedLng) ||
       canonicalCountryLabel(park.country) ||
       park.country;
-    return country === park.country ? park : { ...park, country };
+    if (country === park.country && normalizedLng === park.longitude) return park;
+    return {
+      ...park,
+      country,
+      ...(normalizedLng !== park.longitude ? { longitude: normalizedLng } : {}),
+    };
   });
 }
 

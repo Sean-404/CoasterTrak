@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
+import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 
 describe("Hong Kong / Macau country labels", () => {
   it("canonicalizes Hong Kong aliases", () => {
@@ -52,5 +52,28 @@ describe("Canada country labels", () => {
   it("does not re-label northern US parks as Canada", () => {
     // Kings Island, Ohio
     expect(reconcileCountryWithCoords("United States", 39.344, -84.268)).toBe("United States");
+  });
+});
+
+describe("normalizeParkLongitude", () => {
+  it("flips negative east longitudes for India", () => {
+    // Adlabs Imagica — legacy CSV stored 73°E as -73
+    expect(normalizeParkLongitude(18.7647, -73.2805, "India")).toBeCloseTo(73.2805, 4);
+  });
+
+  it("keeps legitimate western longitudes", () => {
+    expect(normalizeParkLongitude(40.7128, -74.006, "United States")).toBeCloseTo(-74.006, 3);
+  });
+
+  it("converts positive US mainland longitudes to west", () => {
+    expect(normalizeParkLongitude(32.78, 96.8, "United States")).toBeCloseTo(-96.8, 3);
+  });
+
+  it("does not flip legitimate US western longitudes", () => {
+    expect(normalizeParkLongitude(33.4, -84.5507, "United States")).toBeCloseTo(-84.5507, 3);
+  });
+
+  it("does not flip Guatemala parks that overlap India lng band", () => {
+    expect(normalizeParkLongitude(14.5539, -91.4875, "Guatemala")).toBeCloseTo(-91.4875, 3);
   });
 });

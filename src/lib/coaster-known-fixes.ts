@@ -180,6 +180,16 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   },
   // Plopsaland Ardennes (formerly Plopsa Coo) — Wikidata has only a Dutch label
   Q122460556: { name: "Wickie The Ride" },
+  // Fårup Sommarland — Wikidata swapped height/length (63 ft tall, 1486 ft long)
+  Q106372161: { height_ft: 63, length_ft: 1486 },
+  // Fårup Sommarland — Wikidata swapped height/length (20 m / 540 m)
+  Q12325227: { height_ft: 66, length_ft: 1772, speed_mph: 50 },
+  // Six Flags Qiddiya — official 160 m (Wikidata slightly high at 163 m)
+  Q131686270: { height_ft: 525 },
+  // Coney Island historical — Wikidata conflated bad height (60 ft peak)
+  Q7370852: { height_ft: 60 },
+  // The STRAT — Wikidata uses tower elevation (264 m); ride structure is ~68 ft
+  Q8041524: { height_ft: 68 },
 };
 
 /**
@@ -283,6 +293,17 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
     speed_mph: 22,
     length_ft: 1181,
     duration_s: 80,
+    inversions: 0,
+  },
+  // Pigeon Forge — Wikidata conflated track length (3937 ft) with height
+  smokymountainalpinecoaster: {
+    name: "Smoky Mountain Alpine Coaster",
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Wiegand",
+    height_ft: 363,
+    speed_mph: 27,
+    length_ft: 3937,
     inversions: 0,
   },
 };

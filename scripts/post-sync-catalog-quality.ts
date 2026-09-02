@@ -11,6 +11,10 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+import { createClient } from "@supabase/supabase-js";
+
+import { applyCatalogAutoRepairs } from "../src/lib/catalog-auto-repair";
+
 const coastertrakDataDir =
   process.env.COASTERTRAK_DATA_DIR?.trim() ||
   resolve(process.cwd(), "..", "coastertrak-data");
@@ -48,6 +52,20 @@ if (!existsSync(join(coastertrakDataDir, "package.json"))) {
 }
 
 console.log(`Running catalog quality pipeline in ${coastertrakDataDir}`);
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+if (supabaseUrl && supabaseKey) {
+  console.log("Applying catalog auto-repairs…");
+  const repair = await applyCatalogAutoRepairs(createClient(supabaseUrl, supabaseKey));
+  console.log(
+    `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
+      `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
+      `${repair.parkLinksUpdated} park links`,
+  );
+} else {
+  console.log("Skipping auto-repair (Supabase env not set).");
+}
 
 runCli(["analyze:supabase"]);
 
