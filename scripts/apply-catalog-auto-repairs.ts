@@ -1,12 +1,15 @@
 /**
  * Apply deterministic catalog repairs to Supabase (known fixes, coords, park links).
  *
- *   npx tsx --env-file=.env.local scripts/apply-catalog-auto-repairs.ts
- *   npx tsx --env-file=.env.local scripts/apply-catalog-auto-repairs.ts --dry-run
+ *   npm run data:auto-repair
+ *   npm run data:auto-repair -- --dry-run
  */
 import { createClient } from "@supabase/supabase-js";
 
 import { applyCatalogAutoRepairs } from "@/lib/catalog-auto-repair";
+import { loadLocalEnvIfPresent } from "./lib/load-local-env";
+
+loadLocalEnvIfPresent();
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
