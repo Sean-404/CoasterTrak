@@ -11,17 +11,17 @@ import { parkSlug } from "@/lib/slug";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "CoasterTrak | Free Coaster Credit Tracker",
+    absolute: "Free Coaster Credit Tracker | CoasterTrak",
   },
   description:
-    "CoasterTrak is a free coaster credit app. Log unique coaster credits, explore parks on a world map, browse the catalog, build a wishlist, and compare tallies with friends.",
+    "Free coaster credit tracker and coaster tracker in your browser. Log unique rides, explore parks on a world map, build a wishlist, and compare tallies — no app store required.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "CoasterTrak | Free Coaster Credit Tracker",
+    title: "Free Coaster Credit Tracker | CoasterTrak",
     description:
-      "Free coaster credit tracker to log unique rides, explore parks on a map, and compare leftover credits with friends.",
+      "Free coaster tracker to log unique credits, browse parks on a map, and see leftover rides before your next trip.",
     url: "/",
     type: "website",
   },
@@ -44,7 +44,7 @@ export default async function Home() {
     ],
     url: SITE_URL,
     description:
-      "Free coaster credit tracker to log unique coaster credits, explore parks on a map, build a wishlist, and compare tallies.",
+      "Free coaster credit tracker and coaster tracker to log unique rides, explore theme parks on a world map, build a wishlist, and compare tallies with friends.",
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -132,7 +132,8 @@ export default async function Home() {
             <span className="break-words text-amber-400">Credit Tracker</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
-            Log unique coaster credits, discover parks on the map, and see what you still need before the next trip.
+            Free coaster tracker in your browser — log unique credits, discover parks on the map, and see what you
+            still need before the next trip. No app download required.
           </p>
           <HomeHeroCtas />
         </div>
@@ -142,21 +143,21 @@ export default async function Home() {
         <div className="grid gap-5 sm:grid-cols-3">
           <FeatureCard
             icon={<MapIcon />}
-            title="World Map"
-            description="Find coasters at parks across every continent, then switch to park or ride lists."
+            title="World map"
+            description="Find coasters at parks worldwide, then switch to park or ride lists in Discover."
             href="/map"
           />
           <FeatureCard
-            icon={<ParksIcon />}
-            title="Parks"
-            description="Browse theme parks by country, open park pages, and jump into each ride list."
-            href="/parks"
+            icon={<GuideIcon />}
+            title="Coaster credit tracker"
+            description="What a credit is, how unique rides are counted, and how to start your free tally."
+            href="/coaster-credits"
           />
           <FeatureCard
-            icon={<GuideIcon />}
-            title="Coaster credits"
-            description="What a credit is, how CoasterTrak counts unique rides, and how to log your tally."
-            href="/coaster-credits"
+            icon={<ParksIcon />}
+            title="Coaster tracker guide"
+            description="Map, wishlist, stats, and friends — how the full free roller coaster tracker fits together."
+            href="/coaster-tracker"
           />
         </div>
 

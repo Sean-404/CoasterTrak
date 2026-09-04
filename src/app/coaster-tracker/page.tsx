@@ -5,12 +5,15 @@ import { SiteHeader } from "@/components/site-header";
 import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
-  title: "Roller Coaster Tracker (Coaster Trak)",
+  title: {
+    absolute: "Free Coaster Tracker | CoasterTrak",
+  },
   description:
-    "CoasterTrak is a free roller coaster tracker — also known as coaster trak — to log ride credits, discover parks on the map, build a wishlist, and compare coaster stats with friends.",
+    "Free coaster tracker in your browser. Log roller coaster credits, explore parks on a world map, build a wishlist, and compare stats with friends — no app store required.",
   keywords: [
-    "roller coaster tracker",
     "coaster tracker",
+    "free coaster tracker",
+    "roller coaster tracker",
     "coaster trak",
     "coaster track",
     "CoasterTrak",
@@ -25,9 +28,9 @@ export const metadata: Metadata = {
     canonical: "/coaster-tracker",
   },
   openGraph: {
-    title: "Roller Coaster Tracker | CoasterTrak",
+    title: "Free Coaster Tracker | CoasterTrak",
     description:
-      "Track roller coaster credits, discover parks worldwide, and compare coaster stats with friends on CoasterTrak.",
+      "Free coaster tracker to log ride credits, discover parks worldwide, and compare stats with friends.",
     url: `${SITE_URL}/coaster-tracker`,
     type: "website",
   },
@@ -137,15 +140,35 @@ export default function CoasterTrackerLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">CoasterTrak Guide</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">Free coaster tracker</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">
-          Free roller coaster tracker
+          Free coaster tracker
         </h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
-          CoasterTrak is a free roller coaster tracker for enthusiasts who want to log rides, discover new parks, and
-          watch their coaster credits grow over time. If you searched for coaster trak or coaster tracker, you are in
-          the right place — this guide explains how the main tools fit together so you can get useful value on day one.
+          CoasterTrak is a free coaster tracker for enthusiasts who want to log rides, discover parks on a map, and
+          watch coaster credits grow over time — in the browser, with no app download. If you searched for coaster
+          tracker or coaster trak, you are in the right place.
         </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/map"
+            className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
+          >
+            Start tracking free
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
+          >
+            Create free account
+          </Link>
+          <Link
+            href="/coaster-credits"
+            className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
+          >
+            What is a coaster credit?
+          </Link>
+        </div>
 
         <section className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <ValueCard
@@ -305,13 +328,13 @@ export default function CoasterTrackerLandingPage() {
         </section>
 
         <section className="mt-12 rounded-2xl border border-white/10 bg-slate-900/70 p-6">
-          <h2 className="text-2xl font-semibold text-white">Why riders use CoasterTrak</h2>
+          <h2 className="text-2xl font-semibold text-white">Start this free coaster tracker</h2>
           <ul className="mt-4 space-y-2 text-sm leading-relaxed text-slate-300">
             <li>- One place for coaster credits, wishlists, and park discovery.</li>
             <li>- Fast map browsing for parks across regions.</li>
             <li>- Stats and achievements that make progress visible.</li>
             <li>- Friends features for comparisons and shared milestones.</li>
-            <li>- Built for coaster fans with a clean, focused interface.</li>
+            <li>- Free in the browser — no app store required.</li>
           </ul>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -324,19 +347,19 @@ export default function CoasterTrackerLandingPage() {
               href="/login"
               className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
             >
-              Create account
+              Create free account
+            </Link>
+            <Link
+              href="/coaster-credits"
+              className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
+            >
+              Coaster credit tracker
             </Link>
             <Link
               href="/about"
               className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
             >
               About the project
-            </Link>
-            <Link
-              href="/contact"
-              className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold text-white transition hover:border-white/35"
-            >
-              Contact
             </Link>
           </div>
         </section>

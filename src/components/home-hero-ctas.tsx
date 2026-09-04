@@ -24,13 +24,13 @@ export function HomeHeroCtas() {
         href="/map"
         className="rounded-xl bg-amber-500 px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg transition hover:bg-amber-400 active:scale-95"
       >
-        Discover &rarr;
+        Open free tracker &rarr;
       </Link>
       <Link
-        href="/coaster-tracker"
+        href="/coaster-credits"
         className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
       >
-        What is CoasterTrak?
+        Coaster credit tracker
       </Link>
       {isAuthed ? (
         <Link
@@ -44,7 +44,7 @@ export function HomeHeroCtas() {
           href="/login"
           className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
         >
-          Create account
+          Create free account
         </Link>
       )}
     </div>

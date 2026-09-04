@@ -5,13 +5,16 @@ import { SiteHeader } from "@/components/site-header";
 import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
-  title: "Coaster Credit Tracker (Free App)",
+  title: {
+    absolute: "Free Coaster Credit Tracker | CoasterTrak",
+  },
   description:
-    "CoasterTrak is a free coaster credit app. Log unique coaster credits, see what you still need at each park, and compare your tally with friends.",
+    "Free coaster credit tracker for unique rides. Log each credit once, keep repeats as extra rides, see park leftovers, and compare tallies with friends — no app store required.",
   keywords: [
+    "coaster credit tracker",
+    "free coaster credit tracker",
     "coaster credit",
     "coaster credits",
-    "coaster credit tracker",
     "coaster credit app",
     "coaster credit logger",
     "roller coaster credits",
@@ -29,9 +32,9 @@ export const metadata: Metadata = {
     canonical: "/coaster-credits",
   },
   openGraph: {
-    title: "Coaster Credit Tracker | CoasterTrak",
+    title: "Free Coaster Credit Tracker | CoasterTrak",
     description:
-      "Free coaster credit app to log unique rides, plan leftover credits at a park, and compare tallies with friends.",
+      "Free coaster credit tracker to log unique rides, plan leftover credits at a park, and compare tallies with friends.",
     url: `${SITE_URL}/coaster-credits`,
     type: "website",
   },
@@ -145,15 +148,35 @@ export default function CoasterCreditsLandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">Coaster credit app</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">Coaster credit tracker</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">
           Free coaster credit tracker
         </h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
-          CoasterTrak is a free coaster credit app for people who already count unique rides — or who just searched
-          for a place to start. Log each coaster credit once, keep repeats as extra rides, and use park pages plus
-          friend compare to see what is still left before the next trip.
+          CoasterTrak is a free coaster credit tracker for people who count unique rides — or who just searched for a
+          place to start. Log each credit once, keep repeats as extra rides, and use park pages plus friend compare to
+          see what is still left before the next trip. Works in your browser on phone or desktop.
         </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/login"
+            className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
+          >
+            Start free credit log
+          </Link>
+          <Link
+            href="/map"
+            className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
+          >
+            Browse parks &amp; coasters
+          </Link>
+          <Link
+            href="/coaster-tracker"
+            className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
+          >
+            Full coaster tracker guide
+          </Link>
+        </div>
 
         <section className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <ValueCard
