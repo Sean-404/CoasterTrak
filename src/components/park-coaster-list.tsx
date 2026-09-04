@@ -14,11 +14,12 @@ import {
 type Props = {
   coasters: Coaster[];
   parkName?: string;
+  parkCountry?: string;
   /** When set, only these coaster IDs get followable links (sitemap-eligible rides). */
   crawlFollowIds?: number[];
 };
 
-export function ParkCoasterList({ coasters, parkName, crawlFollowIds }: Props) {
+export function ParkCoasterList({ coasters, parkName, parkCountry, crawlFollowIds }: Props) {
   const [sort, setSort] = useState<CoasterSortKey>("name");
   const [statusFilter, setStatusFilter] = useState<CoasterStatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -121,6 +122,8 @@ export function ParkCoasterList({ coasters, parkName, crawlFollowIds }: Props) {
             <ParkCoasterRow
               key={coaster.id}
               coaster={coaster}
+              parkName={parkName}
+              parkCountry={parkCountry}
               nofollow={crawlFollowSet != null && !crawlFollowSet.has(coaster.id)}
             />
           ))}

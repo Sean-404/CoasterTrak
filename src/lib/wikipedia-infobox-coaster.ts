@@ -141,6 +141,9 @@ function pickParam(p: Map<string, string>, keys: string[]): string | undefined {
 export function cleanInfoboxWikiValue(val: string): string {
   return val
     .replace(/<!--[\s\S]*?-->/g, " ")
+    // Wikitable pipe escapes used in multi-install manufacturer cells.
+    .replace(/\{\{!\}\}/gi, "|")
+    .replace(/\{\{[!()]+!\}\}/gi, " ")
     .replace(/\{\{[^}]*\}\}/g, " ")
     .replace(/\[\[([^|\]]+)\|([^\]]+)\]\]/g, "$2")
     .replace(/\[\[([^\]]+)\]\]/g, "$1")

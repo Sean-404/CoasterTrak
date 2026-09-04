@@ -67,16 +67,6 @@ const ORDER_OPTIONS: {
   title: string;
 }[] = [
   {
-    value: "rarity-desc",
-    label: "Rarest first",
-    title: "Legendary and epic achievements first, then by title",
-  },
-  {
-    value: "rarity-asc",
-    label: "Most common first",
-    title: "Common and uncommon achievements first, then by title",
-  },
-  {
     value: "unlock-newest",
     label: "Newest unlock",
     title: "Most recently unlocked first (then locked by progress)",
@@ -85,6 +75,16 @@ const ORDER_OPTIONS: {
     value: "unlock-oldest",
     label: "Oldest unlock",
     title: "Earliest unlocks first (then locked by progress)",
+  },
+  {
+    value: "rarity-desc",
+    label: "Rarest first",
+    title: "Legendary and epic achievements first, then by title",
+  },
+  {
+    value: "rarity-asc",
+    label: "Most common first",
+    title: "Common and uncommon achievements first, then by title",
   },
   {
     value: "locked-first",
@@ -125,7 +125,7 @@ export default function AchievementsPage() {
   const [loading, setLoading] = useState(() => Boolean(getSupabaseBrowserClient()));
   const [fetchError, setFetchError] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState<AchievementVisibilityFilter>("all");
-  const [listSort, setListSort] = useState<AchievementListSort>("rarity-desc");
+  const [listSort, setListSort] = useState<AchievementListSort>("unlock-newest");
   const { units } = useUnits();
 
   useEffect(() => {

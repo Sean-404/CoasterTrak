@@ -192,6 +192,7 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q3073731: {
     coaster_type: "Steel",
     status: "Operating",
+    manufacturer: "Vekoma",
     height_ft: 43,
     speed_mph: 29,
     length_ft: 1099,

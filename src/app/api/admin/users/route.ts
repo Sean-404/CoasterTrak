@@ -32,6 +32,7 @@ export type AdminUserRow = {
   created_at: string | null;
   last_sign_in_at: string | null;
   updated_at: string | null;
+  unique_credits: number;
 };
 
 const PROFILE_SELECT =
@@ -49,6 +50,7 @@ function mergeAuthAndProfile(
   authUser: User,
   profile: ProfileRow | undefined,
   avatarUrl: string | null,
+  uniqueCredits = 0,
 ): AdminUserRow {
   return {
     user_id: authUser.id,
@@ -65,6 +67,7 @@ function mergeAuthAndProfile(
     created_at: authUser.created_at ?? null,
     last_sign_in_at: authUser.last_sign_in_at ?? null,
     updated_at: profile?.updated_at ?? authUser.updated_at ?? null,
+    unique_credits: uniqueCredits,
   };
 }
 
@@ -164,11 +167,35 @@ export async function GET(request: Request) {
       }
     }
   }
+
+  const creditCounts = new Map<string, number>();
+  {
+    const { data: rideRows, error: rideCountError } = await fetchAllPages<{ user_id: string }>(
+      SUPABASE_PAGE_SIZE,
+      (from, to) =>
+        ctx.service
+          .from("rides")
+          .select("user_id")
+          .order("user_id", { ascending: true })
+          .range(from, to),
+    );
+    if (!rideCountError) {
+      for (const row of rideRows) {
+        creditCounts.set(row.user_id, (creditCounts.get(row.user_id) ?? 0) + 1);
+      }
+    }
+  }
+
   let users = authResult.users
     .map((authUser) => {
       const profile = profilesById.get(authUser.id);
       const avatarUrl = profile?.avatar_path ? avatarUrlByPath.get(profile.avatar_path) ?? null : null;
-      return mergeAuthAndProfile(authUser, profile, avatarUrl);
+      return mergeAuthAndProfile(
+        authUser,
+        profile,
+        avatarUrl,
+        creditCounts.get(authUser.id) ?? 0,
+      );
     })
     .sort(sortAdminUsers);
 

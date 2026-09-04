@@ -566,7 +566,7 @@ function StatsPageContent() {
         friendAcceptedAt: [],
       }),
       "unlocked",
-      "rarity-desc",
+      "unlock-newest",
     );
   }, [uniqueRides, friendCount]);
 

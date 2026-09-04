@@ -9,7 +9,7 @@ import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { isThrillCoaster, normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
-import { cleanCoasterName } from "@/lib/display";
+import { cleanCoasterName, formatManufacturerLabel } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { logRideEvents } from "@/lib/ride-log";
@@ -118,7 +118,10 @@ const WishlistRow = memo(function WishlistRow({
             )}
             {coaster?.manufacturer && (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                {coaster.manufacturer}
+                {formatManufacturerLabel(coaster.manufacturer, {
+                  parkName,
+                  country: parkCountry,
+                }) ?? coaster.manufacturer}
               </span>
             )}
             {coaster?.status && (

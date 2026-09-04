@@ -4,7 +4,7 @@ import Link from "next/link";
 import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterStatPills } from "@/components/coaster-stat-pills";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
-import { cleanCoasterName } from "@/lib/display";
+import { cleanCoasterName, formatManufacturerLabel } from "@/lib/display";
 import { normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug } from "@/lib/slug";
@@ -12,9 +12,13 @@ import type { Coaster } from "@/types/domain";
 
 export function ParkCoasterRow({
   coaster,
+  parkName,
+  parkCountry,
   nofollow = false,
 }: {
   coaster: Coaster;
+  parkName?: string | null;
+  parkCountry?: string | null;
   nofollow?: boolean;
 }) {
   const cName = cleanCoasterName(coaster.name);
@@ -24,6 +28,10 @@ export function ParkCoasterRow({
       openingYear: coaster.opening_year,
     }) === "Defunct";
   const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
+  const manufacturer = formatManufacturerLabel(coaster.manufacturer, {
+    parkName,
+    country: parkCountry,
+  });
   const linkRel = nofollow ? "nofollow" : undefined;
 
   return (
@@ -48,9 +56,9 @@ export function ParkCoasterRow({
                 {rideType}
               </span>
             ) : null}
-            {coaster.manufacturer ? (
+            {manufacturer ? (
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
-                {coaster.manufacturer}
+                {manufacturer}
               </span>
             ) : null}
             {isDefunct ? (

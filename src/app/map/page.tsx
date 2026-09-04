@@ -18,7 +18,7 @@ import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
-import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
+import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
@@ -1470,7 +1470,10 @@ function MapPageContent() {
                                   )}
                                   {coaster.manufacturer && (
                                     <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                                      {coaster.manufacturer}
+                                      {formatManufacturerLabel(coaster.manufacturer, {
+                                        parkName,
+                                        country,
+                                      }) ?? coaster.manufacturer}
                                     </span>
                                   )}
                                   {isDefunct && (

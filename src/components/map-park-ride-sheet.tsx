@@ -10,7 +10,7 @@ import {
   normalizeCoasterDedupKey,
   preferCoasterForDedup,
 } from "@/lib/coaster-dedup";
-import { cleanCoasterName, matchesSearchQuery } from "@/lib/display";
+import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
 import { normalizeLifecycleStatus, isParkDefunct } from "@/lib/coaster-status";
 import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
@@ -174,6 +174,10 @@ export function MapParkRideSheet({
             selectedCoasterId != null && members.some((member) => member.id === selectedCoasterId);
           const title = cleanCoasterName(coaster.name);
           const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
+          const manufacturer = formatManufacturerLabel(coaster.manufacturer, {
+            parkName: park.name,
+            country,
+          });
 
           return (
             <div
@@ -205,9 +209,9 @@ export function MapParkRideSheet({
                         {rideType}
                       </span>
                     ) : null}
-                    {coaster.manufacturer ? (
+                    {manufacturer ? (
                       <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
-                        {coaster.manufacturer}
+                        {manufacturer}
                       </span>
                     ) : null}
                     {isDefunct ? (

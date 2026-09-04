@@ -23,6 +23,7 @@ type AdminUserRow = {
   created_at: string | null;
   last_sign_in_at: string | null;
   updated_at: string | null;
+  unique_credits: number;
 };
 
 function formatWhen(value: string | null): string {
@@ -209,7 +210,8 @@ export default function AdminPage() {
       <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <AppPageHeading>Admin</AppPageHeading>
         <p className="mt-1 text-sm text-slate-500">
-          Trusted operators only. Clear rude names or photos, ban accounts, or review catalog data.
+          Trusted operators only. Clear rude names or photos, ban accounts, peek at user ride logs, or
+          review catalog data.
         </p>
         <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
           <Link
@@ -294,6 +296,8 @@ export default function AdminPage() {
                           </p>
                           <p className="mt-0.5 break-all text-xs text-slate-500">{user.user_id}</p>
                           <p className="mt-1 text-xs text-slate-500">
+                            {user.unique_credits} credit{user.unique_credits === 1 ? "" : "s"}
+                            {" · "}
                             {banned
                               ? `Banned${user.ban_reason ? ` · ${user.ban_reason}` : ""}`
                               : "Active"}
@@ -304,6 +308,12 @@ export default function AdminPage() {
                             {formatWhen(user.last_sign_in_at)}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">
+                            <Link
+                              href={`/admin/users/${encodeURIComponent(user.user_id)}`}
+                              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+                            >
+                              View rides
+                            </Link>
                             <button
                               type="button"
                               disabled={busyId === user.user_id || !user.display_name}

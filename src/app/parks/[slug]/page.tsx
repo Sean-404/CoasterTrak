@@ -217,6 +217,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
           <ParkCoasterList
             coasters={coasters}
             parkName={park.name}
+            parkCountry={park.country}
             crawlFollowIds={coasters.filter(isCoasterSitemapEligible).map((c) => c.id)}
           />
         </div>
