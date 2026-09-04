@@ -15,7 +15,7 @@ export type Coaster = {
   status: string;
   /** Wikidata / Wikipedia enrichment fields (nullable until synced) */
   wikidata_id?: string | null;
-  /** RCDB numeric ID from Wikidata P2751 (deep-link + permitted stats enrich) */
+  /** RCDB numeric ID from Wikidata P2751 (deep-link only; no RCDB stats ingest) */
   rcdb_id?: string | null;
   image_url?: string | null;
   length_ft?: number | null;

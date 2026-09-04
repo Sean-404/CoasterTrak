@@ -34,8 +34,8 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
               className={isDark ? "underline-offset-2 hover:text-slate-300 hover:underline" : "underline-offset-2 hover:text-slate-600 hover:underline"}
             >
               Wikidata
-            </a>
-            ,{" "}
+            </a>{" "}
+            and{" "}
             <a
               href="https://en.wikipedia.org/"
               target="_blank"
@@ -44,7 +44,7 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
             >
               Wikipedia
             </a>
-            , and{" "}
+            . Ride pages may link to{" "}
             <a
               href="https://rcdb.com/"
               target="_blank"
@@ -52,8 +52,8 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
               className={isDark ? "underline-offset-2 hover:text-slate-300 hover:underline" : "underline-offset-2 hover:text-slate-600 hover:underline"}
             >
               RCDB
-            </a>
-            .
+            </a>{" "}
+            when an identifier is available.
           </p>
         </div>
         <nav

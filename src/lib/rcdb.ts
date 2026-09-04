@@ -1,6 +1,6 @@
 /**
  * RCDB identifiers from Wikidata P2751 (https://www.wikidata.org/wiki/Property:P2751).
- * IDs + deep-links are always fine. Stats ingest uses written RCDB permission (see data:enrich-rcdb).
+ * IDs + outbound deep-links only — we do not fetch or import RCDB stats/content.
  */
 
 const RCDB_ID_RE = /^[1-9]\d*$/;

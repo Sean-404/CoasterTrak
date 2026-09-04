@@ -101,8 +101,8 @@ export default function AboutPage() {
               className="font-medium text-amber-700 underline-offset-2 hover:underline"
             >
               Wikipedia
-            </a>{" "}
-            and ride statistics from{" "}
+            </a>
+            . When Wikidata includes an{" "}
             <a
               href="https://rcdb.com/"
               target="_blank"
@@ -111,10 +111,10 @@ export default function AboutPage() {
             >
               RCDB
             </a>{" "}
-            (Roller Coaster Database), used with permission. We match and clean sources so map, park, and ride pages
-            stay aligned, and apply known corrections when a page is an incident, a duplicate, or a clearly wrong
-            park link. Entries can still be incomplete or outdated. Treat the catalog as a planning aid and confirm
-            hours, closures, and restrictions with the park before you travel.
+            identifier, ride pages may link out to that entry — we do not import RCDB stats or other content. We match
+            and clean sources so map, park, and ride pages stay aligned, and apply known corrections when a page is an
+            incident, a duplicate, or a clearly wrong park link. Entries can still be incomplete or outdated. Treat the
+            catalog as a planning aid and confirm hours, closures, and restrictions with the park before you travel.
           </p>
           <p>
             If a listing looks wrong,{" "}

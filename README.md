@@ -94,20 +94,13 @@ Stats come from **Wikidata** (SPARQL → CoasterTrak Data pipeline) and optional
 
 - `npm run wikipedia:backfill` — fills **null** columns only; use `--dry-run` to preview.
 
-### RCDB identifiers and stats
+### RCDB identifiers (links only)
 
-Wikidata exposes RCDB IDs (property P2751). Catalog sync stores them on `coasters.rcdb_id` and coaster pages deep-link to rcdb.com.
+Wikidata exposes RCDB IDs (property P2751). Catalog sync stores them on `coasters.rcdb_id` and coaster pages may deep-link to rcdb.com.
 
-**Permission:** CoasterTrak has written permission from RCDB to null-fill missing stats (length / height / speed / inversions / duration / status) and credit RCDB as a source. Photos stay off-limits.
+**We do not fetch, scrape, or import RCDB stats or other content.** RCDB does not share data with other projects; identifiers come from Wikidata only.
 
-- Rate-limited live enrich (preferred in CI):
-  `npm run data:enrich-rcdb -- --fetch --limit 2500`
-- Or apply a JSON export: put rows at `data/rcdb_stats.json` (see `data/rcdb_stats.example.json`) then
-  `npm run data:enrich-rcdb -- --from data/rcdb_stats.json`
-- Add `--write-db` to also write Supabase null-fills + `data_coaster_field_overrides` (`source=rcdb`)
-- Refuse enrich: `RCDB_PERMISSION_GRANTED=0`
-
-Backfill IDs only: `npm run data:backfill-rcdb-ids` after migration `20260904120000_coasters_rcdb_id.sql`.
+Backfill IDs from the Wikidata snapshot: `npm run data:backfill-rcdb-ids` after migration `20260904120000_coasters_rcdb_id.sql`.
 
 ### CoasterTrak Data — ThemeParks.wiki verification
 
@@ -132,8 +125,6 @@ data:materialize-snapshot   → data/wikidata_coasters.json
         ↓
 data:enrich-wikipedia
         ↓
-data:enrich-rcdb (--fetch)
-        ↓
 data:analyze-catalog
 data:validate-wikidata
         ↓
@@ -146,8 +137,7 @@ data:publish-catalog [--apply]
 | `data:normalize-wikidata` | Deduped rows → `data/processed/wikidata/{runId}/` |
 | `data:materialize-snapshot` | Copy processed → working `data/wikidata_coasters.json` |
 | `data:enrich-wikipedia` | Fill gaps from enwiki infobox HTML |
-| `data:enrich-rcdb` | Null-fill from RCDB (`--fetch` or `--from` export; permission granted) |
-| `data:backfill-rcdb-ids` | Set `coasters.rcdb_id` from Wikidata snapshot P2751 |
+| `data:backfill-rcdb-ids` | Set `coasters.rcdb_id` from Wikidata snapshot P2751 (IDs only) |
 | `data:validate-wikidata` | Quality report → `data/reports/wikidata/{runId}/` |
 | `data:analyze-catalog` | Dedupe/conflicts + ThemeParks snapshot verify |
 | `data:publish-catalog` | Dry-run by default; `--apply` uploads to Supabase |
