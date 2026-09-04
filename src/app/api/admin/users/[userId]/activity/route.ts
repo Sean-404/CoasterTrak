@@ -187,9 +187,17 @@ export async function GET(
   let totalRides = 0;
 
   const rides: AdminUserRide[] = (ridesRes.data ?? []).map((row) => {
-    const fixed = row.coasters ? applyCoasterKnownFixes(row.coasters) : null;
-    const parkName = fixed?.parks?.name?.trim() || null;
-    const country = fixed?.parks?.country?.trim() || null;
+    const raw = row.coasters;
+    const fixed = raw
+      ? applyCoasterKnownFixes({
+          name: raw.name?.trim() || `Coaster #${row.coaster_id}`,
+          coaster_type: raw.coaster_type ?? undefined,
+          manufacturer: raw.manufacturer,
+          status: raw.status ?? undefined,
+        })
+      : null;
+    const parkName = raw?.parks?.name?.trim() || null;
+    const country = raw?.parks?.country?.trim() || null;
     if (parkName) parks.add(parkName);
     if (country) countries.add(country);
     const summary = summaryByCoaster.get(row.coaster_id);
@@ -198,12 +206,12 @@ export async function GET(
     return {
       coasterId: row.coaster_id,
       name: fixed?.name?.trim() || `Coaster #${row.coaster_id}`,
-      parkId: fixed?.park_id ?? null,
+      parkId: raw?.park_id ?? null,
       parkName,
       country,
-      coasterType: fixed?.coaster_type ?? null,
-      manufacturer: fixed?.manufacturer ?? null,
-      status: fixed?.status ?? null,
+      coasterType: fixed?.coaster_type ?? raw?.coaster_type ?? null,
+      manufacturer: fixed?.manufacturer ?? raw?.manufacturer ?? null,
+      status: fixed?.status ?? raw?.status ?? null,
       rating: typeof row.rating === "number" ? row.rating : null,
       riddenAt: row.ridden_at,
       totalRides: quantity,
