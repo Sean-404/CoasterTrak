@@ -30,6 +30,12 @@ function parkNameFromRow(row: DbRow): string | null {
   return p.name?.trim() || null;
 }
 
+function candidatePriority(row: DbRow): number {
+  if (row.enwiki_title?.trim()) return 0;
+  if (row.wikidata_id?.trim()) return 1;
+  return 2;
+}
+
 async function main() {
   const dryRun = hasFlag("--dry-run");
   const limit = arg("--limit") ? parseInt(arg("--limit")!, 10) : 500;
@@ -52,22 +58,29 @@ async function main() {
     process.exit(1);
   }
 
-  const candidates = (rows ?? []).filter(
-    (r) =>
-      !(r.summary_text && r.summary_text.trim().length > 40) &&
-      (Boolean(r.enwiki_title?.trim()) || Boolean(r.wikidata_id?.trim()) || Boolean(r.name?.trim())),
-  );
+  const candidates = (rows ?? [])
+    .filter(
+      (r) =>
+        !(r.summary_text && r.summary_text.trim().length > 40) &&
+        (Boolean(r.enwiki_title?.trim()) || Boolean(r.wikidata_id?.trim()) || Boolean(r.name?.trim())),
+    )
+    .sort((a, b) => candidatePriority(a) - candidatePriority(b) || a.id - b.id);
+
+  const withEnwiki = candidates.filter((r) => r.enwiki_title?.trim()).length;
+  const withQid = candidates.filter((r) => !r.enwiki_title?.trim() && r.wikidata_id?.trim()).length;
   console.error(
-    `${candidates.length} candidates (processing up to ${limit})${dryRun ? " [dry-run]" : ""}`,
+    `${candidates.length} candidates (enwiki=${withEnwiki}, qid-only=${withQid}; processing up to ${limit})${dryRun ? " [dry-run]" : ""}`,
   );
 
   let processed = 0;
   let updated = 0;
   let skipped = 0;
+  const total = Math.min(limit, candidates.length);
 
   for (const row of candidates) {
     if (processed >= limit) break;
     processed += 1;
+    console.error(`[${processed}/${total}] #${row.id} ${row.name}…`);
 
     const summary = await resolveCoasterWikipediaSummary({
       rideName: row.name,
@@ -78,12 +91,13 @@ async function main() {
     const extract = summary?.extract?.trim() || null;
     if (!summary || !extract || extract.length < 40) {
       skipped += 1;
+      console.error(`  skip (no safe match)`);
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
       continue;
     }
 
     const summaryText = clampSummaryText(extract, 1200);
-    console.error(`  #${row.id} ${row.name} ← ${summary.title}: ${summaryText.slice(0, 72)}…`);
+    console.error(`  ← ${summary.title}: ${summaryText.slice(0, 72)}…`);
 
     if (!dryRun) {
       const { error: upErr } = await supabase

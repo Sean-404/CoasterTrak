@@ -28,6 +28,32 @@ describe("coaster Wikipedia helpers", () => {
     ).toBe(true);
   });
 
+  it("accepts family coasters whose lead mentions an amusement park", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    expect(
+      isLikelyCoasterSummary("Freedom Flyer", {
+        title: "Freedom Flyer",
+        extract:
+          "Freedom Flyer is a Suspended Family Coaster at the Fun Spot America amusement park in Orlando, Florida.",
+        url: "https://en.wikipedia.org/wiki/Freedom_Flyer",
+        imageUrl: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("allows Disaster Transport despite disaster in the ride name", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    expect(
+      isLikelyCoasterSummary("Disaster Transport", {
+        title: "Disaster Transport",
+        extract:
+          "Disaster Transport was an enclosed roller coaster at Cedar Point in Sandusky, Ohio.",
+        url: "https://en.wikipedia.org/wiki/Disaster_Transport",
+        imageUrl: null,
+      }),
+    ).toBe(true);
+  });
+
   it("rejects Wikipedia coaster-type taxonomy pages", async () => {
     const { isLikelyCoasterSummary, isGenericCoasterTypeArticle } = await import(
       "@/lib/wikipedia-summary"

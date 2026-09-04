@@ -85,7 +85,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx scripts/backfill-wikipedia-summaries.ts --limit 2000 --delay-ms 200
+        run: npx tsx scripts/backfill-wikipedia-summaries.ts --limit 5000 --delay-ms 200
 
       # Post-sync: live Supabase analyze (field completeness, duplicates, outliers),
       # optional AI review, publish report for /admin/data/catalog.

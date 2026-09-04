@@ -38,7 +38,7 @@ export async function fetchWikipediaSummary(title: string): Promise<WikipediaSum
       `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeWikiTitle(trimmed)}`,
       {
         headers: { "User-Agent": WIKIPEDIA_USER_AGENT, Accept: "application/json" },
-        next: { revalidate: 86400 * 7 },
+        signal: AbortSignal.timeout(15_000),
       },
     );
     if (!res.ok) return null;
@@ -70,7 +70,7 @@ export async function fetchEnwikiTitleFromWikidata(wikidataId: string): Promise<
   try {
     const res = await fetch(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`, {
       headers: { "User-Agent": WIKIPEDIA_USER_AGENT, Accept: "application/json" },
-      next: { revalidate: 86400 * 30 },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as {
@@ -160,9 +160,13 @@ export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSumma
   if (isGenericCoasterTypeArticle(summary.title, summary.extract)) {
     return false;
   }
+  const rideNameLower = rideName.toLowerCase();
+  const disasterInRideName =
+    /\b(disaster|accident|incident|derailment|collision)\b/.test(rideNameLower);
   if (
-    /\b(disaster|accident|incident|derailment|collision)\b/.test(title) ||
-    /\b(disaster|accident|incident)\b/.test(extract.slice(0, 160))
+    !disasterInRideName &&
+    (/\b(disaster|accident|incident|derailment|collision)\b/.test(title) ||
+      /\b(disaster|accident|incident)\b/.test(extract.slice(0, 160)))
   ) {
     return false;
   }
@@ -183,9 +187,11 @@ export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSumma
   const nameOverlap = strongHits >= 1 || titleHits + extractHits >= 2;
 
   const coasterLike =
-    /\b(roller coaster|steel coaster|wooden coaster|launched roller coaster|mine train|junior roller coaster|inverted roller coaster|shuttle roller coaster)\b/.test(
+    /\b(roller coaster|steel coaster|wooden coaster|family coaster|junior coaster|mine train|launched roller coaster|inverted roller coaster|shuttle roller coaster|suspended coaster|spinning coaster|powered coaster)\b/.test(
       extract,
-    ) || /\(roller coaster\)/i.test(summary.title);
+    ) ||
+    /\b\w[\w-]* coaster\b/.test(extract) ||
+    /\(roller coaster\)/i.test(summary.title);
 
   if (/\b(amusement park|theme park|summer resort|water park)\b/.test(extract.slice(0, 120)) && !coasterLike) {
     return false;
@@ -213,6 +219,7 @@ export async function searchEnwikiTitles(query: string, limit = 5): Promise<stri
       `&limit=${limit}&namespace=0&format=json&origin=*`;
     const res = await fetch(url, {
       headers: { "User-Agent": WIKIPEDIA_USER_AGENT, Accept: "application/json" },
+      signal: AbortSignal.timeout(15_000),
     });
     if (!res.ok) return [];
     const data = (await res.json()) as [string, string[]];
