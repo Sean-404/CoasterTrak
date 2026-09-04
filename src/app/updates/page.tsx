@@ -19,7 +19,7 @@ export default function UpdatesPage() {
           What’s new
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-700">
-          Occasional product notes — no inbox spam. Trip photos and short posts still live on{" "}
+          Occasional product notes. Trip photos and short posts still live on{" "}
           <a
             href={INSTAGRAM_URL}
             target="_blank"
