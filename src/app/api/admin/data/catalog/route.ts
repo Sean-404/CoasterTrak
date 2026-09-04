@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const reviewType = url.searchParams.get("reviewType")?.trim() || null;
-  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? "100") || 100, 1), 300);
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? "100") || 100, 1), 400);
 
   const snapshot = await loadCatalogQualitySnapshot(ctx.service);
 

@@ -1,0 +1,63 @@
+name: Catalog quality
+
+# Analyze live Supabase catalog (incl. field completeness), optional AI review, publish admin report.
+on:
+  schedule:
+    # Weekly — catches gaps without waiting for the monthly Wikidata refresh.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      skip_ai:
+        description: "Skip AI review step"
+        type: boolean
+        default: false
+      ai_limit:
+        description: "AI review item limit"
+        type: string
+        default: "20"
+
+jobs:
+  catalog-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+    steps:
+      - name: Checkout CoasterTrak
+        uses: actions/checkout@v5
+
+      - name: Checkout coastertrak-data
+        uses: actions/checkout@v5
+        with:
+          repository: Sean-404/coastertrak-data
+          path: coastertrak-data
+          # Needed if the data repo is private; fine for public too.
+          token: ${{ secrets.COASTERTRAK_DATA_TOKEN || github.token }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install CoasterTrak dependencies
+        run: npm ci
+
+      - name: Install coastertrak-data dependencies
+        working-directory: coastertrak-data
+        run: npm ci
+
+      - name: Auto-repair + analyze + publish
+        env:
+          COASTERTRAK_DATA_DIR: ${{ github.workspace }}/coastertrak-data
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          AI_REVIEW_LIMIT: ${{ inputs.ai_limit || '20' }}
+        run: |
+          ARGS=()
+          if [ "${{ inputs.skip_ai }}" = "true" ]; then
+            ARGS+=(--skip-ai)
+          fi
+          npx tsx scripts/post-sync-catalog-quality.ts "${ARGS[@]}"

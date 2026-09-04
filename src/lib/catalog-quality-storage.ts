@@ -47,10 +47,14 @@ export type CatalogReviewItem = {
   entityId?: string;
   entityName?: string;
   field?: string;
+  fields?: string[];
   confidence?: string;
   reasons?: string[];
   reason?: string;
   action?: string;
+  dbId?: number;
+  parkName?: string | null;
+  publicPath?: string;
 };
 
 export type CatalogReviewQueue = {

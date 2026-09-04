@@ -87,13 +87,15 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npx tsx scripts/backfill-wikipedia-summaries.ts --limit 2000 --delay-ms 200
 
-      # Post-sync: analyze live Supabase catalog, optional AI review, publish admin report.
-      # Requires Sean-404/coastertrak-data repo + AI_GATEWAY_API_KEY secret (AI step skipped if unset).
+      # Post-sync: live Supabase analyze (field completeness, duplicates, outliers),
+      # optional AI review, publish report for /admin/data/catalog.
+      # Requires Sean-404/coastertrak-data on GitHub + secrets below (AI skipped if key unset).
       - name: Checkout coastertrak-data
         uses: actions/checkout@v5
         with:
           repository: Sean-404/coastertrak-data
           path: coastertrak-data
+          token: ${{ secrets.COASTERTRAK_DATA_TOKEN || github.token }}
 
       - name: Apply catalog auto-repairs (DB)
         env:
