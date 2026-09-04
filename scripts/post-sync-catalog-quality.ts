@@ -23,8 +23,32 @@ const coastertrakDataDir =
   resolve(process.cwd(), "..", "coastertrak-data");
 
 const skipAi = process.argv.includes("--skip-ai");
+const skipFill = process.argv.includes("--skip-fill");
 const aiLimit = process.env.AI_REVIEW_LIMIT?.trim() || "20";
 const envFile = process.env.COASTERTRAK_ENV_FILE?.trim();
+const fillLimit = process.env.CATALOG_FILL_LIMIT?.trim() || "800";
+const fillImageLimit = process.env.CATALOG_FILL_IMAGE_LIMIT?.trim() || "400";
+
+function runNodeTsx(scriptRel: string, extraArgs: string[] = []): void {
+  const script = resolve(process.cwd(), scriptRel);
+  const tsxArgs = ["tsx"];
+  if (envFile && existsSync(envFile)) {
+    tsxArgs.push(`--env-file=${envFile}`);
+  }
+  tsxArgs.push(script, ...extraArgs);
+
+  const cmd = process.platform === "win32" ? "npx.cmd" : "npx";
+  const result = spawnSync(cmd, tsxArgs, {
+    cwd: process.cwd(),
+    stdio: "inherit",
+    env: process.env,
+    shell: process.platform === "win32",
+  });
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
 
 function runCli(args: string[]): void {
   const tsxArgs = ["tsx"];
@@ -67,8 +91,22 @@ async function main(): Promise<void> {
         `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
         `${repair.parkLinksUpdated} park links`,
     );
+
+    if (!skipFill) {
+      console.log("Filling Wikipedia gaps (height/speed/length/mfr/image/opening year)…");
+      runNodeTsx("scripts/fill-catalog-gaps.ts", [
+        "--limit",
+        fillLimit,
+        "--image-limit",
+        fillImageLimit,
+        "--delay-ms",
+        process.env.CATALOG_FILL_DELAY_MS?.trim() || "200",
+      ]);
+    } else {
+      console.log("Skipping Wikipedia gap fill (--skip-fill).");
+    }
   } else {
-    console.log("Skipping auto-repair (Supabase env not set).");
+    console.log("Skipping auto-repair / gap fill (Supabase env not set).");
   }
 
   runCli(["analyze:supabase"]);

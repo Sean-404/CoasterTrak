@@ -114,4 +114,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
           AI_REVIEW_LIMIT: "20"
-        run: npx tsx scripts/post-sync-catalog-quality.ts
+        # Wikipedia backfills already ran above in this workflow.
+        run: npx tsx scripts/post-sync-catalog-quality.ts --skip-fill

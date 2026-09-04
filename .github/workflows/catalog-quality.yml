@@ -48,13 +48,16 @@ jobs:
         working-directory: coastertrak-data
         run: npm ci
 
-      - name: Auto-repair + analyze + publish
+      - name: Auto-repair + Wikipedia gap fill + analyze + publish
         env:
           COASTERTRAK_DATA_DIR: ${{ github.workspace }}/coastertrak-data
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
           AI_REVIEW_LIMIT: ${{ inputs.ai_limit || '20' }}
+          CATALOG_FILL_LIMIT: "800"
+          CATALOG_FILL_IMAGE_LIMIT: "400"
+          CATALOG_FILL_DELAY_MS: "200"
         run: |
           ARGS=()
           if [ "${{ inputs.skip_ai }}" = "true" ]; then

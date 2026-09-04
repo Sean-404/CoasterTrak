@@ -18,6 +18,7 @@ export type InfoboxCoasterStats = {
   duration_s?: number;
   manufacturer?: string;
   coaster_type?: string;
+  opening_year?: number;
 };
 
 const INFOBOX_START_RE =
@@ -227,7 +228,27 @@ export function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxC
     if (ct) out.coaster_type = ct;
   }
 
+  const openedRaw = pickParam(p, ["opened", "year", "opened_date", "opened1", "open"]);
+  if (openedRaw) {
+    const year = parseOpeningYear(openedRaw);
+    if (year != null) out.opening_year = year;
+  }
+
   return out;
+}
+
+/** Extract a plausible opening year from Wikipedia infobox date text / templates. */
+export function parseOpeningYear(raw: string): number | null {
+  const t = cleanInfoboxWikiValue(raw);
+  const startDate = /\{\{\s*[Ss]tart\s*date\s*\|(\d{4})\b/.exec(raw) ?? /\{\{\s*[Ss]tart\s*date\s*\|(\d{4})\b/.exec(t);
+  if (startDate) {
+    const y = Number(startDate[1]);
+    if (y >= 1880 && y <= 2100) return y;
+  }
+  const yearOnly = /\b(18\d{2}|19\d{2}|20\d{2})\b/.exec(t);
+  if (!yearOnly) return null;
+  const y = Number(yearOnly[1]);
+  return y >= 1880 && y <= 2100 ? y : null;
 }
 
 type WikiPage = {

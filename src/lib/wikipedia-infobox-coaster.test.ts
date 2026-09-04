@@ -30,6 +30,22 @@ describe("wikipedia-infobox-coaster", () => {
     });
   });
 
+  it("parses opening year from opened / Start date templates", () => {
+    const wt = `
+{{Infobox roller coaster
+| name = Nemesis
+| manufacturer = [[Bolliger & Mabillard]]
+| opened = {{Start date|1994|3|19|df=y}}
+| height = {{convert|13|m|ft|0|abbr=on}}
+}}
+`;
+    expect(parseInfoboxCoasterStatsFromWikitext(wt)).toMatchObject({
+      opening_year: 1994,
+      manufacturer: "Bolliger & Mabillard",
+      height_ft: 43,
+    });
+  });
+
   it("parses dual roller coaster track-1 fields", () => {
     const wt = `
 {{Infobox dual roller coaster

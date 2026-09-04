@@ -2,7 +2,7 @@
  * Fill missing coaster fields from English Wikipedia roller-coaster infoboxes
  * (MediaWiki wikitext API — not HTML scraping).
  *
- * Fills: length/height/speed/duration/inversions, manufacturer, coaster_type.
+ * Fills: length/height/speed/duration/inversions, manufacturer, coaster_type, opening_year.
  * Resolves article titles from DB `enwiki_title`, Wikidata snapshot, or live sitelinks.
  *
  * Usage:
@@ -39,6 +39,7 @@ type DbCoaster = {
   speed_mph: number | null;
   duration_s: number | null;
   inversions: number | null;
+  opening_year: number | null;
 };
 
 function typeMissing(c: DbCoaster): boolean {
@@ -57,6 +58,7 @@ function needsAnyFill(c: DbCoaster): boolean {
     c.speed_mph == null ||
     c.duration_s == null ||
     c.inversions == null ||
+    c.opening_year == null ||
     typeMissing(c) ||
     manufacturerMissing(c)
   );
@@ -69,6 +71,7 @@ function missingFillCount(c: DbCoaster): number {
   if (c.speed_mph == null) n++;
   if (c.duration_s == null) n++;
   if (c.inversions == null) n++;
+  if (c.opening_year == null) n++;
   if (typeMissing(c)) n++;
   if (manufacturerMissing(c)) n++;
   return n;
@@ -106,6 +109,7 @@ function mergePatch(
   if (row.speed_mph == null && stats.speed_mph != null) patch.speed_mph = stats.speed_mph;
   if (row.duration_s == null && stats.duration_s != null) patch.duration_s = stats.duration_s;
   if (row.inversions == null && stats.inversions != null) patch.inversions = stats.inversions;
+  if (row.opening_year == null && stats.opening_year != null) patch.opening_year = stats.opening_year;
   if (manufacturerMissing(row) && stats.manufacturer) patch.manufacturer = stats.manufacturer;
   if (typeMissing(row) && stats.coaster_type) patch.coaster_type = stats.coaster_type;
   if (!row.enwiki_title?.trim() && resolvedTitle) patch.enwiki_title = resolvedTitle;
@@ -162,7 +166,7 @@ async function main() {
       supabase
         .from("coasters")
         .select(
-          "id, name, wikidata_id, enwiki_title, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions",
+          "id, name, wikidata_id, enwiki_title, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions, opening_year",
         )
         .order("id", { ascending: true })
         .range(from, to),

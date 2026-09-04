@@ -27,6 +27,7 @@
     "data:publish-catalog": "tsx scripts/data/publish-catalog.ts",
     "data:relink-placeholder-parks": "tsx --env-file=.env.local scripts/relink-placeholder-parks.ts",
     "data:auto-repair": "tsx scripts/apply-catalog-auto-repairs.ts",
+    "data:fill-gaps": "tsx scripts/fill-catalog-gaps.ts",
     "data:catalog-quality": "tsx scripts/post-sync-catalog-quality.ts"
   },
   "dependencies": {
