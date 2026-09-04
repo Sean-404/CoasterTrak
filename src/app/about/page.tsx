@@ -67,7 +67,11 @@ export default function AboutPage() {
             when enabled, helps cover hosting.
           </p>
           <p>
-            Occasional updates and trip photos are on{" "}
+            Product notes live on{" "}
+            <Link href="/updates" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              What’s new
+            </Link>
+            . Trip photos and short posts are on{" "}
             <a
               href={INSTAGRAM_URL}
               target="_blank"

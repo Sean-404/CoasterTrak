@@ -5,15 +5,19 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isAdminUser } from "@/lib/admin";
 import { DISCOVER_HREF, isDiscoverPath } from "@/lib/discover";
+import { hasUnseenProductUpdates } from "@/lib/product-updates";
+import { readSeenUpdateId, UPDATES_SEEN_EVENT } from "@/lib/product-updates-seen";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const discoverActive = isDiscoverPath(pathname);
+  const updatesActive = pathname === "/updates" || pathname.startsWith("/updates/");
   const [isAuthed, setIsAuthed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasUnseenUpdates, setHasUnseenUpdates] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -35,6 +39,19 @@ export function SiteHeader() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    function refreshUnseen() {
+      setHasUnseenUpdates(hasUnseenProductUpdates(readSeenUpdateId()));
+    }
+    refreshUnseen();
+    window.addEventListener(UPDATES_SEEN_EVENT, refreshUnseen);
+    window.addEventListener("storage", refreshUnseen);
+    return () => {
+      window.removeEventListener(UPDATES_SEEN_EVENT, refreshUnseen);
+      window.removeEventListener("storage", refreshUnseen);
+    };
+  }, [pathname]);
 
   async function signOut() {
     const supabase = getSupabaseBrowserClient();
@@ -66,6 +83,23 @@ export function SiteHeader() {
       </Link>
       <Link href="/achievements" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Achievements
+      </Link>
+      <Link
+        href="/updates"
+        onClick={() => setMenuOpen(false)}
+        aria-current={updatesActive ? "page" : undefined}
+        className={`inline-flex items-center gap-1.5 transition ${
+          updatesActive ? "text-white" : "text-slate-400 hover:text-white"
+        }`}
+      >
+        Updates
+        {hasUnseenUpdates && !updatesActive ? (
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400"
+            title="New updates"
+            aria-label="New updates"
+          />
+        ) : null}
       </Link>
       {isAdmin ? (
         <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-amber-400 transition hover:text-amber-300">

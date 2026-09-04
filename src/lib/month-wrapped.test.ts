@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALL_TIME_WRAPPED_PERIOD,
+  buildAllTimeWrappedSummary,
   buildMonthWrappedSummary,
   buildWrappedSummary,
   formatYearMonthLabel,
@@ -33,6 +35,7 @@ describe("period helpers", () => {
     expect(monthDateRange("2024-02")?.end).toBe("2024-02-29");
     expect(periodDateRange("2026")).toEqual({ start: "2026-01-01", end: "2026-12-31" });
     expect(periodDateRange("2026-08")).toEqual({ start: "2026-08-01", end: "2026-08-31" });
+    expect(periodDateRange(ALL_TIME_WRAPPED_PERIOD)).toBeNull();
   });
 
   it("formats and lists months and wrapped options", () => {
@@ -44,7 +47,8 @@ describe("period helpers", () => {
       "2026-07",
     ]);
     const options = listWrappedPeriodOptions(3, 2, new Date(2026, 8, 4));
-    expect(options[0]).toEqual({ value: "2026", label: "2026", scope: "year" });
+    expect(options[0]).toEqual({ value: "all", label: "All-time", scope: "all" });
+    expect(options[1]).toEqual({ value: "2026", label: "2026", scope: "year" });
     expect(options.some((o) => o.value === "2026-09")).toBe(true);
     expect(options.some((o) => o.value === "2025" && o.scope === "year")).toBe(true);
   });
@@ -166,5 +170,28 @@ describe("buildWrappedSummary", () => {
     expect(summary.topRide?.name).toBe("Millennium Force");
     expect(summary.topRide?.reason).toBe("most_ridden");
     expect(topRideReasonLabel("most_ridden")).toMatch(/Most rides dated this month/i);
+  });
+
+  it("builds all-time from unique credits without dates", () => {
+    const summary = buildAllTimeWrappedSummary(
+      [
+        { coasterId: 1, totalRides: 2 },
+        { coasterId: 3, totalRides: 5 },
+      ],
+      metaMap,
+    );
+    expect(summary.empty).toBe(false);
+    expect(summary.scope).toBe("all");
+    expect(summary.period).toBe("all");
+    expect(summary.activeDays).toBe(0);
+    expect(summary.uniqueCredits).toBe(2);
+    expect(summary.totalRides).toBe(7);
+    expect(summary.topRide?.name).toBe("Nemesis");
+    expect(summary.topPark?.name).toBe("Cedar Point");
+    expect(topRideReasonLabel("highest_rated", "all")).toMatch(/among your credits/i);
+  });
+
+  it("returns empty all-time when there are no credits", () => {
+    expect(buildAllTimeWrappedSummary([], metaMap).empty).toBe(true);
   });
 });

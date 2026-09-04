@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import {
+  ALL_TIME_WRAPPED_PERIOD,
   formatWrappedPeriodLabel,
   listWrappedPeriodOptions,
   topRideReasonLabel,
@@ -16,6 +17,8 @@ type Props = {
   loading: boolean;
   error: string | null;
   isOwnStats: boolean;
+  /** True when the user has any credits (dated or not) — empty calendar periods can point here. */
+  hasAnyCredits?: boolean;
 };
 
 export function MonthWrappedCard({
@@ -25,19 +28,24 @@ export function MonthWrappedCard({
   loading,
   error,
   isOwnStats,
+  hasAnyCredits = false,
 }: Props) {
   const periodOptions = useMemo(() => listWrappedPeriodOptions(18, 4), []);
-  const scope = summary?.scope ?? (period.length === 4 ? "year" : "month");
+  const scope =
+    summary?.scope ??
+    (period === ALL_TIME_WRAPPED_PERIOD ? "all" : period.length === 4 ? "year" : "month");
   const label = summary?.label ?? formatWrappedPeriodLabel(period);
-  const parksHeading = scope === "year" ? "Parks this year" : "Parks this month";
-  const quietTitle = scope === "year" ? "Quiet year" : "Quiet month";
+  const parksHeading =
+    scope === "all" ? "Parks" : scope === "year" ? "Parks this year" : "Parks this month";
+  const quietTitle =
+    scope === "all" ? "No credits yet" : scope === "year" ? "Quiet year" : "Quiet month";
 
   return (
     <section className="mb-4 overflow-hidden rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-slate-50 p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-            {scope === "year" ? "Year Wrapped" : "Month Wrapped"}
+            {scope === "all" ? "All-time Wrapped" : scope === "year" ? "Year Wrapped" : "Month Wrapped"}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-slate-900 sm:text-xl">{label}</h2>
         </div>
@@ -50,7 +58,11 @@ export function MonthWrappedCard({
           >
             {periodOptions.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.scope === "year" ? `${option.label} · full year` : option.label}
+                {option.scope === "all"
+                  ? "All-time · every credit"
+                  : option.scope === "year"
+                    ? `${option.label} · full year`
+                    : option.label}
               </option>
             ))}
           </select>
@@ -58,17 +70,23 @@ export function MonthWrappedCard({
       </div>
 
       {loading ? (
-        <p className="mt-4 text-sm text-slate-500">Loading {scope}…</p>
+        <p className="mt-4 text-sm text-slate-500">Loading {scope === "all" ? "all-time" : scope}…</p>
       ) : error ? (
         <p className="mt-4 text-sm text-red-600">{error}</p>
       ) : !summary || summary.empty ? (
         <div className="mt-4 rounded-lg border border-dashed border-slate-300 bg-white/70 px-4 py-5">
           <p className="text-base font-semibold text-slate-900">{quietTitle}</p>
           <p className="mt-1 max-w-xl text-sm leading-relaxed text-slate-600">
-            {isOwnStats ? (
+            {scope === "all" ? (
+              isOwnStats ? (
+                <>Mark a ride as ridden to start your all-time Wrapped. No date needed.</>
+              ) : (
+                <>No credits logged yet.</>
+              )
+            ) : isOwnStats ? (
               <>
-                No dated rides in {label} — that&apos;s fine. Next time you&apos;re at a park, log a credit
-                with a date and Wrapped will fill in.
+                No dated rides in {label}. Month and year Wrapped only count credits logged with a
+                date — your undated credits still show in All-time.
               </>
             ) : (
               <>No dated rides logged in {label}.</>
@@ -76,12 +94,22 @@ export function MonthWrappedCard({
           </p>
           {isOwnStats ? (
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href="/map"
-                className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
-              >
-                Browse map
-              </Link>
+              {scope !== "all" && hasAnyCredits ? (
+                <button
+                  type="button"
+                  onClick={() => onPeriodChange(ALL_TIME_WRAPPED_PERIOD)}
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+                >
+                  Open All-time Wrapped
+                </button>
+              ) : (
+                <Link
+                  href="/map"
+                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+                >
+                  Browse map
+                </Link>
+              )}
               <Link
                 href="/wishlist"
                 className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:border-slate-400"
@@ -89,15 +117,27 @@ export function MonthWrappedCard({
                 Open wishlist
               </Link>
             </div>
+          ) : scope !== "all" && hasAnyCredits ? (
+            <button
+              type="button"
+              onClick={() => onPeriodChange(ALL_TIME_WRAPPED_PERIOD)}
+              className="mt-4 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400"
+            >
+              Open All-time Wrapped
+            </button>
           ) : null}
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div
+            className={`grid grid-cols-2 gap-2 ${scope === "all" ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+          >
             <StatChip label="Credits" value={String(summary.uniqueCredits)} />
             <StatChip label="Rides" value={String(summary.totalRides)} />
             <StatChip label="Parks" value={String(summary.uniqueParks)} />
-            <StatChip label="Active days" value={String(summary.activeDays)} />
+            {scope !== "all" ? (
+              <StatChip label="Active days" value={String(summary.activeDays)} />
+            ) : null}
           </div>
 
           <HighlightCard
@@ -158,14 +198,16 @@ export function MonthWrappedCard({
             <div className="flex flex-wrap gap-2 text-sm text-slate-600">
               {summary.tallestRide ? (
                 <span className="rounded-full bg-white px-3 py-1 ring-1 ring-slate-200">
-                  Tallest logged: <strong className="font-semibold text-slate-900">{summary.tallestRide.name}</strong>
+                  Tallest logged:{" "}
+                  <strong className="font-semibold text-slate-900">{summary.tallestRide.name}</strong>
                   {" · "}
                   {Math.round(summary.tallestRide.heightFt)} ft
                 </span>
               ) : null}
               {summary.fastestRide ? (
                 <span className="rounded-full bg-white px-3 py-1 ring-1 ring-slate-200">
-                  Fastest logged: <strong className="font-semibold text-slate-900">{summary.fastestRide.name}</strong>
+                  Fastest logged:{" "}
+                  <strong className="font-semibold text-slate-900">{summary.fastestRide.name}</strong>
                   {" · "}
                   {Math.round(summary.fastestRide.speedMph)} mph
                 </span>

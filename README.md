@@ -114,7 +114,7 @@ Compare the live catalog against [ThemeParks.wiki](https://api.themeparks.wiki/)
 
 - `npm run data:match-themeparks` — auto-matches **all** catalog parks by name + cached DB links; writes `data/themeparks-match-report.json`
 - `npm run data:match-themeparks -- --write-db` — persists links, findings, and review queue
-- Admin review: `/admin/data` — save aliases or rename coasters (stored in DB, not code)
+- Catalog quality admin: `/admin/data/catalog`
 - Migrations: `20260811122151_*`, `20260811122641_*`, `20260811123330_*`
 - Aliases: `data_coaster_name_aliases` · field overrides: `data_coaster_field_overrides`
 

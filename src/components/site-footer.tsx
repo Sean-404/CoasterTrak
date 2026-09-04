@@ -33,6 +33,9 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           <FooterLink href="/about" isDark={isDark}>
             About
           </FooterLink>
+          <FooterLink href="/updates" isDark={isDark}>
+            What’s new
+          </FooterLink>
           <FooterLink href="/contact" isDark={isDark}>
             Contact
           </FooterLink>

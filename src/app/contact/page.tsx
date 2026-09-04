@@ -40,7 +40,11 @@ export default function ContactPage() {
             >
               {CONTACT_EMAIL}
             </a>
-            . We read every message, but replies can take a few days. For quick updates, see{" "}
+            . We read every message, but replies can take a few days. For product notes, see{" "}
+            <Link href="/updates" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              What’s new
+            </Link>
+            ; trip photos are on{" "}
             <a
               href={INSTAGRAM_URL}
               target="_blank"

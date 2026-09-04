@@ -128,9 +128,6 @@ export default function AdminCatalogQualityPage() {
             </p>
           </div>
           <div className="flex gap-3 text-sm font-semibold">
-            <Link href="/admin/data" className="text-amber-700 hover:underline">
-              ThemeParks review
-            </Link>
             <Link href="/admin" className="text-amber-700 hover:underline">
               ← Admin
             </Link>

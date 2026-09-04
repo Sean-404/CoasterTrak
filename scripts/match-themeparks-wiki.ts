@@ -375,7 +375,7 @@ async function main() {
   console.log(`Parks compared: ${report.parksCompared}`);
   console.log(`Matched: ${report.totals.matched} / ${report.totals.localCoasters}`);
   console.log(`Local-only: ${report.totals.localOnly}`);
-  console.log(`Name mismatches (learn aliases in /admin/data): ${report.totals.nameMismatchCandidates}`);
+  console.log(`Name mismatches: ${report.totals.nameMismatchCandidates}`);
   console.log(`Wrote ${outPath}`);
 
   if (writeDb) {

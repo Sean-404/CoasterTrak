@@ -9,14 +9,16 @@ import { MonthWrappedCard } from "@/components/month-wrapped-card";
 import { SiteHeader } from "@/components/site-header";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import {
+  ALL_TIME_WRAPPED_PERIOD,
+  buildAllTimeWrappedSummary,
   buildWrappedSummary,
-  currentYearMonth,
+  isAllTimePeriod,
   periodDateRange,
   type MonthWrappedRideMeta,
   type MonthWrappedSummary,
 } from "@/lib/month-wrapped";
 import { canViewOtherUserStats } from "@/lib/ride-photos";
-import { loadDatedRideEventsInRange } from "@/lib/ride-log";
+import { loadDatedRideEventsInRange, loadRideCreditSummaries } from "@/lib/ride-log";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
 type RideMetaRow = {
@@ -42,7 +44,7 @@ function StatsWrappedInner() {
   const [friendAccessDenied, setFriendAccessDenied] = useState(false);
   const [viewingPublicProfile, setViewingPublicProfile] = useState(false);
   const [rideMeta, setRideMeta] = useState<RideMetaRow[]>([]);
-  const [wrappedPeriod, setWrappedPeriod] = useState(() => currentYearMonth());
+  const [wrappedPeriod, setWrappedPeriod] = useState(ALL_TIME_WRAPPED_PERIOD);
   const [wrappedSummary, setWrappedSummary] = useState<MonthWrappedSummary | null>(null);
   const [wrappedLoading, setWrappedLoading] = useState(false);
   const [wrappedError, setWrappedError] = useState<string | null>(null);
@@ -140,6 +142,67 @@ function StatsWrappedInner() {
       setWrappedSummary(null);
       return;
     }
+
+    const metaByCoasterId = new Map<number, MonthWrappedRideMeta>();
+    for (const ride of rideMeta) {
+      const c = ride.coasters;
+      metaByCoasterId.set(ride.coaster_id, {
+        coasterId: ride.coaster_id,
+        name: c?.name?.trim() || `Coaster ${ride.coaster_id}`,
+        rating: ride.rating,
+        parkId: c?.park_id ?? null,
+        parkName: c?.parks?.name ?? null,
+        parkCountry: c?.parks?.country ?? null,
+        speedMph: c?.speed_mph ?? null,
+        heightFt: c?.height_ft ?? null,
+      });
+    }
+
+    if (isAllTimePeriod(wrappedPeriod)) {
+      let cancelled = false;
+      setWrappedLoading(true);
+      setWrappedError(null);
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) {
+        setWrappedSummary(
+          buildAllTimeWrappedSummary(
+            rideMeta.map((r) => r.coaster_id),
+            metaByCoasterId,
+          ),
+        );
+        setWrappedLoading(false);
+        return;
+      }
+
+      void loadRideCreditSummaries(supabase, activeStatsUserId).then(({ summaries, error }) => {
+        if (cancelled) return;
+        if (error) {
+          setWrappedSummary(
+            buildAllTimeWrappedSummary(
+              rideMeta.map((r) => r.coaster_id),
+              metaByCoasterId,
+            ),
+          );
+        } else {
+          const byId = new Map(summaries.map((s) => [s.coasterId, s.totalRides]));
+          setWrappedSummary(
+            buildAllTimeWrappedSummary(
+              rideMeta.map((r) => ({
+                coasterId: r.coaster_id,
+                totalRides: byId.get(r.coaster_id) ?? 1,
+              })),
+              metaByCoasterId,
+            ),
+          );
+        }
+        setWrappedLoading(false);
+      });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     const range = periodDateRange(wrappedPeriod);
@@ -157,20 +220,6 @@ function StatsWrappedInner() {
           setWrappedSummary(null);
           setWrappedLoading(false);
           return;
-        }
-        const metaByCoasterId = new Map<number, MonthWrappedRideMeta>();
-        for (const ride of rideMeta) {
-          const c = ride.coasters;
-          metaByCoasterId.set(ride.coaster_id, {
-            coasterId: ride.coaster_id,
-            name: c?.name?.trim() || `Coaster ${ride.coaster_id}`,
-            rating: ride.rating,
-            parkId: c?.park_id ?? null,
-            parkName: c?.parks?.name ?? null,
-            parkCountry: c?.parks?.country ?? null,
-            speedMph: c?.speed_mph ?? null,
-            heightFt: c?.height_ft ?? null,
-          });
         }
         setWrappedSummary(buildWrappedSummary(wrappedPeriod, events, metaByCoasterId));
         setWrappedLoading(false);
@@ -200,10 +249,15 @@ function StatsWrappedInner() {
             {!isOwnStatsView && (
               <p className="mt-1 text-sm text-slate-500">
                 {viewingPublicProfile
-                  ? "This profile is public, so signed-in users can see ride highlights by month or year."
+                  ? "This profile is public, so signed-in users can see ride highlights."
                   : "Viewing a friend profile from your accepted friends list."}
               </p>
             )}
+            {isOwnStatsView ? (
+              <p className="mt-1 text-sm text-slate-500">
+                All-time uses every credit. Month and year need rides logged with a date.
+              </p>
+            ) : null}
           </div>
 
           {friendAccessDenied ? (
@@ -222,6 +276,7 @@ function StatsWrappedInner() {
               loading={wrappedLoading}
               error={wrappedError}
               isOwnStats={isOwnStatsView}
+              hasAnyCredits={rideMeta.length > 0}
             />
           )}
         </AuthGate>

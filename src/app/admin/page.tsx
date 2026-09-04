@@ -213,13 +213,7 @@ export default function AdminPage() {
           Trusted operators only. Clear rude names or photos, ban accounts, peek at user ride logs, or
           review catalog data.
         </p>
-        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-          <Link
-            href="/admin/data"
-            className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
-          >
-            ThemeParks data review →
-          </Link>
+        <p className="mt-3">
           <Link
             href="/admin/data/catalog"
             className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"

@@ -35,10 +35,10 @@ export type MonthWrappedTopPark = {
   ridesInPeriod: number;
 };
 
-export type WrappedPeriodScope = "year" | "month";
+export type WrappedPeriodScope = "year" | "month" | "all";
 
 export type MonthWrappedSummary = {
-  /** YYYY or YYYY-MM */
+  /** `all`, YYYY, or YYYY-MM */
   period: string;
   scope: WrappedPeriodScope;
   label: string;
@@ -46,6 +46,7 @@ export type MonthWrappedSummary = {
   uniqueCredits: number;
   totalRides: number;
   uniqueParks: number;
+  /** Dated active days; 0 for all-time. */
   activeDays: number;
   topRide: MonthWrappedTopRide | null;
   /** Parks ranked by rides (then credits) in the period. */
@@ -56,8 +57,14 @@ export type MonthWrappedSummary = {
   fastestRide: { name: string; speedMph: number; parkLabel: string | null } | null;
 };
 
+export const ALL_TIME_WRAPPED_PERIOD = "all";
+
 const YEAR_RE = /^(\d{4})$/;
 const YEAR_MONTH_RE = /^(\d{4})-(\d{2})$/;
+
+export function isAllTimePeriod(value: string | null | undefined): value is typeof ALL_TIME_WRAPPED_PERIOD {
+  return value === ALL_TIME_WRAPPED_PERIOD;
+}
 
 export function isCalendarYear(value: string | null | undefined): value is string {
   if (!value || !YEAR_RE.test(value)) return false;
@@ -73,19 +80,21 @@ export function isYearMonth(value: string | null | undefined): value is string {
   return y >= 1990 && y <= 2100 && m >= 1 && m <= 12;
 }
 
-/** YYYY (full year) or YYYY-MM (calendar month). */
+/** `all`, YYYY (full year), or YYYY-MM (calendar month). */
 export function isWrappedPeriod(value: string | null | undefined): value is string {
-  return isCalendarYear(value) || isYearMonth(value);
+  return isAllTimePeriod(value) || isCalendarYear(value) || isYearMonth(value);
 }
 
 export function wrappedPeriodScope(period: string): WrappedPeriodScope | null {
+  if (isAllTimePeriod(period)) return "all";
   if (isCalendarYear(period)) return "year";
   if (isYearMonth(period)) return "month";
   return null;
 }
 
-/** Inclusive YYYY-MM-DD bounds for a year or month period. */
+/** Inclusive YYYY-MM-DD bounds for a year or month period. Null for all-time. */
 export function periodDateRange(period: string): { start: string; end: string } | null {
+  if (isAllTimePeriod(period)) return null;
   if (isCalendarYear(period)) {
     return { start: `${period}-01-01`, end: `${period}-12-31` };
   }
@@ -113,6 +122,7 @@ export function formatYearMonthLabel(yearMonth: string): string {
 }
 
 export function formatWrappedPeriodLabel(period: string): string {
+  if (isAllTimePeriod(period)) return "All-time";
   if (isCalendarYear(period)) return period;
   return formatYearMonthLabel(period);
 }
@@ -151,8 +161,7 @@ export type WrappedPeriodOption = {
 };
 
 /**
- * Picker options: full years (newest first), then recent months under each year group.
- * Year rows use plain YYYY so a whole-year Wrapped is one tap away.
+ * Picker options: All-time first, then full years (newest first), then recent months.
  */
 export function listWrappedPeriodOptions(
   monthCount = 18,
@@ -170,7 +179,9 @@ export function listWrappedPeriodOptions(
   }
 
   const sortedYears = [...years].sort((a, b) => b.localeCompare(a));
-  const out: WrappedPeriodOption[] = [];
+  const out: WrappedPeriodOption[] = [
+    { value: ALL_TIME_WRAPPED_PERIOD, label: "All-time", scope: "all" },
+  ];
   for (const year of sortedYears) {
     out.push({ value: year, label: year, scope: "year" });
     for (const ym of months) {
@@ -208,13 +219,17 @@ function emptySummary(period: string, scope: WrappedPeriodScope, label: string):
 
 /**
  * Build a Wrapped summary for a year (YYYY) or month (YYYY-MM) from dated ride events.
- * Undated events are ignored.
+ * Undated events are ignored. For all-time, use `buildAllTimeWrappedSummary`.
  */
 export function buildWrappedSummary(
   period: string,
   events: MonthWrappedEvent[],
   metaByCoasterId: Map<number, MonthWrappedRideMeta>,
 ): MonthWrappedSummary {
+  if (isAllTimePeriod(period)) {
+    return buildAllTimeWrappedSummary([...metaByCoasterId.keys()], metaByCoasterId);
+  }
+
   const scope = wrappedPeriodScope(period);
   const label = formatWrappedPeriodLabel(period);
   if (!scope) return emptySummary(period, "month", label);
@@ -239,6 +254,63 @@ export function buildWrappedSummary(
     days.add(e.riddenOn);
   }
 
+  return finishWrappedSummary({
+    period,
+    scope,
+    label,
+    ridesByCoaster,
+    activeDays: days.size,
+    metaByCoasterId,
+    totalRidesOverride: inPeriod.reduce((sum, e) => sum + e.quantity, 0),
+  });
+}
+
+export type AllTimeCreditInput = {
+  coasterId: number;
+  /** Total rides for this credit when known; defaults to 1. */
+  totalRides?: number;
+};
+
+/**
+ * All-time Wrapped from unique credits (dated or undated). No calendar inventing.
+ */
+export function buildAllTimeWrappedSummary(
+  credits: Array<number | AllTimeCreditInput>,
+  metaByCoasterId: Map<number, MonthWrappedRideMeta>,
+): MonthWrappedSummary {
+  const ridesByCoaster = new Map<number, number>();
+  for (const entry of credits) {
+    const coasterId = typeof entry === "number" ? entry : entry.coasterId;
+    const qty =
+      typeof entry === "number" ? 1 : Math.max(1, Math.trunc(entry.totalRides ?? 1));
+    if (!Number.isFinite(coasterId) || coasterId <= 0) continue;
+    ridesByCoaster.set(coasterId, (ridesByCoaster.get(coasterId) ?? 0) + qty);
+  }
+
+  if (ridesByCoaster.size === 0) {
+    return emptySummary(ALL_TIME_WRAPPED_PERIOD, "all", "All-time");
+  }
+
+  return finishWrappedSummary({
+    period: ALL_TIME_WRAPPED_PERIOD,
+    scope: "all",
+    label: "All-time",
+    ridesByCoaster,
+    activeDays: 0,
+    metaByCoasterId,
+  });
+}
+
+function finishWrappedSummary(input: {
+  period: string;
+  scope: WrappedPeriodScope;
+  label: string;
+  ridesByCoaster: Map<number, number>;
+  activeDays: number;
+  metaByCoasterId: Map<number, MonthWrappedRideMeta>;
+  totalRidesOverride?: number;
+}): MonthWrappedSummary {
+  const { period, scope, label, ridesByCoaster, activeDays, metaByCoasterId } = input;
   const coasterIds = [...ridesByCoaster.keys()];
   const parkAgg = new Map<
     number,
@@ -247,10 +319,12 @@ export function buildWrappedSummary(
 
   let tallest: MonthWrappedSummary["tallestRide"] = null;
   let fastest: MonthWrappedSummary["fastestRide"] = null;
+  let totalRides = input.totalRidesOverride ?? 0;
 
   for (const coasterId of coasterIds) {
     const meta = metaByCoasterId.get(coasterId);
     const ridesInPeriod = ridesByCoaster.get(coasterId) ?? 0;
+    if (input.totalRidesOverride == null) totalRides += ridesInPeriod;
     if (meta?.parkId != null && meta.parkName?.trim()) {
       const prev = parkAgg.get(meta.parkId);
       if (prev) {
@@ -337,9 +411,9 @@ export function buildWrappedSummary(
     label,
     empty: false,
     uniqueCredits: coasterIds.length,
-    totalRides: inPeriod.reduce((sum, e) => sum + e.quantity, 0),
+    totalRides,
     uniqueParks: parks.length,
-    activeDays: days.size,
+    activeDays,
     topRide,
     parks,
     topPark: parks[0] ?? null,
@@ -361,8 +435,15 @@ export function topRideReasonLabel(
   reason: MonthWrappedTopRide["reason"],
   scope: WrappedPeriodScope = "month",
 ): string {
-  const when = scope === "year" ? "this year" : "this month";
-  if (reason === "highest_rated") return `Highest star rating among rides dated ${when}`;
-  if (reason === "most_ridden") return `Most rides dated ${when}`;
-  return `Your only dated credit ${when}`;
+  const when =
+    scope === "all" ? "all time" : scope === "year" ? "this year" : "this month";
+  if (reason === "highest_rated") {
+    return scope === "all"
+      ? "Highest star rating among your credits"
+      : `Highest star rating among rides dated ${when}`;
+  }
+  if (reason === "most_ridden") {
+    return scope === "all" ? "Most rides among your credits" : `Most rides dated ${when}`;
+  }
+  return scope === "all" ? "Your only credit so far" : `Your only dated credit ${when}`;
 }
