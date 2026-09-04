@@ -21,6 +21,7 @@ create table if not exists coasters (
   last_synced_at timestamptz,
   -- Wikidata / Wikipedia enrichment (nullable; populated by CoasterTrak Data publish)
   wikidata_id   text,
+  rcdb_id       text,
   image_url     text,
   length_ft     integer,
   speed_mph     integer,
@@ -33,6 +34,10 @@ create table if not exists coasters (
   summary_text  text,
   unique (park_id, name)
 );
+
+create unique index if not exists coasters_rcdb_id_uidx
+  on coasters (rcdb_id)
+  where rcdb_id is not null;
 
 create table if not exists sync_runs (
   id bigint generated always as identity primary key,

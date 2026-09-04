@@ -167,6 +167,7 @@ export function MapParkRideSheet({
         {visible.map(({ members, primary: coaster }) => {
           const lifecycle = normalizeLifecycleStatus(coaster.status, {
             closingYear: coaster.closing_year,
+            openingYear: coaster.opening_year,
           });
           const isDefunct = lifecycle === "Defunct";
           const isSelected =

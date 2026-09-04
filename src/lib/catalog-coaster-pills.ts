@@ -13,7 +13,10 @@ export function buildCoasterMetaPills(
   const pills: CatalogStatPill[] = [];
   const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
   const isDefunct =
-    normalizeLifecycleStatus(coaster.status, { closingYear: coaster.closing_year }) === "Defunct";
+    normalizeLifecycleStatus(coaster.status, {
+      closingYear: coaster.closing_year,
+      openingYear: coaster.opening_year,
+    }) === "Defunct";
 
   if (rideType !== "Unknown") {
     pills.push({ label: "Type", value: rideType });

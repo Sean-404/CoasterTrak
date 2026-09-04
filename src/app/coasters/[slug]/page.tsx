@@ -19,6 +19,7 @@ import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/li
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
 import { SITE_URL } from "@/lib/site-url";
+import { rcdbCoasterUrl } from "@/lib/rcdb";
 import {
   clampSummaryText,
   fetchWikipediaSummaryForCoaster,
@@ -114,6 +115,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
     storedEnwikiTitle: coaster.enwiki_title,
   });
   const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
+  const rcdbUrl = rcdbCoasterUrl(coaster.rcdb_id);
 
   const siteUrl = SITE_URL;
   const bodyIntro =
@@ -205,6 +207,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         coasterId={coaster.id}
         status={coaster.status}
         closingYear={coaster.closing_year}
+        openingYear={coaster.opening_year}
       />
 
       <div className="mt-8 flex flex-wrap gap-3">
@@ -221,6 +224,16 @@ export default async function CoasterDetailPage({ params }: PageProps) {
           >
             View park
           </Link>
+        ) : null}
+        {rcdbUrl ? (
+          <a
+            href={rcdbUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+          >
+            View on RCDB
+          </a>
         ) : null}
         <Link
           href="/coaster-tracker"

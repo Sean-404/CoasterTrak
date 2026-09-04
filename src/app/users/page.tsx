@@ -273,7 +273,7 @@ export default function UsersPage() {
                     return (
                       <li
                         key={profile.user_id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2"
+                        className="flex flex-col gap-3 rounded-lg border border-slate-200 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <ProfileAvatar
@@ -282,11 +282,11 @@ export default function UsersPage() {
                             name={profile.display_name}
                             size="sm"
                           />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="truncate font-medium text-slate-900">
                               {profile.display_name?.trim() || "CoasterTrak user"}
                             </p>
-                            <p className="text-xs text-slate-500">
+                            <p className="truncate text-xs text-slate-500">
                               {countryNameFromCode(profile.country_code)}
                               {relation?.status === "accepted" ? " · Friend" : ""}
                               {relation?.status === "pending"
@@ -297,7 +297,7 @@ export default function UsersPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                           <Link
                             href={`/stats?user=${encodeURIComponent(profile.user_id)}`}
                             className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"

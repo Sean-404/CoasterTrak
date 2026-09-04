@@ -51,11 +51,14 @@ export async function enrichWikidataRowsFromWikipedia(
       row.durationS == null;
     const metaGaps = enrichExtra && row.inversions == null;
     const statusUnknown = row.status === "unknown";
+    // Also re-check operating rows: Wikipedia often says "Relocated to …" / permanently closed
+    // while Wikidata still lists the installation as operating.
     const statusMayNeedEnwiki =
-      row.status === "defunct" && Boolean(row.enwikiTitle?.trim());
+      (row.status === "defunct" || row.status === "operating" || row.status === "unknown") &&
+      Boolean(row.enwikiTitle?.trim());
     const imageGap = !sanitizeCoasterImageUrl(row.imageUrl ?? null);
     const allowStatEnrich = (statGaps || metaGaps || statusUnknown) && done < limit;
-    const allowStatusRepair = statusMayNeedEnwiki;
+    const allowStatusRepair = statusMayNeedEnwiki && done < limit;
     const allowImageEnrich = imageGap && Boolean(row.enwikiTitle?.trim());
 
     if (!row.enwikiTitle || (!allowStatEnrich && !allowStatusRepair && !allowImageEnrich)) {
@@ -78,25 +81,35 @@ export async function enrichWikidataRowsFromWikipedia(
 
         let status = row.status;
         const inferred = inferStatusFromText(ex.statusText);
-        if (inferred === "operating") {
+        const st = (ex.statusText ?? "").toLowerCase();
+        const stillHereHint =
+          /\breopened\b/.test(st) ||
+          /\boperating\b/.test(st) ||
+          /\brelocated from\b/.test(st) ||
+          /\bmoved from\b/.test(st);
+        const leftParkHint =
+          inferred === "defunct" ||
+          /\brelocated to\b/.test(st) ||
+          /\bmoved to\b/.test(st) ||
+          /\bpermanently closed\b/.test(st);
+
+        if (leftParkHint) {
+          status = "defunct";
+        } else if (inferred === "operating") {
           status = "operating";
-        } else if (status === "unknown") {
-          if (inferred === "defunct") {
-            status = "defunct";
-          } else if (ex.closingDate) {
-            const st = (ex.statusText ?? "").toLowerCase();
-            const relocationHint =
-              /\brelocated\b/.test(st) ||
-              /\bmoved to\b/.test(st) ||
-              /\breopened\b/.test(st) ||
-              /\boperating\b/.test(st);
-            if (!relocationHint) {
-              const closing = new Date(ex.closingDate);
-              if (!Number.isNaN(closing.getTime()) && closing < new Date()) {
-                status = "defunct";
-              }
+        } else if (status === "unknown" || status === "operating") {
+          if (ex.closingDate && !stillHereHint) {
+            const closing = new Date(ex.closingDate);
+            if (!Number.isNaN(closing.getTime()) && closing < new Date()) {
+              status = "defunct";
             }
           }
+        }
+
+        // Closing year from infobox when missing.
+        let retirementDate = row.retirementDate;
+        if (!retirementDate && ex.closingDate) {
+          retirementDate = ex.closingDate;
         }
 
         next = {
@@ -106,9 +119,11 @@ export async function enrichWikidataRowsFromWikipedia(
           speedMs,
           inversions: allowStatEnrich ? (row.inversions ?? ex.inversions) : row.inversions,
           durationS: allowStatEnrich ? (row.durationS ?? ex.durationS) : row.durationS,
+          retirementDate,
           status,
         };
         if (allowStatEnrich) done += 1;
+        else if (allowStatusRepair && status !== row.status) done += 1;
       }
 
       if (allowImageEnrich && !sanitizeCoasterImageUrl(next.imageUrl ?? null)) {

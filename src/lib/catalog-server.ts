@@ -13,10 +13,10 @@ import { isCatalogHiddenParkName } from "@/lib/park-match";
 const PARK_COLUMNS = "id,name,country,latitude,longitude";
 const COASTER_COLUMNS_CORE =
   "id,park_id,name,coaster_type,manufacturer,status,wikidata_id,image_url,length_ft,speed_mph,height_ft,inversions,duration_s,opening_year,closing_year";
-const COASTER_COLUMNS = `${COASTER_COLUMNS_CORE},enwiki_title,summary_text`;
+const COASTER_COLUMNS = `${COASTER_COLUMNS_CORE},enwiki_title,summary_text,rcdb_id`;
 
 let anonClient: SupabaseClient | null = null;
-/** When true, new summary columns are missing — use core select only. */
+/** When true, new summary/rcdb columns are missing — use core select only. */
 let coasterSelectFallback = false;
 
 /** Public anon client for server components / sitemap (parks & coasters are publicly readable). */
@@ -61,7 +61,7 @@ function activeCoasterColumns(): string {
 
 function isMissingColumnError(error: { message?: string; code?: string } | null): boolean {
   if (!error?.message) return false;
-  return /enwiki_title|summary_text|column .* does not exist|Could not find/i.test(error.message);
+  return /enwiki_title|summary_text|rcdb_id|column .* does not exist|Could not find/i.test(error.message);
 }
 
 async function fetchAllCoastersRaw(): Promise<Coaster[]> {
@@ -85,7 +85,7 @@ const getNormalizedCatalogCached = unstable_cache(
     const [parks, coasters] = await Promise.all([fetchAllParksRaw(), fetchAllCoastersRaw()]);
     return serializeNormalizedCatalog(normalizeCatalog(parks, coasters));
   },
-  ["catalog-normalized-v3"],
+  ["catalog-normalized-v4"],
   { revalidate: 3600 },
 );
 

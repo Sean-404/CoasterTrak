@@ -31,6 +31,8 @@ type WishlistItem = {
     height_ft?: number | null;
     inversions?: number | null;
     duration_s?: number | null;
+    closing_year?: number | null;
+    opening_year?: number | null;
     parks?: { name: string; country?: string | null } | null;
   } | null;
 };
@@ -70,7 +72,10 @@ const WishlistRow = memo(function WishlistRow({
   const typeLabel = coaster
     ? effectiveCoasterType(coaster.coaster_type, coaster.manufacturer)
     : "Unknown";
-  const lifecycle = normalizeLifecycleStatus(coaster?.status);
+  const lifecycle = normalizeLifecycleStatus(coaster?.status, {
+    closingYear: coaster?.closing_year,
+    openingYear: coaster?.opening_year,
+  });
   const parkName = coaster?.parks?.name?.trim() ?? "";
   const parkCountry = coaster?.parks?.country?.trim() ?? "";
   const parkLabel = parkName && parkCountry ? `${parkName} · ${parkCountry}` : parkName || parkCountry;
@@ -269,7 +274,7 @@ export default function WishlistPage() {
 
       const { data: rows, error } = await supabase
         .from("wishlist")
-        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, length_ft, speed_mph, height_ft, inversions, duration_s, parks(name, country))")
+        .select("coaster_id, added_at, coasters(park_id, name, wikidata_id, image_url, coaster_type, manufacturer, status, length_ft, speed_mph, height_ft, inversions, duration_s, opening_year, closing_year, parks(name, country))")
         .eq("user_id", user.id)
         .order("added_at", { ascending: false });
 

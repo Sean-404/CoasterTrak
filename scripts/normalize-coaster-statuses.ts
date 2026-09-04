@@ -16,6 +16,7 @@ type DbCoasterStatusRow = {
   name: string;
   status: string | null;
   closing_year: number | null;
+  opening_year: number | null;
 };
 
 async function main() {
@@ -29,7 +30,7 @@ async function main() {
     (from, to) =>
       supabase
         .from("coasters")
-        .select("id, name, status, closing_year")
+        .select("id, name, status, closing_year, opening_year")
         .order("id", { ascending: true })
         .range(from, to),
   );
@@ -40,7 +41,10 @@ async function main() {
 
   const updates = rows
     .map((r) => {
-      const normalized = normalizeLifecycleStatus(r.status, { closingYear: r.closing_year });
+      const normalized = normalizeLifecycleStatus(r.status, {
+        closingYear: r.closing_year,
+        openingYear: r.opening_year,
+      });
       return {
         id: r.id,
         name: r.name,

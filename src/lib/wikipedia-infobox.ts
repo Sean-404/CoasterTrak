@@ -95,30 +95,37 @@ export function inferStatusFromText(
 ): "operating" | "defunct" | null {
   if (!text) return null;
   const t = text.toLowerCase().trim();
-  // Prefer still-open signals first: Wikidata often encodes an old closure (relocation) while
-  // enwiki Status still describes the current installation ("Operating", "Relocated to …").
+
+  // Left this park → defunct for credit-tracker park rows (hardware may run elsewhere).
   if (
-    /\boperating\b/.test(t) ||
-    t === "open" ||
-    /\breopened\b/.test(t) ||
     /\brelocated to\b/.test(t) ||
     /\bmoved to\b/.test(t) ||
-    /\boperating at\b/.test(t) ||
-    /\bopen at\b/.test(t)
-  ) {
-    return "operating";
-  }
-  if (
+    (/\brelocated\b/.test(t) && !/\brelocated from\b/.test(t) && !/\boperating\b/.test(t)) ||
+    t.includes("permanently closed") ||
     t.includes("remov") ||
     t.includes("demol") ||
     t.includes("defunct") ||
     t.includes("sbno") ||
     t.includes("standing but not operating") ||
-    t.includes("permanently closed") ||
     t.includes("torn down") ||
     t.includes("scrap")
-  )
+  ) {
     return "defunct";
+  }
+
+  // Still open here (including arrivals from another park).
+  if (
+    /\boperating\b/.test(t) ||
+    t === "open" ||
+    /\breopened\b/.test(t) ||
+    /\brelocated from\b/.test(t) ||
+    /\bmoved from\b/.test(t) ||
+    /\boperating at\b/.test(t) ||
+    /\bopen at\b/.test(t)
+  ) {
+    return "operating";
+  }
+
   return null;
 }
 

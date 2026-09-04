@@ -94,6 +94,20 @@ Stats come from **Wikidata** (SPARQL → CoasterTrak Data pipeline) and optional
 
 - `npm run wikipedia:backfill` — fills **null** columns only; use `--dry-run` to preview.
 
+### RCDB identifiers (and optional stats, with permission)
+
+Wikidata already exposes RCDB IDs (property P2751). Catalog sync stores them on `coasters.rcdb_id` and coaster pages can deep-link to rcdb.com. That does **not** copy RCDB stats.
+
+RCDB [Terms of Use](https://rcdb.com/tou.htm) require written permission before using content in an app/database. Draft email: `scripts/data/rcdb-permission-request.txt` → `feedback@rcdb.com`.
+
+After permission:
+
+- Put a licensed JSON export at `data/rcdb_stats.json` (see `data/rcdb_stats.example.json`)
+- `npm run data:enrich-rcdb -- --permission-granted --from data/rcdb_stats.json` (null-fill snapshot)
+- Add `--write-db` to also write Supabase null-fills + `data_coaster_field_overrides` (`source=rcdb`)
+
+Backfill IDs only (no permission needed): `npm run data:backfill-rcdb-ids` after applying migration `20260904120000_coasters_rcdb_id.sql`.
+
 ### CoasterTrak Data — ThemeParks.wiki verification
 
 Compare the live catalog against [ThemeParks.wiki](https://api.themeparks.wiki/) (existence / naming — not stats):
@@ -129,6 +143,8 @@ data:publish-catalog [--apply]
 | `data:normalize-wikidata` | Deduped rows → `data/processed/wikidata/{runId}/` |
 | `data:materialize-snapshot` | Copy processed → working `data/wikidata_coasters.json` |
 | `data:enrich-wikipedia` | Fill gaps from enwiki infobox HTML |
+| `data:enrich-rcdb` | Null-fill from licensed RCDB export (requires `--permission-granted`) |
+| `data:backfill-rcdb-ids` | Set `coasters.rcdb_id` from Wikidata snapshot P2751 |
 | `data:validate-wikidata` | Quality report → `data/reports/wikidata/{runId}/` |
 | `data:analyze-catalog` | Dedupe/conflicts + ThemeParks snapshot verify |
 | `data:publish-catalog` | Dry-run by default; `--apply` uploads to Supabase |

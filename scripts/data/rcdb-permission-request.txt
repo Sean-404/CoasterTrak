@@ -1,0 +1,29 @@
+To: feedback@rcdb.com
+Subject: Permission request — CoasterTrak credit tracker (stats only, no photos)
+
+Hi Duane,
+
+I'm building CoasterTrak, a free personal roller coaster credit tracker
+(map, wishlist, ride logs, personal stats). Our catalog is primarily from
+Wikidata today; many coasters are missing height/speed/length.
+
+Per RCDB's Terms of Use, I'm writing to ask for written permission to use
+RCDB content in the app as follows:
+
+1) Fill missing coaster statistics (length, height, speed, inversions,
+   duration, operating status) where our catalog has nulls.
+2) Store RCDB coaster IDs and credit RCDB as the source (with links back
+   to rcdb.com pages).
+3) We would not use RCDB photos or embed/frame rcdb.com pages.
+
+If you're open to this, we'd prefer whatever access method is easiest for
+you (periodic export, approved bulk refresh, or rate-limited fetch). Happy
+to follow any attribution or usage conditions you set.
+
+Thanks for maintaining RCDB — happy to share more about CoasterTrak or
+adjust the request if needed.
+
+Best regards,
+[Your name]
+[Site URL if live]
+[Reply email]

@@ -227,6 +227,8 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
     >
   >
 > = {
+  // Alton Towers install closed 1996; hardware later ran as Katapul (Hopi Hari).
+  thunderlooper: { name: "Thunderlooper", status: "Defunct" },
   // Epic Universe — RCDB / Universal published figures (height/length often still unpublished)
   curseofthewerewolf: {
     name: "Curse of the Werewolf",

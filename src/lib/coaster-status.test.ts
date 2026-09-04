@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  hasPastClosingYear,
   inferParkLifecycleStatus,
   isCoasterDefunct,
   isParkDefunct,
+  normalizeLifecycleStatus,
 } from "@/lib/coaster-status";
 
 describe("park lifecycle inference", () => {
@@ -38,5 +40,38 @@ describe("park lifecycle inference", () => {
     expect(isCoasterDefunct(coasters[0])).toBe(false);
     expect(isParkDefunct(coasters)).toBe(false);
     expect(inferParkLifecycleStatus(coasters)).toBe("Unknown");
+  });
+});
+
+describe("normalizeLifecycleStatus", () => {
+  it("treats past closing_year as Defunct even when status says Operating", () => {
+    expect(
+      normalizeLifecycleStatus("Operating", { closingYear: 1996, openingYear: 1990 }),
+    ).toBe("Defunct");
+    expect(isCoasterDefunct({ status: "Operating", closing_year: 1996, opening_year: 1990 })).toBe(
+      true,
+    );
+  });
+
+  it("keeps Operating when opening_year is after closing_year (rebuild)", () => {
+    expect(
+      normalizeLifecycleStatus("Operating", { closingYear: 2010, openingYear: 2024 }),
+    ).toBe("Operating");
+  });
+
+  it("treats relocated-to as Defunct for park installations", () => {
+    expect(normalizeLifecycleStatus("Relocated to Hopi Hari")).toBe("Defunct");
+    expect(normalizeLifecycleStatus("Moved to Brazil")).toBe("Defunct");
+  });
+
+  it("treats permanently closed as Defunct", () => {
+    expect(normalizeLifecycleStatus("Permanently closed")).toBe("Defunct");
+  });
+});
+
+describe("hasPastClosingYear", () => {
+  it("is false when closing year is missing or future", () => {
+    expect(hasPastClosingYear({})).toBe(false);
+    expect(hasPastClosingYear({ closingYear: 2999 })).toBe(false);
   });
 });

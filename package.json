@@ -20,6 +20,8 @@
     "data:normalize-wikidata": "tsx scripts/data/normalize-wikidata.ts",
     "data:materialize-snapshot": "tsx scripts/data/materialize-snapshot.ts",
     "data:enrich-wikipedia": "tsx scripts/data/enrich-wikipedia.ts",
+    "data:enrich-rcdb": "tsx --env-file=.env.local scripts/data/enrich-rcdb.ts",
+    "data:backfill-rcdb-ids": "tsx --env-file=.env.local scripts/data/backfill-rcdb-ids.ts",
     "data:validate-wikidata": "tsx scripts/data/validate-wikidata.ts",
     "data:analyze-catalog": "tsx scripts/data/analyze-catalog.ts",
     "data:publish-catalog": "tsx scripts/data/publish-catalog.ts",

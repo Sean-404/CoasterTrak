@@ -24,6 +24,8 @@ import {
   yearFromDate,
 } from "@/lib/wikidata-coaster-inference";
 import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
+import { normalizeLifecycleStatus } from "@/lib/coaster-status";
+import { normalizeRcdbId } from "@/lib/rcdb";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { loadWikidataCatalogRows } from "@/lib/wikidata-catalog-source";
 import { mergeRowsByItem, type WikidataCoasterRow } from "@/lib/wikidata-coasters";
@@ -177,12 +179,16 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
   const openingYear = yearFromDate(wd.openingDate);
   const closingYear = yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate);
+  const lifecycleStatus = normalizeLifecycleStatus(
+    wd.status === "defunct" ? "Defunct" : wd.status === "unknown" ? "Unknown" : "Operating",
+    { closingYear, openingYear },
+  );
   const fixed = applyCoasterKnownFixes({
     name,
     wikidata_id: wd.wikidataId,
     coaster_type: inferred,
     manufacturer: wd.manufacturerLabel ? normalizeManufacturerLabel(wd.manufacturerLabel) : null,
-    status: wd.status === "defunct" ? "Defunct" : "Operating",
+    status: lifecycleStatus,
     image_url: sanitizeCoasterImageUrl(wd.imageUrl ?? null),
     length_ft: wd.lengthFt != null ? Math.round(wd.lengthFt) : null,
     speed_mph: wd.speedMph != null ? Math.round(wd.speedMph) : null,
@@ -191,14 +197,17 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     duration_s: wd.durationS != null ? Math.round(wd.durationS) : null,
   });
 
+  const rcdbId = normalizeRcdbId(wd.rcdbId);
+
   return {
     park_id: parkId,
     name: fixed.name,
     wikidata_id: wd.wikidataId,
+    ...(rcdbId ? { rcdb_id: rcdbId } : {}),
     coaster_type: fixed.coaster_type ?? inferred,
     manufacturer: fixed.manufacturer ?? null,
     image_url: sanitizeCoasterImageUrl(fixed.image_url ?? null),
-    status: fixed.status,
+    status: fixed.status ?? lifecycleStatus,
     ...(fixed.length_ft != null ? { length_ft: Math.round(fixed.length_ft) } : {}),
     ...(fixed.speed_mph != null ? { speed_mph: Math.round(fixed.speed_mph) } : {}),
     ...(fixed.height_ft != null ? { height_ft: Math.round(fixed.height_ft) } : {}),
@@ -277,7 +286,7 @@ export async function syncCatalogFromWikidata() {
           supabase
             .from("coasters")
             .select(
-              "id, name, park_id, wikidata_id, external_source, external_id, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, image_url, status, coaster_type, opening_year, closing_year, enwiki_title, summary_text",
+              "id, name, park_id, wikidata_id, rcdb_id, external_source, external_id, manufacturer, length_ft, speed_mph, height_ft, inversions, duration_s, image_url, status, coaster_type, opening_year, closing_year, enwiki_title, summary_text",
             )
             .order("id", { ascending: true })
             .range(from, to),

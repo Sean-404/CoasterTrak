@@ -10,14 +10,19 @@ export function CoasterDetailActions({
   coasterId,
   status,
   closingYear,
+  openingYear,
 }: {
   coasterId: number;
   status: string;
   closingYear?: number | null;
+  openingYear?: number | null;
 }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const isDefunct =
-    normalizeLifecycleStatus(status, { closingYear: closingYear ?? null }) === "Defunct";
+    normalizeLifecycleStatus(status, {
+      closingYear: closingYear ?? null,
+      openingYear: openingYear ?? null,
+    }) === "Defunct";
 
   useEffect(() => {
     let cancelled = false;
