@@ -14,6 +14,17 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-09-04-profiles-compare-mobile",
+    date: "2026-09-04",
+    title: "Richer public profiles and cleaner compare on phone",
+    summary:
+      "Browse public profiles with credits and favorites at a glance, and compare friends without cramped park filters on small screens.",
+    highlights: [
+      "Public profiles show country, credit count, fav ride, and fav park before you open Stats",
+      "Friend compare park filter and park list are tighter on iPhone-sized screens",
+    ],
+  },
+  {
     id: "2026-09-04-wrapped-all-time",
     date: "2026-09-04",
     title: "Wrapped covers every credit",

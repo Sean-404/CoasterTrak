@@ -81,6 +81,8 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q13415786: { closing_year: 2012, status: "Defunct" },
   // Lost Island — prior Liseberg (Kanonen) retirement must not stick after 2023 reopen.
   Q134966734: { closing_year: null, status: "Operating" },
+  // Alton Towers — Air closed for VR refurb (2015) and reopened as Galactica (still operating).
+  Q406696: { closing_year: null, status: "Operating" },
   // Blackpool classic wood out-and-back; inversions must stay 0 (bad imports sometimes confuse with train count)
   Q265733: {
     inversions: 0,

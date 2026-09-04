@@ -254,14 +254,14 @@ export function StatsComparePanel({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div>
           <h2 className="font-semibold text-slate-900">You vs {theirName}</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Shared credits first, then a single gap table. Park filter is for trip planning.
+            Shared credits, then gaps. Use the park filter for trip planning.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <ShareCardCapture
             onFeedback={setShareFeedback}
             filename="coastertrak-vs.png"
@@ -275,7 +275,7 @@ export function StatsComparePanel({
           <button
             type="button"
             onClick={() => void copySummary()}
-            className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:py-1.5"
           >
             Copy text
           </button>
@@ -287,59 +287,64 @@ export function StatsComparePanel({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
+        <label className="inline-flex items-start gap-2 text-sm text-slate-600 sm:items-center">
           <input
             type="checkbox"
             checked={includeFamilyRides}
             onChange={(e) => onIncludeFamilyRidesChange(e.target.checked)}
-            className="rounded border-slate-300 text-amber-600 focus:ring-amber-400"
+            className="mt-0.5 rounded border-slate-300 text-amber-600 focus:ring-amber-400 sm:mt-0"
           />
-          Include kiddie / family-style rides
+          Include family / kiddie rides
         </label>
         <UnitsToggle units={units} onChange={setUnits} />
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="grid grid-cols-3 gap-2 sm:max-w-lg sm:flex-1">
+      <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-3 gap-2">
             {(
               [
-                ["both", "Both ridden", overlap.both.length],
-                ["only-you", "Only you", overlap.onlyYou.length],
-                ["only-them", "Only them", overlap.onlyThem.length],
+                ["both", "Both", "Both ridden", overlap.both.length],
+                ["only-you", "You", "Only you", overlap.onlyYou.length],
+                ["only-them", "Them", "Only them", overlap.onlyThem.length],
               ] as const
-            ).map(([id, label, count]) => (
+            ).map(([id, shortLabel, label, count]) => (
               <button
                 key={id}
                 type="button"
                 aria-pressed={bucket === id}
+                aria-label={label}
                 onClick={() => setBucket(id)}
-                className={`rounded-lg border px-2 py-2 text-center ${
+                className={`rounded-lg border px-1.5 py-2 text-center sm:px-2 ${
                   bucket === id
                     ? "border-amber-400 bg-amber-50 text-slate-900"
                     : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                 }`}
               >
-                <span className="block text-[11px] font-medium text-slate-500">{label}</span>
+                <span className="block text-[11px] font-medium text-slate-500 sm:hidden">{shortLabel}</span>
+                <span className="hidden text-[11px] font-medium text-slate-500 sm:block">{label}</span>
                 <span className="mt-0.5 block text-lg font-bold tabular-nums">{count.toLocaleString()}</span>
               </button>
             ))}
           </div>
           {parks.length > 0 && (
-            <label className="block min-w-0 text-sm text-slate-600 sm:w-64">
-              <span className="sr-only">Filter by park</span>
+            <label className="block min-w-0 text-sm text-slate-600">
+              <span className="mb-1 block text-xs font-medium text-slate-500">Park filter</span>
               <select
                 value={parkKey}
                 onChange={(e) => setParkKey(e.target.value)}
-                className="mt-0 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                className="w-full max-w-full truncate rounded-lg border border-slate-200 bg-white px-2.5 py-2.5 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-400 sm:py-2"
               >
                 <option value="">All parks</option>
-                {parks.map((park) => (
-                  <option key={park.key} value={park.key}>
-                    {park.label} ({park.mineCount} / {park.theirsCount})
-                  </option>
-                ))}
+                {parks.map((park) => {
+                  const shortName = (park.parkName ?? park.label).trim() || "Unknown park";
+                  return (
+                    <option key={park.key} value={park.key}>
+                      {shortName} · {park.mineCount}/{park.theirsCount}
+                    </option>
+                  );
+                })}
               </select>
             </label>
           )}
@@ -353,13 +358,30 @@ export function StatsComparePanel({
                 href={`/parks/${parkSlug(selectedPark.parkName, selectedPark.parkId)}`}
                 className="font-medium text-amber-800 underline decoration-amber-300 underline-offset-2 hover:text-amber-900"
               >
-                {selectedPark.label}
+                {selectedPark.parkName}
               </Link>
             ) : (
-              <span className="font-medium text-slate-800">{selectedPark.label}</span>
-            )}{" "}
-            you&apos;ve ridden {selectedPark.mineCount.toLocaleString()} and {theirName} has ridden{" "}
+              <span className="font-medium text-slate-800">
+                {selectedPark.parkName ?? selectedPark.label}
+              </span>
+            )}
+            {selectedPark.country ? (
+              <span className="text-slate-500"> · {selectedPark.country}</span>
+            ) : null}{" "}
+            — you {selectedPark.mineCount.toLocaleString()}, {theirName}{" "}
             {selectedPark.theirsCount.toLocaleString()}.
+            {parkKey ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={() => setParkKey("")}
+                  className="font-medium text-amber-800 underline decoration-amber-300 underline-offset-2 hover:text-amber-900"
+                >
+                  Clear
+                </button>
+              </>
+            ) : null}
           </p>
         )}
 
@@ -415,13 +437,61 @@ export function StatsComparePanel({
       </section>
 
       {parks.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5">
           <h3 className="font-semibold text-slate-900">Parks</h3>
           <p className="mt-1 text-sm text-slate-500">
             Who&apos;s missing what. Tap a park to filter the list above.
           </p>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[28rem] text-left text-sm">
+
+          <ul className="mt-3 space-y-2 sm:hidden">
+            {visibleParks.map((park) => {
+              const name = (park.parkName ?? park.label).trim() || "Unknown park";
+              const active = parkKey === park.key;
+              return (
+                <li key={park.key}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setParkKey(park.key);
+                      setBucket(
+                        park.onlyTheirs.length > 0
+                          ? "only-them"
+                          : park.onlyMine.length > 0
+                            ? "only-you"
+                            : "both",
+                      );
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left ${
+                      active
+                        ? "border-amber-400 bg-amber-50"
+                        : "border-slate-200 bg-slate-50/80 hover:bg-slate-100"
+                    }`}
+                  >
+                    <p className={`truncate text-sm font-semibold ${active ? "text-amber-900" : "text-slate-900"}`}>
+                      {name}
+                    </p>
+                    {park.country ? (
+                      <p className="truncate text-xs text-slate-500">{park.country}</p>
+                    ) : null}
+                    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600">
+                      <span className="tabular-nums">
+                        You <span className="font-semibold text-slate-800">{park.mineCount}</span>
+                      </span>
+                      <span className="text-slate-300">·</span>
+                      <span className="tabular-nums">
+                        Them <span className="font-semibold text-slate-800">{park.theirsCount}</span>
+                      </span>
+                      <span className="text-slate-300">·</span>
+                      <span className={`tabular-nums ${deltaClass(park.delta.winner)}`}>{park.delta.label}</span>
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="mt-3 hidden overflow-x-auto sm:block">
+            <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <th className="py-2 pr-3 font-medium">Park</th>
@@ -438,13 +508,22 @@ export function StatsComparePanel({
                         type="button"
                         onClick={() => {
                           setParkKey(park.key);
-                          setBucket(park.onlyTheirs.length > 0 ? "only-them" : park.onlyMine.length > 0 ? "only-you" : "both");
+                          setBucket(
+                            park.onlyTheirs.length > 0
+                              ? "only-them"
+                              : park.onlyMine.length > 0
+                                ? "only-you"
+                                : "both",
+                          );
                         }}
                         className={`text-left font-medium hover:text-amber-800 ${
                           parkKey === park.key ? "text-amber-800" : "text-slate-800"
                         }`}
                       >
-                        {park.label}
+                        <span className="block">{park.parkName ?? park.label}</span>
+                        {park.country ? (
+                          <span className="block text-xs font-normal text-slate-500">{park.country}</span>
+                        ) : null}
                       </button>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums text-slate-700">{park.mineCount}</td>

@@ -31,6 +31,18 @@ describe("relocated closing year fixes", () => {
     expect(fixed.status).toBe("Operating");
   });
 
+  it("clears Galactica Air→rebrand closing year via known fix", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Galactica",
+      wikidata_id: "Q406696",
+      opening_year: 2002,
+      closing_year: 2015,
+      status: "Operating",
+    });
+    expect(fixed.closing_year).toBeNull();
+    expect(fixed.status).toBe("Operating");
+  });
+
   it("sets Knightmare Camelot closing year via known fix", () => {
     const fixed = applyCoasterKnownFixes({
       name: "Knightmare",

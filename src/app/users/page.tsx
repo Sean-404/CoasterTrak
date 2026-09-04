@@ -6,6 +6,7 @@ import { AuthGate } from "@/components/auth-gate";
 import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
+import { unjamGeoLabel } from "@/lib/geo-country";
 import { signAvatarUrls } from "@/lib/profile-photos";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
@@ -25,19 +26,52 @@ type PublicProfile = {
   avatar_key: string | null;
   avatar_path: string | null;
   avatarUrl?: string | null;
+  favorite_ride_id: number | null;
+  favorite_park_id: number | null;
+  creditCount?: number;
+};
+
+type ParkRow = {
+  id: number;
+  name: string;
+  country: string | null;
+};
+
+type CoasterRow = {
+  id: number;
+  name: string;
+  parks: { name: string | null; country: string | null } | { name: string | null; country: string | null }[] | null;
 };
 
 const PROFILE_SELECT =
-  "user_id, display_name, country_code, avatar_key, avatar_path";
+  "user_id, display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id";
 
-function countryNameFromCode(code: string | null | undefined): string {
+function countryNameFromCode(code: string | null | undefined): string | null {
   const normalized = (code ?? "").trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(normalized)) return "Unknown country";
+  if (!/^[A-Z]{2}$/.test(normalized)) return null;
   try {
     return new Intl.DisplayNames(["en"], { type: "region" }).of(normalized) ?? normalized;
   } catch {
     return normalized;
   }
+}
+
+function parkNameOnly(park: ParkRow | null | undefined): string {
+  if (!park) return "Not set";
+  return unjamGeoLabel(park.name) || "Not set";
+}
+
+function coasterNameOnly(coaster: CoasterRow | null | undefined): { name: string; park: string | null } {
+  if (!coaster) return { name: "Not set", park: null };
+  const name = (coaster.name ?? "").trim() || "Not set";
+  const park = Array.isArray(coaster.parks) ? (coaster.parks[0] ?? null) : coaster.parks;
+  const parkName = unjamGeoLabel(park?.name) || null;
+  return { name, park: parkName };
+}
+
+function formatCreditCount(count: number | undefined): string {
+  if (count == null) return "—";
+  return `${count.toLocaleString()} credit${count === 1 ? "" : "s"}`;
 }
 
 async function withAvatarUrls(
@@ -54,6 +88,71 @@ async function withAvatarUrls(
   }));
 }
 
+async function loadFavoriteLookups(
+  supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+  rows: PublicProfile[],
+): Promise<{ parksById: Record<number, ParkRow>; coastersById: Record<number, CoasterRow> }> {
+  const favoriteParkIds = new Set<number>();
+  const favoriteRideIds = new Set<number>();
+  for (const row of rows) {
+    if (row.favorite_park_id != null) favoriteParkIds.add(row.favorite_park_id);
+    if (row.favorite_ride_id != null) favoriteRideIds.add(row.favorite_ride_id);
+  }
+
+  const parksById: Record<number, ParkRow> = {};
+  const coastersById: Record<number, CoasterRow> = {};
+
+  if (favoriteParkIds.size > 0) {
+    const { data: parkRows } = await supabase
+      .from("parks")
+      .select("id, name, country")
+      .in("id", [...favoriteParkIds]);
+    for (const park of (parkRows ?? []) as ParkRow[]) {
+      parksById[park.id] = park;
+    }
+  }
+
+  if (favoriteRideIds.size > 0) {
+    const { data: coasterRows } = await supabase
+      .from("coasters")
+      .select("id, name, parks(name, country)")
+      .in("id", [...favoriteRideIds]);
+    for (const coaster of (coasterRows ?? []) as CoasterRow[]) {
+      coastersById[coaster.id] = coaster;
+    }
+  }
+
+  return { parksById, coastersById };
+}
+
+async function loadCreditCounts(
+  supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>,
+  userIds: string[],
+): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const id of userIds) counts[id] = 0;
+  if (userIds.length === 0) return counts;
+
+  // Each rides row is one unique coaster credit. Paginate in case the list is large.
+  const pageSize = 1000;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("rides")
+      .select("user_id")
+      .in("user_id", userIds)
+      .range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    for (const row of data as { user_id: string }[]) {
+      counts[row.user_id] = (counts[row.user_id] ?? 0) + 1;
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return counts;
+}
+
 export default function UsersPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [hasDisplayName, setHasDisplayName] = useState(false);
@@ -64,6 +163,8 @@ export default function UsersPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [profiles, setProfiles] = useState<PublicProfile[]>([]);
+  const [parksById, setParksById] = useState<Record<number, ParkRow>>({});
+  const [coastersById, setCoastersById] = useState<Record<number, CoasterRow>>({});
   const [isSearchResult, setIsSearchResult] = useState(false);
   const [friendships, setFriendships] = useState<FriendshipRow[]>([]);
 
@@ -111,10 +212,27 @@ export default function UsersPage() {
     if (loadError) {
       setError("Could not load public users. Please try again.");
       setProfiles([]);
+      setParksById({});
+      setCoastersById({});
       return;
     }
+
+    const baseRows = await withAvatarUrls(supabase, (data ?? []) as PublicProfile[]);
+    const userIds = baseRows.map((row) => row.user_id);
+    const [lookups, creditCounts] = await Promise.all([
+      loadFavoriteLookups(supabase, baseRows),
+      loadCreditCounts(supabase, userIds),
+    ]);
+
     setError("");
-    setProfiles(await withAvatarUrls(supabase, (data ?? []) as PublicProfile[]));
+    setParksById(lookups.parksById);
+    setCoastersById(lookups.coastersById);
+    setProfiles(
+      baseRows.map((row) => ({
+        ...row,
+        creditCount: creditCounts[row.user_id] ?? 0,
+      })),
+    );
   }
 
   useEffect(() => {
@@ -210,16 +328,15 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <SiteHeader />
-      <main className="mx-auto max-w-4xl p-6">
+      <main className="mx-auto max-w-4xl px-4 py-5 sm:p-6">
         <AuthGate>
-          <div className="mb-6">
+          <div className="mb-5 sm:mb-6">
             <Link href="/friends" className="text-sm font-medium text-amber-700 underline-offset-2 hover:underline">
               ← Friends
             </Link>
             <AppPageHeading className="mt-2">Public profiles</AppPageHeading>
             <p className="mt-1 text-sm text-slate-500">
-              People who made their stats public. Open a profile to see ride stats and photos, or add them as a friend.
-              Change this in{" "}
+              Preview credits and favorites, or open a profile for full stats. Change visibility in{" "}
               <Link href="/account" className="font-medium text-amber-700 underline-offset-2 hover:underline">
                 Account
               </Link>
@@ -239,19 +356,19 @@ export default function UsersPage() {
           {loading ? (
             <p className="text-slate-500">Loading&hellip;</p>
           ) : (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <form onSubmit={(e) => void submitSearch(e)} className="flex gap-2">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <form onSubmit={(e) => void submitSearch(e)} className="flex flex-col gap-2 sm:flex-row">
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search public profiles"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  placeholder="Search by name"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 sm:py-2"
                 />
                 <button
                   type="submit"
                   disabled={searching}
-                  className="min-w-28 cursor-pointer rounded-lg bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="cursor-pointer rounded-lg bg-amber-500 px-4 py-2.5 text-center text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-28 sm:py-2"
                 >
                   {searching ? "Searching..." : "Search"}
                 </button>
@@ -266,14 +383,31 @@ export default function UsersPage() {
                     : "Nobody has made their profile public yet. Set yours to Public in Account to appear here."}
                 </p>
               ) : (
-                <ul className="mt-4 space-y-2">
+                <ul className="mt-4 space-y-3">
                   {profiles.map((profile) => {
                     const relation = relationshipByOtherId.get(profile.user_id);
                     const canAdd = !relation || relation.status === "declined";
+                    const country = countryNameFromCode(profile.country_code);
+                    const favRide = coasterNameOnly(
+                      profile.favorite_ride_id != null ? coastersById[profile.favorite_ride_id] : null,
+                    );
+                    const favPark = parkNameOnly(
+                      profile.favorite_park_id != null ? parksById[profile.favorite_park_id] : null,
+                    );
+                    const metaBits = [
+                      country,
+                      formatCreditCount(profile.creditCount),
+                      relation?.status === "accepted" ? "Friend" : null,
+                      relation?.status === "pending"
+                        ? relation.requester_id === userId
+                          ? "Request sent"
+                          : "Requested you"
+                        : null,
+                    ].filter(Boolean);
                     return (
                       <li
                         key={profile.user_id}
-                        className="flex flex-col gap-3 rounded-lg border border-slate-200 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+                        className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3 sm:bg-transparent"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <ProfileAvatar
@@ -286,27 +420,32 @@ export default function UsersPage() {
                             <p className="truncate font-medium text-slate-900">
                               {profile.display_name?.trim() || "CoasterTrak user"}
                             </p>
-                            <p className="truncate text-xs text-slate-500">
-                              {countryNameFromCode(profile.country_code)}
-                              {relation?.status === "accepted" ? " · Friend" : ""}
-                              {relation?.status === "pending"
-                                ? relation.requester_id === userId
-                                  ? " · Request sent"
-                                  : " · Requested you"
-                                : ""}
-                            </p>
+                            <p className="truncate text-xs text-slate-500">{metaBits.join(" · ")}</p>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
+
+                        <dl className="mt-3 grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2 gap-y-1.5 text-xs sm:grid-cols-[3.75rem_minmax(0,1fr)]">
+                          <dt className="pt-0.5 font-medium text-slate-500">Ride</dt>
+                          <dd className="min-w-0 text-slate-800">
+                            <p className="truncate font-medium">{favRide.name}</p>
+                            {favRide.park ? (
+                              <p className="truncate text-slate-500">{favRide.park}</p>
+                            ) : null}
+                          </dd>
+                          <dt className="pt-0.5 font-medium text-slate-500">Park</dt>
+                          <dd className="min-w-0 truncate font-medium text-slate-800">{favPark}</dd>
+                        </dl>
+
+                        <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:justify-end">
                           <Link
                             href={`/stats?user=${encodeURIComponent(profile.user_id)}`}
-                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-700 hover:bg-slate-50 sm:px-3 sm:py-1.5"
                           >
                             Stats
                           </Link>
                           <Link
                             href={`/stats?user=${encodeURIComponent(profile.user_id)}&compare=1`}
-                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-700 hover:bg-slate-50 sm:px-3 sm:py-1.5"
                           >
                             Compare
                           </Link>
@@ -314,7 +453,7 @@ export default function UsersPage() {
                             type="button"
                             onClick={() => void sendRequest(profile.user_id)}
                             disabled={!canAdd || !hasDisplayName || busyId === profile.user_id}
-                            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                            className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:px-3 sm:py-1.5"
                           >
                             {relation?.status === "accepted"
                               ? "Friends"
@@ -322,7 +461,7 @@ export default function UsersPage() {
                                 ? relation.requester_id === userId
                                   ? "Sent"
                                   : "Accept"
-                                : "Add friend"}
+                                : "Add"}
                           </button>
                         </div>
                       </li>
