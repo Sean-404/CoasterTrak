@@ -14,7 +14,7 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
-    id: "2026-09-04-profiles-compare-mobile",
+    id: "2026-09-04b-profiles-compare-mobile",
     date: "2026-09-04",
     title: "Richer public profiles and cleaner compare on phone",
     summary:
