@@ -19,6 +19,7 @@ import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
+import { pickBestMapSearchHit } from "@/lib/map-search";
 import { reconcileCountryWithCoords } from "@/lib/geo-country";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
@@ -1087,6 +1088,7 @@ function MapPageContent() {
   }, []);
 
   const [mapViewResetKey, setMapViewResetKey] = useState(0);
+  const [searchFocusKey, setSearchFocusKey] = useState(0);
   const resetMapView = useCallback(() => {
     clearSavedMapView();
     setPreserveRestoredCamera(false);
@@ -1094,6 +1096,32 @@ function MapPageContent() {
     setFocusedParkId(null);
     setMapViewResetKey((k) => k + 1);
   }, []);
+
+  const focusSearchResult = useCallback(() => {
+    const q = searchInput.trim();
+    if (!q) return;
+
+    setSearch(q);
+    setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
+    setPreserveRestoredCamera(false);
+
+    const hit = pickBestMapSearchHit({
+      query: q,
+      parks: parkOptions,
+      coasters: visibleCoasters,
+    });
+    if (!hit) return;
+
+    setViewMode("map");
+    if (hit.kind === "coaster") {
+      setFocusedParkId(hit.parkId);
+      setSelectedCoasterId(hit.coasterId);
+    } else {
+      setSelectedCoasterId(null);
+      setFocusedParkId(hit.parkId);
+    }
+    setSearchFocusKey((k) => k + 1);
+  }, [parkOptions, searchInput, visibleCoasters]);
 
   return (
     <div className="min-h-screen">
@@ -1124,13 +1152,27 @@ function MapPageContent() {
         ) : (
         <div className="mb-4 flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by park or coaster…"
-              aria-label="Search by park or coaster"
-              className="w-full min-w-0 rounded border border-slate-300 px-3 py-2 sm:w-80"
-            />
+            <form
+              className="flex w-full min-w-0 gap-2 sm:w-auto"
+              onSubmit={(e) => {
+                e.preventDefault();
+                focusSearchResult();
+              }}
+            >
+              <input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by park or coaster…"
+                aria-label="Search by park or coaster"
+                className="w-full min-w-0 rounded border border-slate-300 px-3 py-2 sm:w-80"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+              >
+                Go
+              </button>
+            </form>
             <div className="inline-flex rounded-lg border border-slate-300 p-0.5">
               <button
                 type="button"
@@ -1356,6 +1398,7 @@ function MapPageContent() {
             onClearAllSelection={dismissParkPanel}
             onResetMapView={resetMapView}
             viewResetKey={mapViewResetKey}
+            focusRequestKey={searchFocusKey}
             preserveRestoredCamera={preserveRestoredCamera}
           />
         ) : null}

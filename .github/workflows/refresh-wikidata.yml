@@ -37,6 +37,11 @@ jobs:
       - name: Enrich from Wikipedia infoboxes
         run: npm run data:enrich-wikipedia -- --enrich-limit 2500
 
+      - name: Enrich from RCDB (permission granted)
+        env:
+          RCDB_PERMISSION_GRANTED: "1"
+        run: npm run data:enrich-rcdb -- --fetch --limit 2500 --delay-ms 250 --cache-export
+
       - name: Analyze catalog (dedupe + ThemeParks snapshot verify)
         run: npm run data:analyze-catalog -- --in data/wikidata_coasters.json --fail-on-duplicates --max-parks 170
 
@@ -64,6 +69,7 @@ jobs:
           path: |
             data/wikidata_coasters.json
             data/wikidata_coasters.meta.json
+            data/rcdb_stats.json
             data/processed/wikidata/**/meta.json
             data/published/wikidata/**/*
             data/reports/wikidata/**/*

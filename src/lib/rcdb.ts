@@ -1,6 +1,6 @@
 /**
  * RCDB identifiers from Wikidata P2751 (https://www.wikidata.org/wiki/Property:P2751).
- * Storing IDs and linking to rcdb.com is fine; bulk-copying RCDB stats requires written permission.
+ * IDs + deep-links are always fine. Stats ingest uses written RCDB permission (see data:enrich-rcdb).
  */
 
 const RCDB_ID_RE = /^[1-9]\d*$/;

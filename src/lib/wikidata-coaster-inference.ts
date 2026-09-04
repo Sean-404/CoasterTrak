@@ -110,6 +110,11 @@ export function wikidataInsertName(wd: WikidataCoasterRow): string {
   return enwiki;
 }
 
+/** False when Wikidata only gave a bare Q-id — those must not become catalog display names. */
+export function hasUsableWikidataCoasterName(wd: WikidataCoasterRow): boolean {
+  return !isWikidataQidLabel(wikidataInsertName(wd));
+}
+
 export function yearFromDate(d: string | null): number | null {
   if (!d) return null;
   const y = parseInt(d.slice(0, 4), 10);

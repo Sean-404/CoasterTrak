@@ -24,6 +24,7 @@ import { fetchEnwikiTitleFromWikidata } from "../src/lib/wikipedia-summary";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import type { WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import { isThrillCoaster } from "../src/lib/coaster-dedup";
+import { effectiveClosingYear } from "../src/lib/coaster-status";
 
 const DRY_RUN = hasFlag("--dry-run");
 
@@ -40,6 +41,7 @@ type DbCoaster = {
   duration_s: number | null;
   inversions: number | null;
   opening_year: number | null;
+  closing_year: number | null;
 };
 
 function typeMissing(c: DbCoaster): boolean {
@@ -98,18 +100,26 @@ function likelyThrill(c: DbCoaster): boolean {
   );
 }
 
-function mergePatch(
+/** Exported for unit tests — null-fill only, clears prior-life closing when opening is filled. */
+export function mergePatch(
   row: DbCoaster,
   stats: InfoboxCoasterStats,
   resolvedTitle: string | null,
-): Record<string, string | number> | null {
-  const patch: Record<string, string | number> = {};
+): Record<string, string | number | null> | null {
+  const patch: Record<string, string | number | null> = {};
   if (row.length_ft == null && stats.length_ft != null) patch.length_ft = stats.length_ft;
   if (row.height_ft == null && stats.height_ft != null) patch.height_ft = stats.height_ft;
   if (row.speed_mph == null && stats.speed_mph != null) patch.speed_mph = stats.speed_mph;
   if (row.duration_s == null && stats.duration_s != null) patch.duration_s = stats.duration_s;
   if (row.inversions == null && stats.inversions != null) patch.inversions = stats.inversions;
-  if (row.opening_year == null && stats.opening_year != null) patch.opening_year = stats.opening_year;
+  if (row.opening_year == null && stats.opening_year != null) {
+    patch.opening_year = stats.opening_year;
+    // Relocated QIDs often keep the previous park's retirement year.
+    const cleared = effectiveClosingYear(stats.opening_year, row.closing_year);
+    if (cleared !== (row.closing_year ?? null)) {
+      patch.closing_year = cleared;
+    }
+  }
   if (manufacturerMissing(row) && stats.manufacturer) patch.manufacturer = stats.manufacturer;
   if (typeMissing(row) && stats.coaster_type) patch.coaster_type = stats.coaster_type;
   if (!row.enwiki_title?.trim() && resolvedTitle) patch.enwiki_title = resolvedTitle;
@@ -166,7 +176,7 @@ async function main() {
       supabase
         .from("coasters")
         .select(
-          "id, name, wikidata_id, enwiki_title, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions, opening_year",
+          "id, name, wikidata_id, enwiki_title, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions, opening_year, closing_year",
         )
         .order("id", { ascending: true })
         .range(from, to),

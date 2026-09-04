@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { detectSwappedHeightLength } from "@/lib/catalog-auto-repair";
+import { buildCoasterRepairPatch, detectSwappedHeightLength } from "@/lib/catalog-auto-repair";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 
 describe("detectSwappedHeightLength", () => {
@@ -40,5 +40,48 @@ describe("relocated closing year fixes", () => {
       status: "Defunct",
     });
     expect(fixed.closing_year).toBe(2012);
+  });
+
+  it("clears prior-life closing when opening_year/closing_year are loaded", () => {
+    const patch = buildCoasterRepairPatch({
+      id: 1,
+      park_id: 1,
+      name: "Infusion",
+      wikidata_id: "Q2071673",
+      coaster_type: "Steel",
+      manufacturer: "Intamin",
+      status: "Operating",
+      image_url: null,
+      height_ft: 100,
+      speed_mph: 50,
+      length_ft: 2000,
+      inversions: 0,
+      duration_s: 60,
+      opening_year: 2007,
+      closing_year: 2006,
+    });
+    expect(patch).toEqual({ closing_year: null });
+  });
+
+  it("cannot clear closing years when year columns were not selected", () => {
+    const patch = buildCoasterRepairPatch({
+      id: 1,
+      park_id: 1,
+      name: "Infusion",
+      wikidata_id: "Q2071673",
+      coaster_type: "Steel",
+      manufacturer: "Intamin",
+      status: "Operating",
+      image_url: null,
+      height_ft: 100,
+      speed_mph: 50,
+      length_ft: 2000,
+      inversions: 0,
+      duration_s: 60,
+      // Simulate the old auto-repair SELECT that omitted year columns.
+      opening_year: undefined as unknown as null,
+      closing_year: undefined as unknown as null,
+    });
+    expect(patch).toBeNull();
   });
 });

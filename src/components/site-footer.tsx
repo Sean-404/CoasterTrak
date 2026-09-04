@@ -25,6 +25,36 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           <p className={`mt-1 text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             Track roller coasters, log coaster credits, and explore parks.
           </p>
+          <p className={`mt-2 text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            Catalog data from{" "}
+            <a
+              href="https://www.wikidata.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={isDark ? "underline-offset-2 hover:text-slate-300 hover:underline" : "underline-offset-2 hover:text-slate-600 hover:underline"}
+            >
+              Wikidata
+            </a>
+            ,{" "}
+            <a
+              href="https://en.wikipedia.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={isDark ? "underline-offset-2 hover:text-slate-300 hover:underline" : "underline-offset-2 hover:text-slate-600 hover:underline"}
+            >
+              Wikipedia
+            </a>
+            , and{" "}
+            <a
+              href="https://rcdb.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={isDark ? "underline-offset-2 hover:text-slate-300 hover:underline" : "underline-offset-2 hover:text-slate-600 hover:underline"}
+            >
+              RCDB
+            </a>
+            .
+          </p>
         </div>
         <nav
           className={`flex flex-wrap gap-x-5 gap-y-2 text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}

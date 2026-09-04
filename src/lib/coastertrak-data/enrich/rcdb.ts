@@ -1,6 +1,6 @@
 /**
  * Apply RCDB stats to Wikidata snapshot rows (null-fill only).
- * Requires written permission from RCDB before running production ingest.
+ * CoasterTrak has written permission for this ingest path.
  */
 
 import { normalizeRcdbId, rcdbCoasterUrl } from "@/lib/rcdb";

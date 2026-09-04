@@ -84,11 +84,37 @@ export default function AboutPage() {
           </p>
           <h2 className="pt-2 text-xl font-semibold text-slate-900">How the catalog is maintained</h2>
           <p>
-            Park and coaster records are compiled from third-party and community-maintained sources, then matched and
-            cleaned so map, park, and ride pages stay aligned. We apply known corrections when a source page is an
-            incident, a duplicate, or a clearly wrong park link. Entries can still be incomplete or outdated. Treat
-            the catalog as a planning aid and confirm hours, closures, and restrictions with the park before you
-            travel.
+            Park and coaster records are compiled mainly from{" "}
+            <a
+              href="https://www.wikidata.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-amber-700 underline-offset-2 hover:underline"
+            >
+              Wikidata
+            </a>
+            , with enrichment from{" "}
+            <a
+              href="https://en.wikipedia.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-amber-700 underline-offset-2 hover:underline"
+            >
+              Wikipedia
+            </a>{" "}
+            and ride statistics from{" "}
+            <a
+              href="https://rcdb.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-amber-700 underline-offset-2 hover:underline"
+            >
+              RCDB
+            </a>{" "}
+            (Roller Coaster Database), used with permission. We match and clean sources so map, park, and ride pages
+            stay aligned, and apply known corrections when a page is an incident, a duplicate, or a clearly wrong
+            park link. Entries can still be incomplete or outdated. Treat the catalog as a planning aid and confirm
+            hours, closures, and restrictions with the park before you travel.
           </p>
           <p>
             If a listing looks wrong,{" "}

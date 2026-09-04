@@ -64,6 +64,7 @@ function MapController({
   tightFocus,
   viewResetKey = 0,
   skipInitialParkFly,
+  focusRequestKey = 0,
 }: {
   continent: string;
   selectedPark: Park | null;
@@ -73,6 +74,8 @@ function MapController({
   viewResetKey?: number;
   /** When true, first park focus uses restored camera instead of flying again. */
   skipInitialParkFly?: boolean;
+  /** Bumped on search Enter so flyTo re-runs even if the same park stays selected. */
+  focusRequestKey?: number;
 }) {
   const map = useMap();
   const prevContinent = useRef(continent);
@@ -81,7 +84,7 @@ function MapController({
 
   useEffect(() => {
     if (!selectedPark) return;
-    if (skipInitialParkFly && !skippedInitialFly.current) {
+    if (skipInitialParkFly && !skippedInitialFly.current && focusRequestKey === 0) {
       skippedInitialFly.current = true;
       return;
     }
@@ -96,7 +99,7 @@ function MapController({
         /* map not yet ready */
       }
     };
-  }, [selectedPark, map, tightFocus, skipInitialParkFly]);
+  }, [selectedPark, map, tightFocus, skipInitialParkFly, focusRequestKey]);
 
   useEffect(() => {
     const continentChanged = prevContinent.current !== continent;
@@ -232,6 +235,8 @@ type Props = {
   viewResetKey?: number;
   /** Skip the first park flyTo — camera was restored from the last visit. */
   preserveRestoredCamera?: boolean;
+  /** Bumped when search focuses a park/ride so the camera re-flies. */
+  focusRequestKey?: number;
 };
 
 export function ParkMap({
@@ -248,6 +253,7 @@ export function ParkMap({
   onResetMapView,
   viewResetKey = 0,
   preserveRestoredCamera = false,
+  focusRequestKey = 0,
 }: Props) {
   const selectedPark = useMemo(() => {
     if (!parks.length) return null;
@@ -296,6 +302,7 @@ export function ParkMap({
         tightFocus={selectedCoasterId != null}
         viewResetKey={viewResetKey}
         skipInitialParkFly={preserveRestoredCamera}
+        focusRequestKey={focusRequestKey}
       />
       <MapViewPersistence parkId={selectedParkId} coasterId={selectedCoasterId} />
       <MapClearSelection

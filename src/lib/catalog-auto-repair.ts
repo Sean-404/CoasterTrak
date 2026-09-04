@@ -102,7 +102,7 @@ function parkRepairPatch(park: ParkRow): Partial<ParkRow> | null {
   return Object.keys(patch).length ? patch : null;
 }
 
-function coasterRepairPatch(coaster: CoasterRow): Partial<CoasterRow> | null {
+export function buildCoasterRepairPatch(coaster: CoasterRow): Partial<CoasterRow> | null {
   const swapped = detectSwappedHeightLength(coaster.height_ft, coaster.length_ft);
   const base = swapped
     ? { ...coaster, height_ft: swapped.height_ft, length_ft: swapped.length_ft }
@@ -228,7 +228,7 @@ export async function applyCatalogAutoRepairs(
     supabase
       .from("coasters")
       .select(
-        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s",
+        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year",
       )
       .order("id", { ascending: true })
       .range(from, to),
@@ -237,7 +237,7 @@ export async function applyCatalogAutoRepairs(
   const coasters = coastersResult.data;
 
   for (const coaster of coasters) {
-    const patch = coasterRepairPatch(coaster);
+    const patch = buildCoasterRepairPatch(coaster);
     if (!patch) continue;
     coastersUpdated += 1;
     details.push(`coaster ${coaster.name} (${coaster.id}): ${Object.keys(patch).join(", ")}`);

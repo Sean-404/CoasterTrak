@@ -118,10 +118,48 @@ export function buildCoasterEnwikiTitleCandidates(
   return out;
 }
 
+/** Wikipedia taxonomy pages (not a specific park install). */
+const GENERIC_COASTER_TYPE_TITLES = new Set([
+  "roller coaster",
+  "launched roller coaster",
+  "steel roller coaster",
+  "wooden roller coaster",
+  "inverted roller coaster",
+  "shuttle roller coaster",
+  "mine train roller coaster",
+  "junior roller coaster",
+  "flying roller coaster",
+  "floorless roller coaster",
+  "stand-up roller coaster",
+  "spinning roller coaster",
+  "hypercoaster",
+  "giga coaster",
+  "strata coaster",
+  "wild mouse",
+  "wild mouse roller coaster",
+]);
+
+/** True when a Wikipedia title/extract describes a coaster *type*, not a named ride. */
+export function isGenericCoasterTypeArticle(title: string, extract?: string | null): boolean {
+  const t = title.trim().toLowerCase().replace(/\s+/g, " ");
+  if (GENERIC_COASTER_TYPE_TITLES.has(t)) return true;
+  // "Steel roller coaster" style without a park/disambiguator.
+  if (/^(wooden|steel|launched|inverted|shuttle|flying|floorless|stand-up|spinning)\s+roller\s+coaster$/i.test(t)) {
+    return true;
+  }
+  const ex = (extract ?? "").trim().toLowerCase();
+  if (/^the (launched |wooden |steel |inverted )?roller coaster is a type of\b/.test(ex)) return true;
+  if (/^a roller coaster is a type of amusement ride\b/.test(ex)) return true;
+  return false;
+}
+
 /** Reject park/disaster/person articles that Wikipedia redirects can land on. */
 export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSummary): boolean {
   const extract = summary.extract.toLowerCase();
   const title = summary.title.toLowerCase();
+  if (isGenericCoasterTypeArticle(summary.title, summary.extract)) {
+    return false;
+  }
   if (
     /\b(disaster|accident|incident|derailment|collision)\b/.test(title) ||
     /\b(disaster|accident|incident)\b/.test(extract.slice(0, 160))

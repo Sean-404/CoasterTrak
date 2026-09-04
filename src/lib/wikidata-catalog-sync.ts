@@ -20,6 +20,7 @@ import {
 } from "@/lib/park-match";
 import { finishSyncRun, startSyncRun } from "@/lib/sync-run";
 import {
+  hasUsableWikidataCoasterName,
   inferCoasterType,
   wikidataInsertName,
   yearFromDate,
@@ -176,6 +177,7 @@ function resolveParkDisplayName(rows: WikidataCoasterRow[]): string | null {
 }
 
 function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
+  if (!hasUsableWikidataCoasterName(wd)) return null;
   const name = wikidataInsertName(wd);
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
   const openingYear = yearFromDate(wd.openingDate);
@@ -322,7 +324,7 @@ export async function syncCatalogFromWikidata() {
       }
     }
 
-    const coasterBatch: ReturnType<typeof coasterUpsertPayload>[] = [];
+    const coasterBatch: NonNullable<ReturnType<typeof coasterUpsertPayload>>[] = [];
 
     async function flushCoasters() {
       if (!coasterBatch.length) return;
@@ -332,6 +334,12 @@ export async function syncCatalogFromWikidata() {
         chunk as unknown as Record<string, unknown>[],
       );
       coasterUpdates += chunk.length;
+    }
+
+    function queueCoaster(wd: WikidataCoasterRow, parkId: number) {
+      const payload = coasterUpsertPayload(wd, parkId);
+      if (!payload) return;
+      coasterBatch.push(payload);
     }
 
     for (const [gKey, groupRows] of groups) {
@@ -436,7 +444,7 @@ export async function syncCatalogFromWikidata() {
           ? findParkIdByPreferredName(parkRows, overrideName)
           : null;
         const targetParkId = overrideParkId ?? parkId;
-        coasterBatch.push(coasterUpsertPayload(wd, targetParkId));
+        queueCoaster(wd, targetParkId);
         if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
       }
     }
@@ -457,7 +465,7 @@ export async function syncCatalogFromWikidata() {
         ? findParkIdByPreferredName(parkRows, overrideName)
         : null;
       if (overrideParkId) {
-        coasterBatch.push(coasterUpsertPayload(wd, overrideParkId));
+        queueCoaster(wd, overrideParkId);
         if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
         continue;
       }
@@ -472,7 +480,7 @@ export async function syncCatalogFromWikidata() {
         wd.countryLabel,
       );
       if (linked) {
-        coasterBatch.push(coasterUpsertPayload(wd, linked.id));
+        queueCoaster(wd, linked.id);
         if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
         continue;
       }
@@ -514,7 +522,7 @@ export async function syncCatalogFromWikidata() {
         });
         parkUpdates += 1;
       }
-      coasterBatch.push(coasterUpsertPayload(wd, unknownParkId));
+      queueCoaster(wd, unknownParkId);
       if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
     }
 

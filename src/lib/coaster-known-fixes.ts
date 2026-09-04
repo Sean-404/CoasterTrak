@@ -70,6 +70,13 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
 > = {
   // Blackpool — rebranded from Zipper Dipper; park signage & enwiki use "Blue Flyer"
   Q885702: { name: "Blue Flyer", status: "Operating" },
+  // Wikidata items that lacked an English label (sync used to store the bare Q-id).
+  Q132174212: { name: "ジェットコースター", status: "Defunct" },
+  Q135790425: { name: "Cétautomatix", status: "Operating" },
+  Q19765421: { name: "Alpenblitz", status: "Operating" },
+  Q21008851: { name: "Tornado", status: "Operating" },
+  Q2505886: { name: "Dragon Wagon", status: "Operating" },
+  Q56697767: { name: "Coccinelle", status: "Operating" },
   // Camelot — Wikidata keeps Portopialand (2006) retirement on the same QID as 2007 UK reopen.
   Q13415786: { closing_year: 2012, status: "Defunct" },
   // Lost Island — prior Liseberg (Kanonen) retirement must not stick after 2023 reopen.
@@ -302,6 +309,19 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
     manufacturer: "Setpoint",
     inversions: 0,
     duration_s: 180,
+  },
+  // ThemeParks leftover misnamed "Bowser Jr. Challenge" — Universal / enwiki title.
+  bowserjrchallenge: {
+    name: "Mario Kart: Bowser's Challenge",
+    status: "Operating",
+    manufacturer: "Dynamic Attractions",
+    duration_s: 300,
+  },
+  bowserschallenge: {
+    name: "Mario Kart: Bowser's Challenge",
+    status: "Operating",
+    manufacturer: "Dynamic Attractions",
+    duration_s: 300,
   },
   californiascreamin: {
     name: "Incredicoaster",

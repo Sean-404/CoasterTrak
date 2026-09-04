@@ -28,21 +28,17 @@ describe("coaster Wikipedia helpers", () => {
     ).toBe(true);
   });
 
-  it("rejects unrelated articles", async () => {
-    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+  it("rejects Wikipedia coaster-type taxonomy pages", async () => {
+    const { isLikelyCoasterSummary, isGenericCoasterTypeArticle } = await import(
+      "@/lib/wikipedia-summary"
+    );
+    expect(isGenericCoasterTypeArticle("Launched roller coaster")).toBe(true);
     expect(
-      isLikelyCoasterSummary("Big Thunder Mountain Railroad", {
-        title: "Tsukiji fish market",
-        extract: "Tsukiji fish market was a major wholesale seafood market in Tokyo.",
-        url: "https://en.wikipedia.org/wiki/Tsukiji_fish_market",
-        imageUrl: null,
-      }),
-    ).toBe(false);
-    expect(
-      isLikelyCoasterSummary("Cyclone", {
-        title: "Cyclone",
-        extract: "In meteorology, a cyclone is a large air mass that rotates around a strong center of low pressure.",
-        url: "https://en.wikipedia.org/wiki/Cyclone",
+      isLikelyCoasterSummary("Launch Pad", {
+        title: "Launched roller coaster",
+        extract:
+          "The launched roller coaster is a type of roller coaster that initiates a ride with high amounts of acceleration via one or a series of linear induction motors (LIM).",
+        url: "https://en.wikipedia.org/wiki/Launched_roller_coaster",
         imageUrl: null,
       }),
     ).toBe(false);

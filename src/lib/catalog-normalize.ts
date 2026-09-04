@@ -7,7 +7,7 @@ import {
   PARK_DISPLAY_NAME_BY_EXACT_NAME,
 } from "@/lib/catalog-overrides";
 import type { Coaster, Park } from "@/types/domain";
-import { isLikelyNonRideEventName } from "@/lib/coaster-dedup";
+import { isLikelyNonRideEventName, isPlaceholderCoasterName, isThemeParksGhostCoasterName } from "@/lib/coaster-dedup";
 import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
@@ -288,7 +288,13 @@ export function normalizeCatalog(parks: Park[], coasters: Coaster[]): Normalized
     deduplicated.parks,
     rawParkById,
   ).map(applyCoasterKnownFixes)
-    .filter((c) => !shouldSkipWikidataCoasterId(c.wikidata_id) && !isLikelyNonRideEventName(c.name));
+    .filter(
+      (c) =>
+        !shouldSkipWikidataCoasterId(c.wikidata_id) &&
+        !isLikelyNonRideEventName(c.name) &&
+        !isPlaceholderCoasterName(c.name) &&
+        !isThemeParksGhostCoasterName(c.name),
+    );
 
   return {
     parks: deduplicated.parks.map(applyPreferredParkDisplayName),

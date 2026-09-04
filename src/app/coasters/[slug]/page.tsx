@@ -243,6 +243,21 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         </Link>
       </div>
 
+      {rcdbUrl ? (
+        <p className="mt-3 text-xs text-slate-500">
+          Some ride statistics may include data from{" "}
+          <a
+            href={rcdbUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-amber-700 hover:underline"
+          >
+            RCDB
+          </a>
+          , used with permission.
+        </p>
+      ) : null}
+
       {siblings.length > 0 && park ? (
         <section className="mt-10">
           <h2 className="text-xl font-semibold text-slate-900">More coasters at {park.name}</h2>

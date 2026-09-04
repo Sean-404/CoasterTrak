@@ -61,6 +61,18 @@ export function isOpsCounterOnlyName(raw: string): boolean {
   return false;
 }
 
+/**
+ * ThemeParks / ops feed ghosts that are not real park installs
+ * (e.g. "Launch Pad" queue entity that Wikipedia matched to the type article).
+ */
+export function isThemeParksGhostCoasterName(raw: string): boolean {
+  const n = cleanCoasterName(raw).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if (!n) return true;
+  if (n === "launch pad" || n === "launchpad") return true;
+  if (n === "launched roller coaster") return true;
+  return false;
+}
+
 /** Strip Fast Pass / Licznik clutter for display when that row is the only surviving twin. */
 export function cleanQueueVariantCoasterName(raw: string): string {
   const cleaned = cleanCoasterName(raw);
@@ -164,6 +176,7 @@ export function isLikelyNonRideEventName(raw: string): boolean {
 export function isLikelyCoasterEntry(c: Coaster, parkName?: string | null): boolean {
   if (isPlaceholderCoasterName(c.name)) return false;
   if (isLikelyNonRideEventName(c.name)) return false;
+  if (isThemeParksGhostCoasterName(c.name)) return false;
   if (isOpsCounterOnlyName(c.name)) return false;
   if (c.inversions != null || c.speed_mph != null || c.height_ft != null || c.length_ft != null) return true;
   if (isLikelySmallFamilyCoaster(c, parkName)) return true;

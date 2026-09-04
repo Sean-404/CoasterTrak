@@ -19,7 +19,8 @@ export const WIKIDATA_USER_AGENT =
  * (common for continental European parks/rides). `mul` is the language-independent
  * official name — prefer it over regional English when `en` is missing.
  */
-export const WIKIDATA_LABEL_LANGUAGES = "en,mul,en-gb,en-ca,nl,fr,de";
+export const WIKIDATA_LABEL_LANGUAGES =
+  "en,mul,en-gb,en-ca,nl,fr,de,ja,es,it,pt,zh";
 
 const WIKIDATA_LABEL_SERVICE = `SERVICE wikibase:label { bd:serviceParam wikibase:language "${WIKIDATA_LABEL_LANGUAGES}". }`;
 

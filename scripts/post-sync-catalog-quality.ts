@@ -84,13 +84,7 @@ async function main(): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (supabaseUrl && supabaseKey) {
-    console.log("Applying catalog auto-repairs…");
-    const repair = await applyCatalogAutoRepairs(createClient(supabaseUrl, supabaseKey));
-    console.log(
-      `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
-        `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
-        `${repair.parkLinksUpdated} park links`,
-    );
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (!skipFill) {
       console.log("Filling Wikipedia gaps (height/speed/length/mfr/image/opening year)…");
@@ -105,6 +99,15 @@ async function main(): Promise<void> {
     } else {
       console.log("Skipping Wikipedia gap fill (--skip-fill).");
     }
+
+    // After gap fill so stale prior-life closing years (opening > closing) are cleared.
+    console.log("Applying catalog auto-repairs…");
+    const repair = await applyCatalogAutoRepairs(supabase);
+    console.log(
+      `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
+        `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
+        `${repair.parkLinksUpdated} park links`,
+    );
   } else {
     console.log("Skipping auto-repair / gap fill (Supabase env not set).");
   }
