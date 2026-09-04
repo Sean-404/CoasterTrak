@@ -85,6 +85,19 @@ describe("isLikelyCoasterEntry", () => {
     ).toBe(true);
   });
 
+  it("keeps sparse Unknown-type rows that still have a Wikidata id", () => {
+    expect(
+      isLikelyCoasterEntry(
+        coaster({
+          id: 15730,
+          name: "Golden Loop",
+          wikidata_id: "Q28649619",
+          coaster_type: "Unknown",
+        }),
+      ),
+    ).toBe(true);
+  });
+
   it("drops Battersea Park funfair disaster", () => {
     expect(
       isLikelyCoasterEntry(

@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import {
   isRideDateISO,
-  localDateISO,
   parseRideQuantity,
   sortRideDayLogs,
   summarizeRideEvents,
@@ -87,16 +86,15 @@ async function readCoasterSummary(
   supabase: SupabaseClient,
   userId: string,
   coasterId: number,
-  fallbackDate: string,
-  fallbackQuantity: number,
+  fallback: { quantity: number; riddenOn: string | null },
 ): Promise<RideCreditSummary> {
   const summary = await readRemainingSummary(supabase, userId, coasterId);
   if (summary) return summary;
   return {
     coasterId,
-    totalRides: fallbackQuantity,
-    firstRiddenOn: fallbackDate,
-    lastRiddenOn: fallbackDate,
+    totalRides: fallback.quantity,
+    firstRiddenOn: fallback.riddenOn,
+    lastRiddenOn: fallback.riddenOn,
   };
 }
 
@@ -200,25 +198,69 @@ async function logRideEventsDirect(
 
   return {
     ok: true,
-    summary: await readCoasterSummary(
-      supabase,
-      userId,
-      input.coasterId,
-      input.riddenOn,
-      input.quantity,
-    ),
+    summary: await readCoasterSummary(supabase, userId, input.coasterId, {
+      quantity: input.quantity,
+      riddenOn: input.riddenOn,
+    }),
+  };
+}
+
+/** First credit / wishlist mark — no ride day, so Month Wrapped stays quiet until a date is logged. */
+async function logUndatedCredit(
+  supabase: SupabaseClient,
+  input: { coasterId: number; quantity: number },
+): Promise<LogRideResult> {
+  const userId = await currentUserId(supabase);
+  if (!userId) return { ok: false, message: "Sign in to track rides." };
+
+  const { error: creditError } = await supabase.from("rides").upsert(
+    { user_id: userId, coaster_id: input.coasterId },
+    { onConflict: "user_id,coaster_id", ignoreDuplicates: true },
+  );
+  if (creditError) return { ok: false, message: friendlyLogError(creditError.message) };
+
+  const existingSummary = await readRemainingSummary(supabase, userId, input.coasterId);
+  // Already has history (dated or undated) — don't invent a second placeholder.
+  if (existingSummary) {
+    await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", input.coasterId);
+    return { ok: true, summary: existingSummary };
+  }
+
+  const { error: insertError } = await supabase.from("ride_events").insert({
+    user_id: userId,
+    coaster_id: input.coasterId,
+    ridden_on: null,
+    quantity: input.quantity,
+    source: "legacy_credit",
+  });
+  if (insertError) return { ok: false, message: friendlyLogError(insertError.message) };
+
+  await supabase.from("wishlist").delete().eq("user_id", userId).eq("coaster_id", input.coasterId);
+
+  return {
+    ok: true,
+    summary: await readCoasterSummary(supabase, userId, input.coasterId, {
+      quantity: input.quantity,
+      riddenOn: null,
+    }),
   };
 }
 
 export async function logRideEvents(
   supabase: SupabaseClient,
-  input: { coasterId: number; riddenOn?: string; quantity?: number },
+  input: { coasterId: number; riddenOn?: string | null; quantity?: number },
 ): Promise<LogRideResult> {
   const quantity = parseRideQuantity(input.quantity ?? 1);
   if (quantity == null) {
     return { ok: false, message: "Enter a whole number of rides between 1 and 99." };
   }
-  const riddenOn = input.riddenOn ?? localDateISO();
+
+  // Omitting a date creates an undated credit. Only explicit dates enter Month Wrapped / trip history.
+  if (input.riddenOn == null || input.riddenOn === "") {
+    return logUndatedCredit(supabase, { coasterId: input.coasterId, quantity });
+  }
+
+  const riddenOn = input.riddenOn;
   if (!isRideDateISO(riddenOn)) {
     return { ok: false, message: "Pick a valid ride date." };
   }
@@ -263,7 +305,10 @@ export async function logRideEvents(
 
   const userId = await currentUserId(supabase);
   if (userId) {
-    const summary = await readCoasterSummary(supabase, userId, input.coasterId, riddenOn, quantity);
+    const summary = await readCoasterSummary(supabase, userId, input.coasterId, {
+      quantity,
+      riddenOn,
+    });
     if (summary.totalRides > 0) return { ok: true, summary };
   }
 
@@ -318,6 +363,46 @@ export async function loadRideCreditSummaries(
   }
 
   return { summaries, byUser, error: null };
+}
+
+export async function loadDatedRideEventsInRange(
+  supabase: SupabaseClient,
+  userId: string,
+  startDate: string,
+  endDate: string,
+): Promise<{
+  events: Array<{ coasterId: number; riddenOn: string; quantity: number }>;
+  error: string | null;
+}> {
+  if (!isRideDateISO(startDate) || !isRideDateISO(endDate)) {
+    return { events: [], error: "Invalid date range." };
+  }
+
+  type Row = { coaster_id: number; ridden_on: string | null; quantity: number | null };
+  const { data, error } = await fetchAllPages<Row>(SUPABASE_PAGE_SIZE, (from, to) =>
+    supabase
+      .from("ride_events")
+      .select("coaster_id, ridden_on, quantity")
+      .eq("user_id", userId)
+      .not("ridden_on", "is", null)
+      .gte("ridden_on", startDate)
+      .lte("ridden_on", endDate)
+      .order("ridden_on", { ascending: true })
+      .order("coaster_id", { ascending: true })
+      .range(from, to),
+  );
+
+  if (error) return { events: [], error: error.message };
+
+  const events = data
+    .filter((row): row is Row & { ridden_on: string } => isRideDateISO(row.ridden_on))
+    .map((row) => ({
+      coasterId: row.coaster_id,
+      riddenOn: row.ridden_on,
+      quantity: Math.max(1, Number(row.quantity) || 1),
+    }));
+
+  return { events, error: null };
 }
 
 export function summariesByCoasterId(summaries: RideCreditSummary[]): Map<number, RideCreditSummary> {

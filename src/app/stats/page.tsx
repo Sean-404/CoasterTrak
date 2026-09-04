@@ -611,14 +611,17 @@ function StatsPageContent() {
     [filteredUniqueRides],
   );
 
-  const topParks = useMemo(() => {
+  const parksWithRideCounts = useMemo(() => {
     const counter = new Map<string, number>();
     for (const ride of filteredUniqueRides) {
       const label = formatParkLabel(ride.coasters?.parks?.name, ride.coasters?.parks?.country);
       if (!label) continue;
       counter.set(label, (counter.get(label) ?? 0) + 1);
     }
-    return [...counter.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return [...counter.entries()].sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    });
   }, [filteredUniqueRides]);
 
   /** Unique countries from ridden coasters, with ride counts, most rides first */
@@ -1212,6 +1215,27 @@ function StatsPageContent() {
               ) : null}
               {!compareMode && (
             <>
+              {!loading && !friendAccessDenied ? (
+                <Link
+                  href={
+                    requestedUserId
+                      ? `/stats/wrapped?user=${encodeURIComponent(requestedUserId)}`
+                      : "/stats/wrapped"
+                  }
+                  className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-slate-50 px-4 py-3 shadow-sm transition hover:border-amber-300"
+                >
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+                      Wrapped
+                    </p>
+                    <p className="mt-0.5 text-sm font-medium text-slate-800">
+                      Month and year highlights from dated ride logs
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold text-amber-800">Open →</span>
+                </Link>
+              ) : null}
+
               {!loading && uniqueRides.length > 0 && (
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                   <p className="text-sm font-medium text-slate-700">Ride filters</p>
@@ -1498,18 +1522,18 @@ function StatsPageContent() {
             </div>
           )}
 
-              {/* Top parks and countries */}
+              {/* Parks and countries */}
               <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start lg:gap-5">
-              {/* Top parks */}
+              {/* Parks visited */}
               <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                <h2 className="mb-3 font-semibold text-slate-900">Top parks</h2>
+                <h2 className="mb-3 font-semibold text-slate-900">Parks visited</h2>
                 {loading ? (
                   <p className="text-sm text-slate-400">Loading&hellip;</p>
-                ) : topParks.length === 0 ? (
+                ) : parksWithRideCounts.length === 0 ? (
                   <p className="text-sm text-slate-500">No rides logged yet.</p>
                 ) : (
-                  <ul className="space-y-2.5">
-                    {topParks.map(([name, count], i) => (
+                  <ul className="max-h-[min(40vh,14rem)] space-y-2.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]">
+                    {parksWithRideCounts.map(([name, count], i) => (
                       <li key={name} className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
                           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
@@ -1517,7 +1541,9 @@ function StatsPageContent() {
                           </span>
                           <span className="truncate text-sm text-slate-700">{name}</span>
                         </div>
-                        <span className="shrink-0 text-sm font-semibold text-slate-900">{count}</span>
+                        <span className="shrink-0 text-sm tabular-nums text-slate-500">
+                          {count} {count === 1 ? "ride" : "rides"}
+                        </span>
                       </li>
                     ))}
                   </ul>

@@ -12,6 +12,20 @@ import {
 } from "@/lib/catalog-normalize";
 
 describe("normalizeCatalog", () => {
+  it("renames Magic Kingdom to Disney's Magic Kingdom for display", () => {
+    const parks: Park[] = [
+      {
+        id: 151,
+        name: "Magic Kingdom",
+        country: "United States",
+        latitude: 28.418,
+        longitude: -81.581,
+      },
+    ];
+    const normalized = normalizeCatalog(parks, []);
+    expect(normalized.parks[0]?.name).toBe("Disney's Magic Kingdom");
+  });
+
   it("keeps Hong Kong Disneyland and Ocean Park as separate parks", () => {
     const parks: Park[] = [
       {
@@ -127,6 +141,47 @@ describe("normalizeCatalog", () => {
       "#LikeMe Coaster",
       "The Ride to Happiness",
     ]);
+  });
+
+  it("folds Thorpe Park Resort into Thorpe Park and remaps Walking Dead", () => {
+    const parks: Park[] = [
+      {
+        id: 155,
+        name: "Thorpe Park Resort",
+        country: "United Kingdom",
+        latitude: 51.4036,
+        longitude: -0.5132,
+      },
+      {
+        id: 98,
+        name: "Thorpe Park",
+        country: "United Kingdom",
+        latitude: 51.4039456,
+        longitude: -0.5143332,
+      },
+    ];
+    const normalized = normalizeCatalog(parks, [
+      {
+        id: 414,
+        park_id: 155,
+        name: "The Walking Dead: The Ride",
+        coaster_type: "Steel",
+        status: "Operating",
+      },
+      {
+        id: 759,
+        park_id: 98,
+        name: "Stealth",
+        coaster_type: "Steel",
+        status: "Operating",
+      },
+    ]);
+
+    expect(normalized.parks).toHaveLength(1);
+    expect(normalized.parks[0]!.id).toBe(98);
+    expect(normalized.parks[0]!.name).toBe("Thorpe Park");
+    expect(normalized.idRemap.get(155)).toBe(98);
+    expect(normalized.coasters.every((c) => c.park_id === 98)).toBe(true);
   });
 
   it("round-trips through cache-safe serialization", () => {

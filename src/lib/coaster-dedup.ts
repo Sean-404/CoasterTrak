@@ -168,7 +168,15 @@ export function isLikelyCoasterEntry(c: Coaster, parkName?: string | null): bool
   if (c.inversions != null || c.speed_mph != null || c.height_ft != null || c.length_ft != null) return true;
   if (isLikelySmallFamilyCoaster(c, parkName)) return true;
   const t = effectiveCoasterType(c.coaster_type, c.manufacturer).toLowerCase();
-  return hasCoasterishType(t);
+  if (hasCoasterishType(t)) return true;
+  // Sparse Wikidata rows often land as Unknown/Other with no quantities — keep them when
+  // they still have a Wikidata id so map sheets match park pages.
+  if (c.wikidata_id?.trim() && (!t || t === "unknown" || t === "other")) return true;
+  // Name still clearly a coaster (e.g. "Golden Loop") with no type/stats yet.
+  if (/\b(coaster|loop|hyper|giga|launch|invert|twister|cyclone|screamer)\b/i.test(cleanCoasterName(c.name))) {
+    return true;
+  }
+  return false;
 }
 
 /**

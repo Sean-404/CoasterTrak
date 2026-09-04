@@ -3,12 +3,31 @@ import {
   dedupeParksForCatalog,
   hasSharedDistinctiveParkToken,
   parkNamesMatch,
+  parkNamesNormativelyEqual,
 } from "@/lib/park-match";
 
 describe("parkNamesMatch", () => {
   it("treats Plopsaland De Panne as Plopsaland Belgium", () => {
     expect(parkNamesMatch("Plopsaland De Panne", "Plopsaland Belgium")).toBe(true);
     expect(parkNamesMatch("Plopsaland Belgium", "Plopsaland Deutschland")).toBe(false);
+  });
+
+  it("treats Thorpe Park Resort as Thorpe Park", () => {
+    expect(parkNamesMatch("Thorpe Park", "Thorpe Park Resort")).toBe(true);
+    expect(parkNamesNormativelyEqual("Thorpe Park", "Thorpe Park Resort")).toBe(true);
+    expect(parkNamesNormativelyEqual("Flamingo Land", "Flamingo Land Resort")).toBe(true);
+  });
+
+  it("collapses spelling / parenthetical park aliases", () => {
+    expect(parkNamesNormativelyEqual("Gröna Lund", "Grona Lund")).toBe(true);
+    expect(parkNamesNormativelyEqual("Fårup Sommarland", "Fårup Sommerland")).toBe(true);
+    expect(parkNamesNormativelyEqual("Chime-Long Ocean Kingdom", "Chimelong Ocean Kingdom")).toBe(
+      true,
+    );
+    expect(
+      parkNamesNormativelyEqual("Fantasy Island", "Fantasy Island (UK amusement park)"),
+    ).toBe(true);
+    expect(parkNamesNormativelyEqual("Adlabs Imagica", "Imagicaa")).toBe(true);
   });
 
   it("does not treat shared place words as the same park", () => {
@@ -42,6 +61,29 @@ describe("dedupeParksForCatalog", () => {
 
     expect(parks.map((p) => p.name)).toEqual(["Walibi Belgium"]);
   });
+
+  it("keeps Thorpe Park and drops Thorpe Park Resort when ride counts differ", () => {
+    const parks = dedupeParksForCatalog([
+      {
+        id: 155,
+        name: "Thorpe Park Resort",
+        country: "United Kingdom",
+        latitude: 51.4036,
+        longitude: -0.5132,
+        rideCount: 1,
+      },
+      {
+        id: 98,
+        name: "Thorpe Park",
+        country: "United Kingdom",
+        latitude: 51.4039456,
+        longitude: -0.5143332,
+        rideCount: 7,
+      },
+    ]);
+    expect(parks.map((p) => p.name)).toEqual(["Thorpe Park"]);
+  });
+
   it("keeps Ocean Park and Hong Kong Disneyland as separate parks", () => {
     const parks = dedupeParksForCatalog([
       {

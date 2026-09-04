@@ -7,6 +7,7 @@ import { normalizeManufacturerLabel } from "@/lib/display";
 import { reconcileCountryWithCoords, normalizeParkLongitude } from "@/lib/geo-country";
 import {
   COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID,
+  PARK_DISPLAY_NAME_BY_EXACT_NAME,
   PARK_DISPLAY_NAME_BY_WIKIDATA_ID,
 } from "@/lib/catalog-overrides";
 import {
@@ -24,7 +25,7 @@ import {
   yearFromDate,
 } from "@/lib/wikidata-coaster-inference";
 import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
-import { normalizeLifecycleStatus } from "@/lib/coaster-status";
+import { effectiveClosingYear, normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { normalizeRcdbId } from "@/lib/rcdb";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
 import { loadWikidataCatalogRows } from "@/lib/wikidata-catalog-source";
@@ -152,7 +153,7 @@ function majorityParkWikidataId(rows: WikidataCoasterRow[]): string | null {
 function canonicalWikidataParkName(name: string): string {
   const trimmed = name.trim();
   if (/^plopsaland\s+de\s+panne$/i.test(trimmed)) return "Plopsaland Belgium";
-  return trimmed;
+  return PARK_DISPLAY_NAME_BY_EXACT_NAME[trimmed] ?? trimmed;
 }
 
 function hasCatalogParkName(row: WikidataCoasterRow): boolean {
@@ -178,7 +179,9 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
   const name = wikidataInsertName(wd);
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
   const openingYear = yearFromDate(wd.openingDate);
-  const closingYear = yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate);
+  const rawClosingYear = yearFromDate(wd.demolishedDate) ?? yearFromDate(wd.retirementDate);
+  // Relocated rides often keep the previous park's retirement on the same QID.
+  const closingYear = effectiveClosingYear(openingYear, rawClosingYear);
   const lifecycleStatus = normalizeLifecycleStatus(
     wd.status === "defunct" ? "Defunct" : wd.status === "unknown" ? "Unknown" : "Operating",
     { closingYear, openingYear },
@@ -195,9 +198,16 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     height_ft: wd.heightFt != null ? Math.round(wd.heightFt) : null,
     inversions: wd.inversions,
     duration_s: wd.durationS != null ? Math.round(wd.durationS) : null,
+    opening_year: openingYear,
+    closing_year: closingYear,
   });
 
   const rcdbId = normalizeRcdbId(wd.rcdbId);
+  const finalOpeningYear = fixed.opening_year ?? openingYear;
+  const finalClosingYear =
+    fixed.closing_year !== undefined
+      ? effectiveClosingYear(finalOpeningYear, fixed.closing_year)
+      : closingYear;
 
   return {
     park_id: parkId,
@@ -213,8 +223,9 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
     ...(fixed.height_ft != null ? { height_ft: Math.round(fixed.height_ft) } : {}),
     ...(fixed.inversions != null ? { inversions: fixed.inversions } : {}),
     ...(fixed.duration_s != null ? { duration_s: Math.round(fixed.duration_s) } : {}),
-    ...(openingYear != null ? { opening_year: openingYear } : {}),
-    ...(closingYear != null ? { closing_year: closingYear } : {}),
+    ...(finalOpeningYear != null ? { opening_year: finalOpeningYear } : {}),
+    // Always write closing_year so stale prior-life years are cleared on relocate/rebuild.
+    closing_year: finalClosingYear,
     ...(wd.enwikiTitle?.trim() ? { enwiki_title: wd.enwikiTitle.trim() } : {}),
     external_source: "wikidata",
     external_id: wd.wikidataId,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  effectiveClosingYear,
   hasPastClosingYear,
   inferParkLifecycleStatus,
   isCoasterDefunct,
@@ -73,5 +74,17 @@ describe("hasPastClosingYear", () => {
   it("is false when closing year is missing or future", () => {
     expect(hasPastClosingYear({})).toBe(false);
     expect(hasPastClosingYear({ closingYear: 2999 })).toBe(false);
+  });
+});
+
+describe("effectiveClosingYear", () => {
+  it("clears prior-life closing years after a later reopen", () => {
+    expect(effectiveClosingYear(2023, 2016)).toBeNull();
+    expect(effectiveClosingYear(2007, 2006)).toBeNull();
+  });
+
+  it("keeps valid closing years", () => {
+    expect(effectiveClosingYear(2007, 2012)).toBe(2012);
+    expect(effectiveClosingYear(null, 2012)).toBe(2012);
   });
 });

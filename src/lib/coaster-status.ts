@@ -11,6 +11,19 @@ function currentCalendarYear(): number {
 }
 
 /**
+ * Drop prior-life retirement/demolition years when the same Wikidata item was
+ * relocated and later reopened (opening after the old park's closing).
+ */
+export function effectiveClosingYear(
+  openingYear: number | null | undefined,
+  closingYear: number | null | undefined,
+): number | null {
+  if (closingYear == null) return null;
+  if (openingYear != null && openingYear > closingYear) return null;
+  return closingYear;
+}
+
+/**
  * True when the catalog row has a past closing year that is not superseded by a
  * later reopening / rebuild opening year on the same row.
  */
@@ -18,10 +31,8 @@ export function hasPastClosingYear(opts?: {
   closingYear?: number | null;
   openingYear?: number | null;
 }): boolean {
-  const closingYear = opts?.closingYear ?? null;
-  const openingYear = opts?.openingYear ?? null;
+  const closingYear = effectiveClosingYear(opts?.openingYear, opts?.closingYear);
   if (closingYear == null || closingYear > currentCalendarYear()) return false;
-  if (openingYear != null && openingYear > closingYear) return false;
   return true;
 }
 

@@ -8,7 +8,7 @@ import { isJammedMultiLocationParkName, unjamGeoLabel } from "@/lib/geo-country"
 import { isWikidataQidLabel } from "@/lib/wikidata-qid";
 
 /** Lowercase, strip noise words / accents, collapse punctuation for comparison. */
-function normalizeParkNameForMatch(name: string): string {
+export function normalizeParkNameForMatch(name: string): string {
   return unjamGeoLabel(name)
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -18,12 +18,18 @@ function normalizeParkNameForMatch(name: string): string {
     .replace(/\bat\s+universal(?:\s+orlando)?\b/gi, "")
     .replace(/\b(theme|amusement|family|water)\s+park\b/gi, "")
     .replace(/\bresort\b/gi, "")
+    // Parenthetical disambiguators ("Fantasy Island (UK amusement park)")
+    .replace(/\([^)]*\)/g, "")
     // "Universal's Islands of Adventure" / "Universal Studios Florida" brand prefix
     .replace(/\buniversals?\b/gi, "")
     // "Disney's Hollywood Studios" / "Disney Magic Kingdom" brand prefix noise
     .replace(/\bdisneys?\b/gi, "")
     // Official rename: Plopsaland De Panne → Plopsaland Belgium (same gate)
     .replace(/\bplopsaland\s+de\s+panne\b/g, "plopsaland belgium")
+    // Spelling variants
+    .replace(/\bsommarland\b/g, "sommerland")
+    .replace(/\bchime-?long\b/g, "chimelong")
+    .replace(/\badlabs\s+imagica\b/g, "imagicaa")
     .replace(/\s+/g, " ")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
@@ -123,7 +129,14 @@ export function dedupeParksForCatalog<T extends CatalogParkCandidate>(parks: T[]
     .sort((a, b) => {
       const rides = (b.rideCount ?? 0) - (a.rideCount ?? 0);
       if (rides !== 0) return rides;
-      const len = b.name.length - a.name.length;
+      // Prefer "Thorpe Park" over "Thorpe Park Resort" when ride counts tie.
+      const aResort = /\bresort\b/i.test(a.name) ? 1 : 0;
+      const bResort = /\bresort\b/i.test(b.name) ? 1 : 0;
+      if (aResort !== bResort) return aResort - bResort;
+      const aNoise = /\b(theme|amusement|family|water)\s+park\b/i.test(a.name) ? 1 : 0;
+      const bNoise = /\b(theme|amusement|family|water)\s+park\b/i.test(b.name) ? 1 : 0;
+      if (aNoise !== bNoise) return aNoise - bNoise;
+      const len = a.name.length - b.name.length;
       if (len !== 0) return len;
       return a.id - b.id;
     });
@@ -254,6 +267,13 @@ export function parkNamesMatch(a: string, b: string): boolean {
   }
   const minSize = Math.min(ta.size, tb.size);
   return minSize >= 1 && overlap >= Math.max(1, minSize * 0.6);
+}
+
+/** True when names match after stripping Resort / Theme Park / brand noise. */
+export function parkNamesNormativelyEqual(a: string, b: string): boolean {
+  const na = normalizeParkNameForMatch(a);
+  const nb = normalizeParkNameForMatch(b);
+  return Boolean(na && nb && na === nb);
 }
 
 /**

@@ -37,6 +37,13 @@ export const PARK_DISPLAY_NAME_BY_WIKIDATA_ID: Record<string, string> = {
   Q2197655: "Plopsaland Ardennes",
   Q1164525: "La Ronde",
   Q1483280: "Gold Reef City",
+  // Official WD label is "Magic Kingdom"; match Disney's Animal Kingdom / Hollywood Studios style.
+  Q1324340: "Disney's Magic Kingdom",
+};
+
+/** Exact catalog name → preferred display label (legacy rows without a Wikidata id). */
+export const PARK_DISPLAY_NAME_BY_EXACT_NAME: Record<string, string> = {
+  "Magic Kingdom": "Disney's Magic Kingdom",
 };
 
 /** Parks that may be missing from Wikidata ingest — ensure they exist before relinking coasters. */

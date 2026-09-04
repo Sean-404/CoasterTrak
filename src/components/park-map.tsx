@@ -10,6 +10,11 @@ import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
 import { getMapTileLayer } from "@/lib/map-tiles";
+import {
+  clearSavedMapView,
+  getInitialMapView,
+  writeSavedMapView,
+} from "@/lib/map-view-storage";
 import type { Units } from "@/lib/units";
 
 const icon = L.icon({
@@ -58,6 +63,7 @@ function MapController({
   selectedPark,
   tightFocus,
   viewResetKey = 0,
+  skipInitialParkFly,
 }: {
   continent: string;
   selectedPark: Park | null;
@@ -65,13 +71,20 @@ function MapController({
   tightFocus: boolean;
   /** Bumped when the user explicitly resets the map view. */
   viewResetKey?: number;
+  /** When true, first park focus uses restored camera instead of flying again. */
+  skipInitialParkFly?: boolean;
 }) {
   const map = useMap();
   const prevContinent = useRef(continent);
   const prevResetKey = useRef(viewResetKey);
+  const skippedInitialFly = useRef(false);
 
   useEffect(() => {
     if (!selectedPark) return;
+    if (skipInitialParkFly && !skippedInitialFly.current) {
+      skippedInitialFly.current = true;
+      return;
+    }
     const targetZoom = tightFocus ? Math.max(map.getZoom(), 12) : Math.max(map.getZoom(), 6);
     map.flyTo([selectedPark.latitude, selectedPark.longitude], targetZoom, {
       duration: 1,
@@ -83,7 +96,7 @@ function MapController({
         /* map not yet ready */
       }
     };
-  }, [selectedPark, map, tightFocus]);
+  }, [selectedPark, map, tightFocus, skipInitialParkFly]);
 
   useEffect(() => {
     const continentChanged = prevContinent.current !== continent;
@@ -94,6 +107,8 @@ function MapController({
     // Stay put when the park panel closes — only reframe for continent filter or Reset map.
     if (selectedPark) return;
     if (!continentChanged && !resetRequested) return;
+
+    if (resetRequested) clearSavedMapView();
 
     if (continent === "All") {
       map.flyTo([25, 10], 2, { duration: 1 });
@@ -109,6 +124,54 @@ function MapController({
       }
     };
   }, [continent, map, selectedPark, viewResetKey]);
+  return null;
+}
+
+/** Keep last camera (+ focus ids) so Back / Discover remounts land on the same area. */
+function MapViewPersistence({
+  parkId,
+  coasterId,
+}: {
+  parkId: number | null;
+  coasterId: number | null;
+}) {
+  const map = useMap();
+  const parkIdRef = useRef(parkId);
+  const coasterIdRef = useRef(coasterId);
+  const didMountPersist = useRef(false);
+  parkIdRef.current = parkId;
+  coasterIdRef.current = coasterId;
+
+  const persist = (leafletMap: L.Map) => {
+    const center = leafletMap.getCenter();
+    writeSavedMapView({
+      lat: center.lat,
+      lng: center.lng,
+      zoom: leafletMap.getZoom(),
+      parkId: parkIdRef.current,
+      coasterId: coasterIdRef.current,
+    });
+  };
+
+  useMapEvents({
+    moveend(event) {
+      persist(event.target);
+    },
+    zoomend(event) {
+      persist(event.target);
+    },
+  });
+
+  // Selection can change without a pan — keep focus ids current for the next remount.
+  // Skip the first null write so we don't clobber a saved park before React restores it.
+  useEffect(() => {
+    if (!didMountPersist.current) {
+      didMountPersist.current = true;
+      if (parkId == null && coasterId == null) return;
+    }
+    persist(map);
+  }, [parkId, coasterId, map]);
+
   return null;
 }
 
@@ -167,6 +230,8 @@ type Props = {
   onResetMapView?: () => void;
   /** Bumped to force world/continent reframing (Reset map). */
   viewResetKey?: number;
+  /** Skip the first park flyTo — camera was restored from the last visit. */
+  preserveRestoredCamera?: boolean;
 };
 
 export function ParkMap({
@@ -182,6 +247,7 @@ export function ParkMap({
   onClearAllSelection,
   onResetMapView,
   viewResetKey = 0,
+  preserveRestoredCamera = false,
 }: Props) {
   const selectedPark = useMemo(() => {
     if (!parks.length) return null;
@@ -197,6 +263,7 @@ export function ParkMap({
   }, [coasters, selectedCoasterId]);
 
   const tileLayer = useMemo(() => getMapTileLayer(), []);
+  const initialView = useMemo(() => getInitialMapView(), []);
 
   const selectedRidePin = useMemo(() => {
     if (!selectedCoaster || !flyTargetPark) return null;
@@ -212,8 +279,8 @@ export function ParkMap({
 
   return (
     <MapContainer
-      center={[25, 10]}
-      zoom={2}
+      center={[initialView.lat, initialView.lng]}
+      zoom={initialView.zoom}
       scrollWheelZoom={typeof window !== "undefined" ? window.matchMedia("(pointer: fine)").matches : true}
       worldCopyJump={false}
       maxBounds={[
@@ -228,7 +295,9 @@ export function ParkMap({
         selectedPark={flyTargetPark}
         tightFocus={selectedCoasterId != null}
         viewResetKey={viewResetKey}
+        skipInitialParkFly={preserveRestoredCamera}
       />
+      <MapViewPersistence parkId={selectedParkId} coasterId={selectedCoasterId} />
       <MapClearSelection
         enabled={hasFocus}
         hasCoasterSelected={selectedCoasterId != null}

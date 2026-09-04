@@ -3,6 +3,9 @@
  * Keeps ride lists aligned with what users see on the map.
  */
 
+import {
+  PARK_DISPLAY_NAME_BY_EXACT_NAME,
+} from "@/lib/catalog-overrides";
 import type { Coaster, Park } from "@/types/domain";
 import { isLikelyNonRideEventName } from "@/lib/coaster-dedup";
 import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
@@ -11,6 +14,7 @@ import {
   absorbReverseGeocodeParks,
   hasSharedDistinctiveParkToken,
   parkNamesMatch,
+  parkNamesNormativelyEqual,
   snapOrphanCoastersToDisplayParks,
 } from "@/lib/park-match";
 
@@ -77,16 +81,37 @@ function hasUniversalStudiosVsIslandsConflict(a: string, b: string): boolean {
   return studiosVsIslands || resortVsGate;
 }
 
+function parkDisplayNameScore(name: string): number {
+  let s = 0;
+  if (/\bat\s+universal\b/i.test(name)) s -= 3;
+  // Prefer "Thorpe Park" over "Thorpe Park Resort", "Lagoon" over "Lagoon Amusement Park".
+  if (/\bresort\b/i.test(name)) s -= 5;
+  if (/\b(theme|amusement|family|water)\s+park\b/i.test(name)) s -= 3;
+  if (/[™®©]/.test(name)) s -= 2;
+  if (/,/.test(name)) s -= 2;
+  // Prefer Disney's Magic Kingdom over bare Magic Kingdom (matches other WDW gates).
+  if (/^disney'?s\s+magic kingdom$/i.test(name.trim())) s += 2;
+  s -= Math.max(0, name.length - 40) * 0.05;
+  s -= name.length * 0.01;
+  return s;
+}
+
+function applyPreferredParkDisplayName(park: Park): Park {
+  const preferred = PARK_DISPLAY_NAME_BY_EXACT_NAME[park.name.trim()];
+  if (preferred && preferred !== park.name) return { ...park, name: preferred };
+  return park;
+}
+
 function preferParkDisplayName(current: string, candidate: string): string {
-  const score = (name: string) => {
-    let s = 0;
-    if (/\bat\s+universal\b/i.test(name)) s -= 3;
-    if (/[™®©]/.test(name)) s -= 2;
-    if (/,/.test(name)) s -= 2;
-    s -= Math.max(0, name.length - 40) * 0.05;
-    return s;
-  };
-  return score(candidate) > score(current) ? candidate : current;
+  return parkDisplayNameScore(candidate) > parkDisplayNameScore(current) ? candidate : current;
+}
+
+/** Prefer the cleaner / shorter display row as the surviving park id. */
+function preferCanonicalPark(a: Park, b: Park): Park {
+  const sa = parkDisplayNameScore(a.name);
+  const sb = parkDisplayNameScore(b.name);
+  if (sb !== sa) return sb > sa ? b : a;
+  return a.id <= b.id ? a : b;
 }
 
 function distanceKm(a: Park, b: Park): number {
@@ -114,14 +139,21 @@ function deduplicateParksForDisplay(geoAbsorbedParks: Park[]): {
   const canonical = new Map<number, Park>();
   const idRemap = new Map<number, number>();
 
-  function mergeInto(base: Park, duplicate: Park) {
-    idRemap.set(duplicate.id, base.id);
-    base.name = preferParkDisplayName(base.name, duplicate.name);
-    base.latitude = duplicate.latitude ?? base.latitude;
-    base.longitude = duplicate.longitude ?? base.longitude;
-    const lat = base.latitude ?? null;
-    const lng = base.longitude ?? null;
-    base.country = reconcileCountryWithCoords(base.country ?? duplicate.country, lat, lng);
+  function redirectRemaps(fromId: number, toId: number) {
+    idRemap.set(fromId, toId);
+    for (const [from, to] of [...idRemap.entries()]) {
+      if (to === fromId) idRemap.set(from, toId);
+    }
+  }
+
+  function mergeLoserIntoWinner(winner: Park, loser: Park) {
+    redirectRemaps(loser.id, winner.id);
+    winner.name = preferParkDisplayName(winner.name, loser.name);
+    winner.latitude = loser.latitude ?? winner.latitude;
+    winner.longitude = loser.longitude ?? winner.longitude;
+    const lat = winner.latitude ?? null;
+    const lng = winner.longitude ?? null;
+    winner.country = reconcileCountryWithCoords(winner.country ?? loser.country, lat, lng);
   }
 
   for (const park of geoAbsorbedParks) {
@@ -134,19 +166,33 @@ function deduplicateParksForDisplay(geoAbsorbedParks: Park[]): {
       if (idRemap.has(existing.id)) continue;
 
       const sameName = existing.name.toLowerCase().trim() === park.name.toLowerCase().trim();
+      const sameNorm = parkNamesNormativelyEqual(existing.name, park.name);
       const fuzzyName = parkNamesMatch(existing.name, park.name);
       const dist = distanceKm(existing, park);
       const sameNameNearby = sameName && dist < 200;
+      // "Thorpe Park" / "Thorpe Park Resort" share a normalized name — allow the same
+      // wide geocoder drift as exact duplicates (and merge when either lacks coords).
+      const sameNormNearby = sameNorm && !sameName && (dist < 200 || !Number.isFinite(dist));
       const fuzzyNameNearby =
         fuzzyName &&
         !sameName &&
+        !sameNorm &&
         dist < 40 &&
         hasSharedDistinctiveParkToken(existing.name, park.name) &&
         !hasUniversalStudiosVsIslandsConflict(existing.name, park.name);
 
-      if (sameNameNearby || fuzzyNameNearby) {
-        mergeInto(existing, park);
-        canonical.delete(park.id);
+      if (sameNameNearby || sameNormNearby || fuzzyNameNearby) {
+        const winner = preferCanonicalPark(existing, park);
+        const loser = winner.id === existing.id ? park : existing;
+        if (winner.id === park.id) {
+          canonical.delete(existing.id);
+          const kept = { ...park };
+          mergeLoserIntoWinner(kept, existing);
+          canonical.set(kept.id, kept);
+        } else {
+          mergeLoserIntoWinner(existing, park);
+          canonical.delete(park.id);
+        }
         break;
       }
     }
@@ -245,7 +291,7 @@ export function normalizeCatalog(parks: Park[], coasters: Coaster[]): Normalized
     .filter((c) => !shouldSkipWikidataCoasterId(c.wikidata_id) && !isLikelyNonRideEventName(c.name));
 
   return {
-    parks: deduplicated.parks,
+    parks: deduplicated.parks.map(applyPreferredParkDisplayName),
     coasters: remappedCoasters,
     idRemap: combinedRemap,
   };

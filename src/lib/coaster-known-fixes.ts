@@ -63,11 +63,17 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
       | "speed_mph"
       | "length_ft"
       | "duration_s"
+      | "opening_year"
+      | "closing_year"
     >
   >
 > = {
   // Blackpool — rebranded from Zipper Dipper; park signage & enwiki use "Blue Flyer"
   Q885702: { name: "Blue Flyer", status: "Operating" },
+  // Camelot — Wikidata keeps Portopialand (2006) retirement on the same QID as 2007 UK reopen.
+  Q13415786: { closing_year: 2012, status: "Defunct" },
+  // Lost Island — prior Liseberg (Kanonen) retirement must not stick after 2023 reopen.
+  Q134966734: { closing_year: null, status: "Operating" },
   // Blackpool classic wood out-and-back; inversions must stay 0 (bad imports sometimes confuse with train count)
   Q265733: {
     inversions: 0,
@@ -149,6 +155,39 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   },
   // Alton Towers historical
   Q3338910: { name: "Beast", status: "Defunct" },
+  // Gold Reef City — Wikidata sparse / wrong class labels; published park figures
+  Q483513: {
+    name: "Anaconda",
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Vekoma",
+    height_ft: 112,
+    speed_mph: 56,
+    length_ft: 2448,
+    inversions: 5,
+    duration_s: 100,
+  },
+  Q28649619: {
+    name: "Golden Loop",
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Schwarzkopf",
+    height_ft: 138,
+    speed_mph: 57,
+    length_ft: 863,
+    inversions: 1,
+    duration_s: 30,
+  },
+  Q2446903: {
+    name: "Tower of Terror",
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Intamin",
+    height_ft: 112,
+    speed_mph: 59,
+    inversions: 0,
+    duration_s: 28,
+  },
   // Universal Orlando — multi-install Wikidata rows that lag on stats / park linkage
   Q3073731: {
     coaster_type: "Steel",
@@ -333,6 +372,8 @@ export function applyCoasterKnownFixes<
         | "speed_mph"
         | "length_ft"
         | "duration_s"
+        | "opening_year"
+        | "closing_year"
       >
     >,
 >(

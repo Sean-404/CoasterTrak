@@ -200,7 +200,7 @@ export function CoasterActions({
     });
   }
 
-  async function logRides(nextQuantity: number, nextDate: string) {
+  async function logRides(nextQuantity: number, nextDate?: string | null) {
     if (loggingRef.current) return;
     const parsed = parseRideQuantity(nextQuantity);
     if (parsed == null) {
@@ -218,7 +218,7 @@ export function CoasterActions({
         if (!supabase) return;
         const result = await logRideEvents(supabase, {
           coasterId,
-          riddenOn: nextDate,
+          ...(nextDate ? { riddenOn: nextDate } : {}),
           quantity: parsed,
         });
         if (!result.ok) {
@@ -230,7 +230,13 @@ export function CoasterActions({
         if (alreadyWishlisted) setWishlisted(coasterId, false);
         setQuantity(1);
         setStatus("idle");
-        setFeedback(parsed === 1 ? "Ride logged!" : `Logged ${parsed} rides`);
+        setFeedback(
+          nextDate
+            ? parsed === 1
+              ? "Ride logged!"
+              : `Logged ${parsed} rides`
+            : "Marked as ridden",
+        );
         window.setTimeout(() => setFeedback(""), 1800);
       });
     } finally {
@@ -257,7 +263,7 @@ export function CoasterActions({
   const firstRideButton = !alreadyRidden && (
     <button
       type="button"
-      onClick={() => void logRides(1, rideDate)}
+      onClick={() => void logRides(1)}
       disabled={busy}
       className={`cursor-pointer rounded-md border border-slate-300 font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 disabled:cursor-wait disabled:opacity-60 ${controlClass}`}
     >
@@ -362,9 +368,11 @@ export function CoasterActions({
           {message}
         </p>
       ) : null}
-      {prominent && !alreadyRidden && (
-        <DateField value={rideDate} onChange={setRideDate} disabled={busy} />
-      )}
+      {prominent && !alreadyRidden ? (
+        <p className="text-xs text-slate-500">
+          Adds a credit without a ride date. Log a day later when you want it in Month Wrapped.
+        </p>
+      ) : null}
       <div className={`flex min-w-0 flex-wrap items-center ${prominent ? "gap-2" : "gap-1.5"}`}>
         {alreadyWishlisted && !alreadyRidden && (
           <span

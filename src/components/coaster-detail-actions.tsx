@@ -47,7 +47,8 @@ export function CoasterDetailActions({
         </p>
       ) : (
         <p className="mt-1 text-sm text-slate-600">
-          Add to your wishlist, mark as ridden, or log another ride. Tap − on a logged day if you made a mistake.
+          Add to your wishlist, mark as ridden, or log another ride with a date. Tap − on a logged day if
+          you made a mistake.
         </p>
       )}
       <CoasterActions coasterId={coasterId} disableWishlist={isDefunct} variant="prominent" />

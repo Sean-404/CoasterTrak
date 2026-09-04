@@ -10,8 +10,11 @@ import {
   COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID,
   ENSURE_PARKS,
   PARK_COUNTRY_BY_NAME,
+  PARK_DISPLAY_NAME_BY_EXACT_NAME,
+  PARK_DISPLAY_NAME_BY_WIKIDATA_ID,
   type EnsureParkSpec,
 } from "@/lib/catalog-overrides";
+import { effectiveClosingYear } from "@/lib/coaster-status";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import { parkNamesMatch } from "@/lib/park-match";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
@@ -45,6 +48,8 @@ const COASTER_REPAIR_FIELDS = [
   "length_ft",
   "inversions",
   "duration_s",
+  "opening_year",
+  "closing_year",
 ] as const;
 
 /** Detect obvious height/length swaps (e.g. 1486 ft height, 63 ft length). */
@@ -68,6 +73,14 @@ function findParkIdByPreferredName(parks: ParkRow[], preferredName: string): num
   return fuzzy?.id ?? null;
 }
 
+function preferredParkDisplayName(park: ParkRow): string | null {
+  const qid = park.external_id?.match(/^Q\d+$/i)?.[0]?.toUpperCase();
+  if (qid && PARK_DISPLAY_NAME_BY_WIKIDATA_ID[qid]) {
+    return PARK_DISPLAY_NAME_BY_WIKIDATA_ID[qid]!;
+  }
+  return PARK_DISPLAY_NAME_BY_EXACT_NAME[park.name.trim()] ?? null;
+}
+
 function parkRepairPatch(park: ParkRow): Partial<ParkRow> | null {
   const lat = park.latitude;
   const lng = park.longitude;
@@ -80,10 +93,12 @@ function parkRepairPatch(park: ParkRow): Partial<ParkRow> | null {
     reconcileCountryWithCoords(park.country, lat, normalizedLng) ||
     canonicalCountryLabel(park.country) ||
     park.country;
+  const displayName = preferredParkDisplayName(park);
 
   const patch: Partial<ParkRow> = {};
   if (normalizedLng !== lng) patch.longitude = normalizedLng;
   if (country !== park.country) patch.country = country;
+  if (displayName && displayName !== park.name) patch.name = displayName;
   return Object.keys(patch).length ? patch : null;
 }
 
@@ -93,14 +108,20 @@ function coasterRepairPatch(coaster: CoasterRow): Partial<CoasterRow> | null {
     ? { ...coaster, height_ft: swapped.height_ft, length_ft: swapped.length_ft }
     : coaster;
   const fixed = applyCoasterKnownFixes(base);
+  const clearedClosing = effectiveClosingYear(fixed.opening_year, fixed.closing_year);
+  const withYears =
+    clearedClosing !== (fixed.closing_year ?? null)
+      ? { ...fixed, closing_year: clearedClosing }
+      : fixed;
 
   const patch: Partial<CoasterRow> = {};
   for (const field of COASTER_REPAIR_FIELDS) {
     const before = coaster[field];
-    const after = fixed[field];
-    if (after == null) continue;
+    const after = withYears[field];
+    // Allow null closing_year so prior-life retirement years can be cleared.
+    if (after == null && field !== "closing_year") continue;
     if (before !== after) {
-      (patch as Record<string, unknown>)[field] = after;
+      (patch as Record<string, unknown>)[field] = after ?? null;
     }
   }
   return Object.keys(patch).length ? patch : null;
