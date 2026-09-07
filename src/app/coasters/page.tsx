@@ -16,7 +16,8 @@ import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug } from "@/lib/slug";
 
-export const revalidate = 86400;
+// Weekly, matching the Sunday catalog sync. Daily ISR rewrites were hitting Vercel's write cap.
+export const revalidate = 604800;
 
 type PageProps = {
   searchParams: Promise<{ q?: string | string[]; page?: string | string[] }>;

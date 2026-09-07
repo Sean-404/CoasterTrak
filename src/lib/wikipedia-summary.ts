@@ -39,6 +39,8 @@ export async function fetchWikipediaSummary(title: string): Promise<WikipediaSum
       {
         headers: { "User-Agent": WIKIPEDIA_USER_AGENT, Accept: "application/json" },
         signal: AbortSignal.timeout(15_000),
+        // Same window as catalog ISR so a regenerating page does not rewrite when the extract is unchanged.
+        next: { revalidate: 604800 },
       },
     );
     if (!res.ok) return null;
@@ -71,6 +73,7 @@ export async function fetchEnwikiTitleFromWikidata(wikidataId: string): Promise<
     const res = await fetch(`https://www.wikidata.org/wiki/Special:EntityData/${qid}.json`, {
       headers: { "User-Agent": WIKIPEDIA_USER_AGENT, Accept: "application/json" },
       signal: AbortSignal.timeout(15_000),
+      next: { revalidate: 604800 },
     });
     if (!res.ok) return null;
     const data = (await res.json()) as {

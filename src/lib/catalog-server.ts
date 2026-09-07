@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
+import { CATALOG_CACHE_TAG } from "@/lib/catalog-revalidate";
 import type { Coaster, Park } from "@/types/domain";
 import { normalizeCatalog, serializeNormalizedCatalog, deserializeNormalizedCatalog } from "@/lib/catalog-normalize";
 import { parkBrandPriorityBonus, selectSitemapCoasters, selectSitemapParks } from "@/lib/catalog-sitemap";
@@ -86,7 +87,7 @@ const getNormalizedCatalogCached = unstable_cache(
     return serializeNormalizedCatalog(normalizeCatalog(parks, coasters));
   },
   ["catalog-normalized-v4"],
-  { revalidate: 3600 },
+  { revalidate: 3600, tags: [CATALOG_CACHE_TAG] },
 );
 
 async function getNormalizedCatalog() {

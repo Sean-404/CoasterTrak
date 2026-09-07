@@ -25,7 +25,8 @@ import {
   fetchWikipediaSummaryForCoaster,
 } from "@/lib/wikipedia-summary";
 
-export const revalidate = 86400;
+// Weekly, matching the Sunday catalog sync. Daily ISR rewrites were hitting Vercel's write cap.
+export const revalidate = 604800;
 export const dynamicParams = true;
 
 type PageProps = {
