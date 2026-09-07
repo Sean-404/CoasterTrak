@@ -424,15 +424,15 @@ export default function UsersPage() {
                           </div>
                         </div>
 
-                        <dl className="mt-3 grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2 gap-y-1.5 text-xs sm:grid-cols-[3.75rem_minmax(0,1fr)]">
-                          <dt className="pt-0.5 font-medium text-slate-500">Ride</dt>
+                        <dl className="mt-3 grid grid-cols-[6.75rem_minmax(0,1fr)] gap-x-2 gap-y-1.5 text-xs">
+                          <dt className="pt-0.5 font-medium text-slate-500">Favourite ride</dt>
                           <dd className="min-w-0 text-slate-800">
                             <p className="truncate font-medium">{favRide.name}</p>
                             {favRide.park ? (
                               <p className="truncate text-slate-500">{favRide.park}</p>
                             ) : null}
                           </dd>
-                          <dt className="pt-0.5 font-medium text-slate-500">Park</dt>
+                          <dt className="pt-0.5 font-medium text-slate-500">Favourite park</dt>
                           <dd className="min-w-0 truncate font-medium text-slate-800">{favPark}</dd>
                         </dl>
 
