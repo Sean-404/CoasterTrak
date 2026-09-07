@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const CATALOG_QUALITY_BUCKET = "catalog";
 export const CATALOG_QUALITY_PREFIX = "coastertrak-data/latest";
+export const CATALOG_QUALITY_DISMISSALS_PATH = `${CATALOG_QUALITY_PREFIX}/dismissed.json`;
 
 export type CatalogQualityMeta = {
   version?: number;
@@ -81,6 +82,12 @@ export type CatalogAiReview = {
   assessments: CatalogAiReviewAssessment[];
 };
 
+export type CatalogQualityDismissals = {
+  version: 1;
+  dismissedAt: string;
+  keys: string[];
+};
+
 export type CatalogQualitySnapshot = {
   available: boolean;
   meta: CatalogQualityMeta | null;
@@ -88,6 +95,7 @@ export type CatalogQualitySnapshot = {
   reviewQueue: CatalogReviewQueue | null;
   aiReview: CatalogAiReview | null;
   reviewCounts: Record<string, number>;
+  dismissedCount: number;
   dbCounts: { parks: number; coasters: number } | null;
   lastSync: {
     source: string;
@@ -99,6 +107,74 @@ export type CatalogQualitySnapshot = {
   } | null;
   error?: string;
 };
+
+function findingOtherId(finding: CatalogQualityFinding): string {
+  const other = finding.details?.entityB;
+  return typeof other === "string" ? other : "";
+}
+
+function findingFields(finding: CatalogQualityFinding): string {
+  const fields = finding.details?.fields;
+  return Array.isArray(fields) ? fields.map(String).join(",") : "";
+}
+
+/** Stable id so a later publish of the same issue stays dismissed. */
+export function catalogFindingDismissKey(finding: CatalogQualityFinding): string {
+  return [
+    "finding",
+    finding.code,
+    finding.entityType ?? "",
+    finding.entityId ?? "",
+    findingOtherId(finding),
+    findingFields(finding),
+  ].join("|");
+}
+
+export function catalogReviewDismissKey(item: CatalogReviewItem): string {
+  return [
+    "review",
+    item.type,
+    item.entityType ?? "",
+    item.entityA ?? item.entityId ?? "",
+    item.entityB ?? item.field ?? "",
+    item.entityName ?? item.nameA ?? "",
+  ].join("|");
+}
+
+export function applyCatalogQualityDismissals<T extends {
+  report: CatalogQualityReport | null;
+  reviewQueue: CatalogReviewQueue | null;
+}>(snapshot: T, dismissedKeys: ReadonlySet<string>): T & { dismissedCount: number } {
+  if (dismissedKeys.size === 0) return { ...snapshot, dismissedCount: 0 };
+
+  let dismissedCount = 0;
+  const findings = (snapshot.report?.findings ?? []).filter((finding) => {
+    if (!dismissedKeys.has(catalogFindingDismissKey(finding))) return true;
+    dismissedCount += 1;
+    return false;
+  });
+  const items = (snapshot.reviewQueue?.items ?? []).filter((item) => {
+    if (!dismissedKeys.has(catalogReviewDismissKey(item))) return true;
+    dismissedCount += 1;
+    return false;
+  });
+
+  const report = snapshot.report
+    ? {
+        ...snapshot.report,
+        findings,
+        summary: {
+          ...snapshot.report.summary,
+          errors: findings.filter((f) => f.severity === "error").length,
+          warnings: findings.filter((f) => f.severity === "warning").length,
+          info: findings.filter((f) => f.severity === "info").length,
+        },
+      }
+    : null;
+
+  const reviewQueue = snapshot.reviewQueue ? { ...snapshot.reviewQueue, items } : null;
+  return { ...snapshot, report, reviewQueue, dismissedCount };
+}
 
 async function downloadJson<T>(service: SupabaseClient, path: string): Promise<T | null> {
   const { data, error } = await service.storage.from(CATALOG_QUALITY_BUCKET).download(path);
@@ -112,11 +188,13 @@ export async function loadCatalogQualitySnapshot(
 ): Promise<CatalogQualitySnapshot> {
   const prefix = CATALOG_QUALITY_PREFIX;
 
-  const [meta, report, reviewQueue, aiReview, parkCountRes, coasterCountRes, syncRes] = await Promise.all([
+  const [meta, report, reviewQueue, aiReview, dismissals, parkCountRes, coasterCountRes, syncRes] =
+    await Promise.all([
     downloadJson<CatalogQualityMeta>(service, `${prefix}/meta.json`),
     downloadJson<CatalogQualityReport>(service, `${prefix}/report.json`),
     downloadJson<CatalogReviewQueue>(service, `${prefix}/review-queue.json`),
     downloadJson<CatalogAiReview>(service, `${prefix}/ai-review.json`),
+    downloadJson<CatalogQualityDismissals>(service, CATALOG_QUALITY_DISMISSALS_PATH),
     service.from("parks").select("id", { count: "exact", head: true }),
     service.from("coasters").select("id", { count: "exact", head: true }),
     service
@@ -151,6 +229,7 @@ export async function loadCatalogQualitySnapshot(
       reviewQueue: null,
       aiReview: null,
       reviewCounts: {},
+      dismissedCount: 0,
       dbCounts,
       lastSync,
       error:
@@ -158,7 +237,9 @@ export async function loadCatalogQualitySnapshot(
     };
   }
 
-  const items = reviewQueue?.items ?? [];
+  const dismissedKeys = new Set(dismissals?.keys ?? []);
+  const filtered = applyCatalogQualityDismissals({ report, reviewQueue }, dismissedKeys);
+  const items = filtered.reviewQueue?.items ?? [];
   const reviewCounts: Record<string, number> = {};
   for (const item of items) {
     const key = item.type.toLowerCase();
@@ -168,10 +249,11 @@ export async function loadCatalogQualitySnapshot(
   return {
     available: true,
     meta,
-    report,
-    reviewQueue,
+    report: filtered.report,
+    reviewQueue: filtered.reviewQueue,
     aiReview,
     reviewCounts,
+    dismissedCount: filtered.dismissedCount,
     dbCounts,
     lastSync,
   };

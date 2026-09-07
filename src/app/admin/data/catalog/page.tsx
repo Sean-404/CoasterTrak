@@ -246,6 +246,9 @@ export default function AdminCatalogQualityPage() {
                     <p className="mt-1 text-xs text-slate-500">
                       Analyzed {formatWhen(snapshot?.meta?.generatedAt ?? snapshot?.report?.generatedAt)}
                       {snapshot?.meta?.source ? ` · ${snapshot.meta.source}` : ""}
+                      {snapshot?.dismissedCount
+                        ? ` · ${snapshot.dismissedCount.toLocaleString()} dismissed`
+                        : ""}
                     </p>
                   </>
                 ) : (
@@ -437,7 +440,11 @@ export default function AdminCatalogQualityPage() {
                     })}
 
               {filter === "findings" && topFindings.length === 0 ? (
-                <p className="text-sm text-slate-500">No findings in the published report.</p>
+                <p className="text-sm text-slate-500">
+                  {snapshot?.dismissedCount
+                    ? "No open findings. The remaining catalog notes were dismissed."
+                    : "No findings in the published report."}
+                </p>
               ) : null}
               {filter === "ai" && aiFlagged.length === 0 ? (
                 <p className="text-sm text-slate-500">
