@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -25,6 +25,49 @@ type AdminUserRow = {
   updated_at: string | null;
   unique_credits: number;
 };
+
+type AdminUserSort =
+  | "name"
+  | "name-desc"
+  | "signup-desc"
+  | "signup-asc"
+  | "signin-desc"
+  | "credits";
+
+function compareTime(a: string | null, b: string | null, newestFirst: boolean): number {
+  const aMs = a ? Date.parse(a) : Number.NaN;
+  const bMs = b ? Date.parse(b) : Number.NaN;
+  const aValid = Number.isFinite(aMs);
+  const bValid = Number.isFinite(bMs);
+  if (aValid && bValid && aMs !== bMs) return newestFirst ? bMs - aMs : aMs - bMs;
+  if (aValid && !bValid) return -1;
+  if (!aValid && bValid) return 1;
+  return 0;
+}
+
+function compareAdminUsers(a: AdminUserRow, b: AdminUserRow, sort: AdminUserSort): number {
+  if (sort === "signup-desc" || sort === "signup-asc") {
+    return compareTime(a.created_at, b.created_at, sort === "signup-desc") || a.user_id.localeCompare(b.user_id);
+  }
+  if (sort === "signin-desc") {
+    return compareTime(a.last_sign_in_at, b.last_sign_in_at, true) || a.user_id.localeCompare(b.user_id);
+  }
+  if (sort === "credits") {
+    if (a.unique_credits !== b.unique_credits) return b.unique_credits - a.unique_credits;
+    return a.user_id.localeCompare(b.user_id);
+  }
+
+  const aName = a.display_name?.trim().toLowerCase() ?? "";
+  const bName = b.display_name?.trim().toLowerCase() ?? "";
+  const direction = sort === "name-desc" ? -1 : 1;
+  if (aName && bName && aName !== bName) return aName.localeCompare(bName) * direction;
+  if (aName && !bName) return -1;
+  if (!aName && bName) return 1;
+  const aEmail = a.email?.toLowerCase() ?? "";
+  const bEmail = b.email?.toLowerCase() ?? "";
+  if (aEmail !== bEmail) return aEmail.localeCompare(bEmail) * direction;
+  return a.user_id.localeCompare(b.user_id);
+}
 
 function formatWhen(value: string | null): string {
   if (!value) return "—";
@@ -67,6 +110,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [allowed, setAllowed] = useState(false);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<AdminUserSort>("name");
   const [results, setResults] = useState<AdminUserRow[]>([]);
   const [searching, setSearching] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -203,6 +247,10 @@ export default function AdminPage() {
   }
 
   const filtered = Boolean(query.trim());
+  const sortedResults = useMemo(
+    () => [...results].sort((a, b) => compareAdminUsers(a, b, sort)),
+    [results, sort],
+  );
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -253,6 +301,24 @@ export default function AdminPage() {
                   {searching ? "Loading…" : filtered ? "Search" : "Show all"}
                 </button>
               </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <label htmlFor="admin-user-sort" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Sort
+                </label>
+                <select
+                  id="admin-user-sort"
+                  value={sort}
+                  onChange={(event) => setSort(event.target.value as AdminUserSort)}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                >
+                  <option value="name">Name (A–Z)</option>
+                  <option value="name-desc">Name (Z–A)</option>
+                  <option value="signup-desc">Recent sign-up</option>
+                  <option value="signup-asc">Oldest sign-up</option>
+                  <option value="signin-desc">Recent sign-in</option>
+                  <option value="credits">Most credits</option>
+                </select>
+              </div>
             </form>
 
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -265,9 +331,9 @@ export default function AdminPage() {
               </p>
             ) : null}
 
-            {results.length > 0 ? (
+            {sortedResults.length > 0 ? (
               <ul className="space-y-3">
-                {results.map((user) => {
+                {sortedResults.map((user) => {
                   const banned = Boolean(user.banned_at) || user.auth_banned;
                   return (
                     <li
