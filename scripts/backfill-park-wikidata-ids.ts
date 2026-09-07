@@ -74,7 +74,7 @@ async function refreshQualityReport(
   const report = JSON.parse(await data.text()) as {
     generatedAt?: string;
     summary?: { errors: number; warnings: number; info: number; passed: number };
-    findings?: Array<{ severity: string; entityType?: string; entityId?: string }>;
+    findings?: Array<{ code: string; severity: string; entityType?: string; entityId?: string }>;
   };
   const before = report.findings?.length ?? 0;
   const findings = (report.findings ?? []).filter((finding) => {

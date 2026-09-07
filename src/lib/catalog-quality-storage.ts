@@ -4,6 +4,9 @@ export const CATALOG_QUALITY_BUCKET = "catalog";
 export const CATALOG_QUALITY_PREFIX = "coastertrak-data/latest";
 export const CATALOG_QUALITY_DISMISSALS_PATH = `${CATALOG_QUALITY_PREFIX}/dismissed.json`;
 
+/** Current catalog writer. Queue-Times and Kaggle rows in `sync_runs` are retired. */
+const CATALOG_SYNC_SOURCE = "wikidata";
+
 export type CatalogQualityMeta = {
   version?: number;
   generatedAt?: string;
@@ -188,7 +191,7 @@ export async function loadCatalogQualitySnapshot(
 ): Promise<CatalogQualitySnapshot> {
   const prefix = CATALOG_QUALITY_PREFIX;
 
-  const [meta, report, reviewQueue, aiReview, dismissals, parkCountRes, coasterCountRes, syncRes] =
+  const [meta, report, reviewQueue, aiReview, dismissals, parkCountRes, coasterCountRes, syncRes, catalogTouchRes] =
     await Promise.all([
     downloadJson<CatalogQualityMeta>(service, `${prefix}/meta.json`),
     downloadJson<CatalogQualityReport>(service, `${prefix}/report.json`),
@@ -200,7 +203,15 @@ export async function loadCatalogQualitySnapshot(
     service
       .from("sync_runs")
       .select("source,status,started_at,finished_at,records_updated,error")
+      .eq("source", CATALOG_SYNC_SOURCE)
       .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    service
+      .from("parks")
+      .select("last_synced_at")
+      .not("last_synced_at", "is", null)
+      .order("last_synced_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
@@ -210,16 +221,28 @@ export async function loadCatalogQualitySnapshot(
       ? { parks: parkCountRes.count, coasters: coasterCountRes.count }
       : null;
 
+  const catalogTouchedAt = catalogTouchRes.data?.last_synced_at
+    ? String(catalogTouchRes.data.last_synced_at)
+    : null;
   const lastSync = syncRes.data
     ? {
-        source: String(syncRes.data.source),
+        source: CATALOG_SYNC_SOURCE,
         status: String(syncRes.data.status),
         started_at: String(syncRes.data.started_at),
         finished_at: syncRes.data.finished_at ? String(syncRes.data.finished_at) : null,
         records_updated: Number(syncRes.data.records_updated ?? 0),
         error: syncRes.data.error ? String(syncRes.data.error) : null,
       }
-    : null;
+    : catalogTouchedAt
+      ? {
+          source: CATALOG_SYNC_SOURCE,
+          status: "updated",
+          started_at: catalogTouchedAt,
+          finished_at: catalogTouchedAt,
+          records_updated: 0,
+          error: null,
+        }
+      : null;
 
   if (!meta && !report) {
     return {

@@ -228,8 +228,11 @@ export default function AdminCatalogQualityPage() {
                 </p>
                 {snapshot?.lastSync ? (
                   <p className="mt-1 text-xs text-slate-500">
-                    Last sync ({snapshot.lastSync.source}):{" "}
-                    {snapshot.lastSync.status} · {formatWhen(snapshot.lastSync.started_at)}
+                    {snapshot.lastSync.status === "updated"
+                      ? "Last catalog update"
+                      : `Last catalog sync: ${snapshot.lastSync.status}`}
+                    {" · "}
+                    {formatWhen(snapshot.lastSync.started_at)}
                   </p>
                 ) : null}
               </div>
