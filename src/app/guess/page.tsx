@@ -137,7 +137,7 @@ export default function GuessPage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-50 lg:h-auto lg:min-h-screen lg:overflow-visible">
       <SiteHeader />
-      <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col overflow-hidden px-3 pt-2 pb-[5.5rem] sm:px-6 lg:overflow-visible lg:px-6 lg:py-6 lg:pb-6">
+      <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col overflow-hidden px-3 pt-2 pb-[7.25rem] sm:px-6 lg:overflow-visible lg:px-6 lg:py-6 lg:pb-6">
         <div className="flex shrink-0 items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">CoasterGuessr</p>
           {revealed || guess ? null : (
@@ -173,7 +173,7 @@ export default function GuessPage() {
                 <img
                   src={round.imageUrl}
                   alt="Mystery coaster"
-                  className="absolute inset-0 h-full w-full object-cover"
+                  className="absolute inset-0 h-full w-full object-contain object-center"
                   onLoad={() => {
                     brokenStreak.current = 0;
                   }}
@@ -230,7 +230,7 @@ export default function GuessPage() {
         </div>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+      <div className="fixed inset-x-3 z-20 rounded-2xl border border-slate-200 bg-white/95 px-3 py-3 shadow-lg backdrop-blur bottom-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] lg:hidden">
         {revealed && result ? (
           <div className="mx-auto flex max-w-6xl items-center gap-3">
             <div className="min-w-0 flex-1">

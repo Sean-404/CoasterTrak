@@ -17,12 +17,12 @@ body {
 
 /* CoasterGuessr: keep photo + map on one screen on short phones (iPhone SE). */
 .guess-photo {
-  height: clamp(7rem, 22dvh, 16rem);
+  height: clamp(8.5rem, 26dvh, 18rem);
 }
 
 @media (max-height: 700px) {
   .guess-photo {
-    height: 6rem;
+    height: 8rem;
   }
 }
 
