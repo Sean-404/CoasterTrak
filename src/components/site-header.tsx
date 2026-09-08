@@ -12,6 +12,7 @@ import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 export function SiteHeader() {
   const pathname = usePathname();
   const discoverActive = isDiscoverPath(pathname);
+  const guessActive = pathname === "/guess" || pathname.startsWith("/guess/");
   const updatesActive = pathname === "/updates" || pathname.startsWith("/updates/");
   const [isAuthed, setIsAuthed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -83,6 +84,14 @@ export function SiteHeader() {
       </Link>
       <Link href="/achievements" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
         Achievements
+      </Link>
+      <Link
+        href="/guess"
+        onClick={() => setMenuOpen(false)}
+        aria-current={guessActive ? "page" : undefined}
+        className={`transition ${guessActive ? "text-white" : "text-slate-400 hover:text-white"}`}
+      >
+        CoasterGuessr
       </Link>
       <Link
         href="/updates"

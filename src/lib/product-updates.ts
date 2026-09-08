@@ -14,6 +14,17 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-09-08-coasterguessr",
+    date: "2026-09-08",
+    title: "CoasterGuessr",
+    summary:
+      "Pin the park from a coaster photo. Open CoasterGuessr in the menu, drop a pin, and lock it in. Show answer reveals the ride without a score.",
+    highlights: [
+      "Only catalog rides that already have a useful photo are in the pool",
+      "Western Japan parks are no longer labeled South Korea",
+    ],
+  },
+  {
     id: "2026-09-04b-profiles-compare-mobile",
     date: "2026-09-04",
     title: "Richer public profiles and cleaner compare on phone",

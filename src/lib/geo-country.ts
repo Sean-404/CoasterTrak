@@ -15,8 +15,12 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   if (lat >= 6 && lat <= 37 && lng >= 68 && lng <= 97) return "India";
   // Saudi Arabia (includes Qiddiya / Six Flags Qiddiya City)
   if (lat >= 16 && lat <= 33 && lng >= 34 && lng <= 56) return "Saudi Arabia";
-  // South Korea (priority before Japan because longitudes overlap in the Korea Strait).
-  if (lat >= 33 && lat <= 39.6 && lng >= 124 && lng <= 132) return "South Korea";
+  // South Korea before Japan, but stop at the Korea Strait.
+  // The old box ran to 132°E and swallowed northern Kyushu (Fukuoka, Huis Ten Bosch).
+  // Tsushima is Japan at ~34.2°N 129.3°E, so exclude that island from the peninsula box.
+  const inSouthKoreaBox = lat >= 33.05 && lat <= 38.7 && lng >= 124.5 && lng <= 129.55;
+  const tsushima = lat >= 34.0 && lat <= 34.75 && lng >= 129.05 && lng <= 129.55;
+  if (inSouthKoreaBox && !tsushima) return "South Korea";
   // Japan (main islands + Okinawa). Kept intentionally broad for park-scale pin correction.
   if ((lat >= 30 && lat <= 46 && lng >= 129 && lng <= 146) || (lat >= 24 && lat <= 31 && lng >= 122 && lng <= 132)) {
     return "Japan";

@@ -43,6 +43,26 @@ describe("Taiwan country labels", () => {
   });
 });
 
+describe("Japan / South Korea country labels", () => {
+  it("does not re-label western Japan parks as South Korea", () => {
+    // Huis Ten Bosch, Sasebo
+    expect(reconcileCountryWithCoords("Japan", 33.085, 129.79)).toBe("Japan");
+    // Space World, Kitakyushu
+    expect(reconcileCountryWithCoords("Japan", 33.873, 130.811)).toBe("Japan");
+    // Harmony Land, Oita
+    expect(reconcileCountryWithCoords("Japan", 33.372, 131.615)).toBe("Japan");
+    // Missing country should still follow the pin, not the old Korea Strait box.
+    expect(reconcileCountryWithCoords(null, 33.59, 130.4)).toBe("Japan");
+  });
+
+  it("still labels Korean peninsula parks as South Korea", () => {
+    // Everland, Yongin
+    expect(reconcileCountryWithCoords("Japan", 37.294, 127.203)).toBe("South Korea");
+    // Lotte World Adventure Busan
+    expect(reconcileCountryWithCoords("Unknown", 35.196, 129.212)).toBe("South Korea");
+  });
+});
+
 describe("Canada country labels", () => {
   it("corrects US-labeled parks in southern Quebec", () => {
     // La Ronde, Montreal

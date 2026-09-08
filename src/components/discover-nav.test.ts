@@ -12,9 +12,10 @@ describe("isDiscoverPath", () => {
     expect(isDiscoverPath("/discover")).toBe(true);
   });
 
-  it("does not treat account or friends as Discover", () => {
+  it("does not treat account, friends, or CoasterGuessr as Discover", () => {
     expect(isDiscoverPath("/friends")).toBe(false);
     expect(isDiscoverPath("/stats")).toBe(false);
+    expect(isDiscoverPath("/guess")).toBe(false);
     expect(isDiscoverPath("/")).toBe(false);
   });
 });

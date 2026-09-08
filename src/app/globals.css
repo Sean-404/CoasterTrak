@@ -11,6 +11,28 @@ body {
 }
 
 /* Hide occasional Leaflet raster tile seam lines in Chrome/Windows. */
+.leaflet-container {
+  max-width: 100%;
+}
+
+/* CoasterGuessr: keep photo + map on one screen on short phones (iPhone SE). */
+.guess-photo {
+  height: clamp(7rem, 22dvh, 16rem);
+}
+
+@media (max-height: 700px) {
+  .guess-photo {
+    height: 6rem;
+  }
+}
+
+@media (min-width: 640px) {
+  .guess-photo {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+}
+
 .leaflet-container .leaflet-tile {
   outline: 1px solid transparent;
   border: 0;
@@ -38,6 +60,29 @@ body {
 .leaflet-selected-ride-pin__glyph {
   font-size: 13px;
   line-height: 1;
+}
+
+.leaflet-guess-pin,
+.leaflet-guess-answer-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-guess-pin__dot,
+.leaflet-guess-answer-pin__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+.leaflet-guess-pin__dot {
+  background: #f59e0b;
+}
+
+.leaflet-guess-answer-pin__dot {
+  background: #0f172a;
 }
 
 /*

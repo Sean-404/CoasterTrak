@@ -5,6 +5,7 @@ import type { Coaster, Park } from "@/types/domain";
 import { normalizeCatalog, serializeNormalizedCatalog, deserializeNormalizedCatalog } from "@/lib/catalog-normalize";
 import { parkBrandPriorityBonus, selectSitemapCoasters, selectSitemapParks } from "@/lib/catalog-sitemap";
 import { dedupeCoastersForCatalog } from "@/lib/coaster-dedup";
+import { buildGuessCandidates, type GuessCandidate } from "@/lib/guess-round";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
 import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
@@ -112,6 +113,12 @@ export async function getCoastersForPark(parkId: number): Promise<Coaster[]> {
   const canonicalId = await resolveCatalogParkId(parkId);
   const forPark = normalized.coasters.filter((c) => c.park_id === canonicalId);
   return dedupeCoastersForCatalog(forPark).sort(compareCoastersOperatingFirst);
+}
+
+/** Coasters that already have a catalog photo and a real park pin. Used by the guess POC. */
+export async function listGuessCandidates(): Promise<GuessCandidate[]> {
+  const normalized = await getNormalizedCatalog();
+  return buildGuessCandidates(dedupeCoastersForCatalog(normalized.coasters), normalized.parks);
 }
 
 export async function getCoasterById(id: number): Promise<CoasterDetail | null> {
