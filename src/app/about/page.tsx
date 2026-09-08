@@ -59,6 +59,13 @@ export default function AboutPage() {
             <li>Save rides to a wishlist and check them off after each trip.</li>
             <li>Review personal stats such as ride counts, height totals, and park coverage.</li>
             <li>Connect with friends to compare credits and milestones.</li>
+            <li>
+              Play{" "}
+              <Link href="/guess" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+                CoasterGuessr
+              </Link>
+              : look at a coaster photo and pin the park on the map.
+            </li>
           </ul>
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Who runs it</h2>
           <p>

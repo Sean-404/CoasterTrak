@@ -98,6 +98,9 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
           <FooterLink href="/coasters" isDark={isDark}>
             Coasters
           </FooterLink>
+          <FooterLink href="/guess" isDark={isDark}>
+            CoasterGuessr
+          </FooterLink>
         </nav>
       </div>
     </footer>

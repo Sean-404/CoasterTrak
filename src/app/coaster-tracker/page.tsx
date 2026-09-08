@@ -313,7 +313,11 @@ export default function CoasterTrackerLandingPage() {
             trip and updating your credit count stay connected.
           </p>
           <p>
-            Browse Discover anytime, then jump back to the map when you are ready to explore a region. Trip photos
+            Browse Discover anytime, then jump back to the map when you are ready to explore a region.{" "}
+            <Link href="/guess" className="font-semibold text-amber-400 hover:text-amber-300">
+              CoasterGuessr
+            </Link>{" "}
+            is the photo game: pin the park from a coaster picture. Trip photos
             and occasional updates are on{" "}
             <a
               href={INSTAGRAM_URL}

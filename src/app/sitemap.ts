@@ -24,6 +24,7 @@ function staticRoutes(catalogStamp: Date): MetadataRoute.Sitemap {
     { path: "/map", priority: 0.9, changeFrequency: "weekly" as const },
     { path: "/parks", priority: 0.85, changeFrequency: "weekly" as const },
     { path: "/coasters", priority: 0.85, changeFrequency: "weekly" as const },
+    { path: "/guess", priority: 0.75, changeFrequency: "weekly" as const },
     { path: "/about", priority: 0.7, changeFrequency: "monthly" as const },
     { path: "/updates", priority: 0.65, changeFrequency: "weekly" as const },
     { path: "/contact", priority: 0.5, changeFrequency: "yearly" as const },

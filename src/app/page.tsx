@@ -84,6 +84,7 @@ export default async function Home() {
       "Coaster Credit Tracker",
       "coaster credit app",
       "Coaster Log",
+      "CoasterGuessr",
     ],
     applicationCategory: "LifestyleApplication",
     operatingSystem: "Web",
@@ -211,7 +212,11 @@ export default async function Home() {
             <p>
               Start on the map or park catalog to browse coasters, star the rides you still need, and create a free
               account when you are ready to save progress across devices. Friends features let you compare credits
-              and share achievements with the people you ride with.
+              and share achievements with the people you ride with. Between trips,{" "}
+              <Link href="/guess" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+                CoasterGuessr
+              </Link>{" "}
+              is a short photo game: pin the park from a coaster picture and see how close you were.
             </p>
           </div>
         </section>
@@ -281,6 +286,12 @@ export default async function Home() {
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
             >
               Browse coasters
+            </Link>
+            <Link
+              href="/guess"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              Play CoasterGuessr
             </Link>
             <Link
               href="/about"
