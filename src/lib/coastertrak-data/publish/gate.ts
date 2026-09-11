@@ -28,7 +28,7 @@ export type GateAndPublishOptions = {
   reportRunId?: string;
   dataRoot?: string;
   minRows?: number;
-  /** Default true — block when any same-park name collision exists across QIDs. */
+  /** Default true — block when 2+ operating QIDs share a park+name key. */
   failOnDuplicates?: boolean;
   allowLiteMeta?: boolean;
   /** When true, upload to Supabase storage + DB after gates pass. Default false. */
@@ -112,13 +112,30 @@ export async function gateAndPublishCatalog(
 
   log("  running dedupe gate…");
   const dedupe = analyzeDedupeAndConflicts(rows);
-  // Default: block on any same-park name collision across different QIDs.
-  // Pass failOnDuplicates: false (CLI --allow-duplicates) to publish with warnings only.
+  // Default: block hard same-park collisions (2+ operating QIDs share a name).
+  // Warning-level twins (operating+defunct / rebrands) stay non-blocking.
+  // Pass failOnDuplicates: false (CLI --allow-duplicates) to ignore even hard ones.
   const failOnDuplicates = options.failOnDuplicates !== false;
-  const hasHardDuplicate =
-    failOnDuplicates &&
-    dedupe.findings.some((f) => f.code === "duplicate_name_same_park");
+  const hardDuplicateFindings = dedupe.findings.filter(
+    (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
+  );
+  const hasHardDuplicate = failOnDuplicates && hardDuplicateFindings.length > 0;
   const dedupePassed = dedupe.summary.errors === 0 && !hasHardDuplicate;
+  if (hardDuplicateFindings.length) {
+    for (const f of hardDuplicateFindings) {
+      log(`  hard duplicate: ${f.label ?? "?"} — ${f.message}`);
+    }
+  } else {
+    const warnDupes = dedupe.findings.filter(
+      (f) => f.code === "duplicate_name_same_park" && f.severity === "warning",
+    );
+    if (warnDupes.length) {
+      log(
+        `  ${warnDupes.length} warning-level same-park name twin(s) (non-blocking): ` +
+          warnDupes.map((f) => f.label ?? "?").join(", "),
+      );
+    }
+  }
 
   const passed = validatePassed && dedupePassed;
   if (!passed) {

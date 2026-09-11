@@ -4,7 +4,8 @@
  *   npx tsx scripts/data/publish-catalog.ts [--in data/wikidata_coasters.json]
  *   npx tsx --env-file=.env.local scripts/data/publish-catalog.ts --apply
  *
- * Same-park duplicate QIDs block publish by default; pass --allow-duplicates to override.
+ * Same-park hard duplicates (2+ operating QIDs) block publish by default;
+ * pass --allow-duplicates to override. Warning-level rebrand twins do not block.
  */
 
 import { arg, hasFlag, runMain } from "../lib/cli";

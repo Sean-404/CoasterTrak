@@ -39,11 +39,31 @@ export async function analyzeCatalogSnapshot(
     });
   }
 
-  const hasHardDuplicate =
-    options.failOnDuplicates !== false &&
-    dedupe.findings.some((f) => f.code === "duplicate_name_same_park");
+  // Default: fail only on hard duplicates (2+ operating QIDs, same park+name).
+  // Warning twins (rebrand / operating+defunct) are reported but non-blocking.
+  const failOnDuplicates = options.failOnDuplicates !== false;
+  const hardDuplicateFindings = dedupe.findings.filter(
+    (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
+  );
+  const hasHardDuplicate = failOnDuplicates && hardDuplicateFindings.length > 0;
 
   const passed = dedupe.summary.errors === 0 && !hasHardDuplicate;
+
+  if (hardDuplicateFindings.length) {
+    for (const f of hardDuplicateFindings) {
+      log(`  hard duplicate: ${f.label ?? "?"} — ${f.message}`);
+    }
+  } else {
+    const warnDupes = dedupe.findings.filter(
+      (f) => f.code === "duplicate_name_same_park" && f.severity === "warning",
+    );
+    if (warnDupes.length) {
+      log(
+        `  ${warnDupes.length} warning-level same-park name twin(s) (non-blocking): ` +
+          warnDupes.map((f) => f.label ?? "?").join(", "),
+      );
+    }
+  }
 
   const report: CatalogAnalysisReport = {
     generatedAt: new Date().toISOString(),
