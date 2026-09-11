@@ -13,6 +13,7 @@ import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all
 import {
   fetchEnwikiTitleFromWikidata,
   fetchWikipediaSummary,
+  isAcceptableCoasterWikipediaMatch,
 } from "../src/lib/wikipedia-summary";
 
 type DbRow = {
@@ -21,7 +22,15 @@ type DbRow = {
   wikidata_id: string | null;
   enwiki_title: string | null;
   image_url: string | null;
+  parks: { name: string } | { name: string }[] | null;
 };
+
+function parkNameFromRow(row: DbRow): string | null {
+  const p = row.parks;
+  if (!p) return null;
+  if (Array.isArray(p)) return p[0]?.name?.trim() || null;
+  return p.name?.trim() || null;
+}
 
 async function main() {
   const dryRun = hasFlag("--dry-run");
@@ -35,7 +44,7 @@ async function main() {
     (from, to) =>
       supabase
         .from("coasters")
-        .select("id, name, wikidata_id, enwiki_title, image_url")
+        .select("id, name, wikidata_id, enwiki_title, image_url, parks(name)")
         .is("image_url", null)
         .order("id", { ascending: true })
         .range(from, to),
@@ -68,7 +77,17 @@ async function main() {
     }
 
     const summary = await fetchWikipediaSummary(title);
-    const imageUrl = sanitizeCoasterImageUrl(summary?.imageUrl ?? null);
+    const parkName = parkNameFromRow(row);
+    if (
+      !summary ||
+      !isAcceptableCoasterWikipediaMatch(row.name, summary, parkName)
+    ) {
+      skipped += 1;
+      if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
+
+    const imageUrl = sanitizeCoasterImageUrl(summary.imageUrl ?? null);
     if (!imageUrl) {
       skipped += 1;
       if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
@@ -81,7 +100,7 @@ async function main() {
         .from("coasters")
         .update({
           image_url: imageUrl,
-          ...(row.enwiki_title ? {} : { enwiki_title: title }),
+          ...(row.enwiki_title ? {} : { enwiki_title: summary.title }),
           last_synced_at: new Date().toISOString(),
         })
         .eq("id", row.id);

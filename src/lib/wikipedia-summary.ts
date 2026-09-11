@@ -87,6 +87,14 @@ export async function fetchEnwikiTitleFromWikidata(wikidataId: string): Promise<
   }
 }
 
+function significantRideNameTokens(rideName: string): string[] {
+  return rideName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 3 && !["the", "and", "with", "from", "roller", "coaster"].includes(t));
+}
+
 /** Common English Wikipedia title shapes for individual roller coasters. */
 export function buildCoasterEnwikiTitleCandidates(
   rideName: string,
@@ -100,13 +108,23 @@ export function buildCoasterEnwikiTitleCandidates(
     ?.replace(/^Disney'?s\s+/i, "")
     .replace(/\s+(theme|amusement)\s+park$/i, "")
     .trim();
+  const ambiguousShortName = significantRideNameTokens(name).length <= 1;
 
-  const raw = [
-    name,
-    `${name} (roller coaster)`,
-    park ? `${name} (${park})` : null,
-    parkShort && parkShort !== park ? `${name} (${parkShort})` : null,
-  ];
+  // Prefer park-disambiguated titles first for common short names (Dragon, Cyclone, …)
+  // so fuzzy "(roller coaster)" hits cannot steal another park's series article.
+  const raw = ambiguousShortName
+    ? [
+        park ? `${name} (${park})` : null,
+        parkShort && parkShort !== park ? `${name} (${parkShort})` : null,
+        name,
+        `${name} (roller coaster)`,
+      ]
+    : [
+        name,
+        `${name} (roller coaster)`,
+        park ? `${name} (${park})` : null,
+        parkShort && parkShort !== park ? `${name} (${parkShort})` : null,
+      ];
 
   const seen = new Set<string>();
   const out: string[] = [];
@@ -156,8 +174,72 @@ export function isGenericCoasterTypeArticle(title: string, extract?: string | nu
   return false;
 }
 
+const COMPETING_PARK_BRANDS = [
+  "legoland",
+  "disney",
+  "universal",
+  "six flags",
+  "cedar point",
+  "europa-park",
+  "europa park",
+  "phantasialand",
+  "energylandia",
+  "alton towers",
+  "blackpool",
+  "busch gardens",
+  "seaworld",
+  "knott's",
+  "knotts",
+  "hersheypark",
+  "canada's wonderland",
+] as const;
+
+function parkContextTokens(parkName: string): string[] {
+  const cleaned = parkName
+    .toLowerCase()
+    .replace(/^disney'?s\s+/i, "")
+    .replace(/\s+(theme|amusement)\s+park$/i, "")
+    .replace(/[^a-z0-9\s]/g, " ");
+  return cleaned
+    .split(/\s+/)
+    .filter((t) => t.length >= 4 && !["park", "theme", "world", "resort", "land"].includes(t));
+}
+
+function extractMentionsPark(extract: string, title: string, parkName: string): boolean {
+  const haystack = `${title} ${extract}`.toLowerCase();
+  const parkLower = parkName.trim().toLowerCase();
+  if (parkLower && haystack.includes(parkLower)) return true;
+  const tokens = parkContextTokens(parkName);
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => haystack.includes(t));
+}
+
+function extractMentionsCompetingPark(extract: string, title: string, parkName: string): boolean {
+  const haystack = `${title} ${extract}`.toLowerCase();
+  const parkLower = parkName.trim().toLowerCase();
+  return COMPETING_PARK_BRANDS.some((brand) => {
+    if (!haystack.includes(brand)) return false;
+    // Expected park itself uses this brand (e.g. Energylandia / Legoland).
+    if (parkLower.includes(brand)) return false;
+    return true;
+  });
+}
+
+function isMultiParkSeriesArticle(title: string, extract: string): boolean {
+  const haystack = `${title} ${extract}`.toLowerCase();
+  if (/\bseries of (roller )?coaster/.test(haystack)) return true;
+  if (/\bat multiple .{0,40}\bparks\b/.test(haystack)) return true;
+  if (/\btheme parks worldwide\b/.test(haystack)) return true;
+  if (/\blocated at .{0,60}\bincluding .{0,80}\blegoland\b/.test(haystack)) return true;
+  return false;
+}
+
 /** Reject park/disaster/person articles that Wikipedia redirects can land on. */
-export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSummary): boolean {
+export function isLikelyCoasterSummary(
+  rideName: string,
+  summary: WikipediaSummary,
+  parkName?: string | null,
+): boolean {
   const extract = summary.extract.toLowerCase();
   const title = summary.title.toLowerCase();
   if (isGenericCoasterTypeArticle(summary.title, summary.extract)) {
@@ -177,11 +259,17 @@ export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSumma
     return false;
   }
 
-  const rideTokens = rideName
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter((t) => t.length > 3 && !["the", "and", "with", "from", "roller", "coaster"].includes(t));
+  const park = parkName?.trim() || null;
+  if (park) {
+    if (isMultiParkSeriesArticle(summary.title, summary.extract)) {
+      return false;
+    }
+    if (extractMentionsCompetingPark(summary.extract, summary.title, park)) {
+      return false;
+    }
+  }
+
+  const rideTokens = significantRideNameTokens(rideName);
   const titleHits = rideTokens.filter((t) => title.includes(t)).length;
   const extractHits = rideTokens.filter((t) => extract.includes(t)).length;
   const strongHits = rideTokens.filter(
@@ -203,6 +291,11 @@ export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSumma
   // Generic single-word ride names often redirect to unrelated articles (Cyclone, Demon, Corkscrew).
   if (rideTokens.length <= 1 && !coasterLike) return false;
 
+  // Short / common names need park confirmation when we know the install venue.
+  if (park && rideTokens.length <= 1 && !extractMentionsPark(summary.extract, summary.title, park)) {
+    return false;
+  }
+
   if (coasterLike) {
     return nameOverlap || rideTokens.length === 0;
   }
@@ -210,6 +303,23 @@ export function isLikelyCoasterSummary(rideName: string, summary: WikipediaSumma
     return nameOverlap;
   }
   return titleHits >= Math.min(2, Math.max(rideTokens.length, 1)) && /\(/.test(summary.title);
+}
+
+/**
+ * Use before writing enwiki_title / summary_text / Wikipedia-derived images or infobox stats.
+ * Same rules as `isLikelyCoasterSummary` — kept as an explicit write-path name.
+ */
+export function isAcceptableCoasterWikipediaMatch(
+  rideName: string,
+  summary: WikipediaSummary,
+  parkName?: string | null,
+): boolean {
+  return isLikelyCoasterSummary(rideName, summary, parkName);
+}
+
+export function isLikelyWikipediaDerivedImageUrl(url: string | null | undefined): boolean {
+  if (!url?.trim()) return false;
+  return /wikipedia|wikimedia/i.test(url);
 }
 
 export async function searchEnwikiTitles(query: string, limit = 5): Promise<string[]> {
@@ -266,7 +376,7 @@ export async function resolveCoasterWikipediaSummary(
     const summary = await fetchWikipediaSummary(title);
     const extract = summary?.extract?.trim();
     if (!summary || !extract || extract.length < 40) continue;
-    if (!isLikelyCoasterSummary(options.rideName, summary)) continue;
+    if (!isLikelyCoasterSummary(options.rideName, summary, options.parkName)) continue;
     return summary;
   }
 
@@ -285,7 +395,7 @@ export async function resolveCoasterWikipediaSummary(
       const summary = await fetchWikipediaSummary(title);
       const extract = summary?.extract?.trim();
       if (!summary || !extract || extract.length < 40) continue;
-      if (!isLikelyCoasterSummary(options.rideName, summary)) continue;
+      if (!isLikelyCoasterSummary(options.rideName, summary, options.parkName)) continue;
       return summary;
     }
   }

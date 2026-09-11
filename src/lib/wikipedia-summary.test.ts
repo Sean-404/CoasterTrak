@@ -10,9 +10,27 @@ describe("coaster Wikipedia helpers", () => {
   it("builds common title candidates with park disambiguation", async () => {
     const { buildCoasterEnwikiTitleCandidates } = await import("@/lib/wikipedia-summary");
     expect(buildCoasterEnwikiTitleCandidates("Bat", "Lagoon")).toEqual([
+      "Bat (Lagoon)",
       "Bat",
       "Bat (roller coaster)",
-      "Bat (Lagoon)",
+    ]);
+  });
+
+  it("prefers park titles before bare roller-coaster for short names", async () => {
+    const { buildCoasterEnwikiTitleCandidates } = await import("@/lib/wikipedia-summary");
+    expect(buildCoasterEnwikiTitleCandidates("Dragon", "Energylandia")).toEqual([
+      "Dragon (Energylandia)",
+      "Dragon",
+      "Dragon (roller coaster)",
+    ]);
+  });
+
+  it("keeps name-first ordering for multi-token ride names", async () => {
+    const { buildCoasterEnwikiTitleCandidates } = await import("@/lib/wikipedia-summary");
+    expect(buildCoasterEnwikiTitleCandidates("Ring Racer", "Nürburgring")).toEqual([
+      "Ring Racer",
+      "Ring Racer (roller coaster)",
+      "Ring Racer (Nürburgring)",
     ]);
   });
 
@@ -68,6 +86,38 @@ describe("coaster Wikipedia helpers", () => {
         imageUrl: null,
       }),
     ).toBe(false);
+  });
+
+  it("rejects Legoland Dragon series article for Energylandia Dragon", async () => {
+    const { isLikelyCoasterSummary, isAcceptableCoasterWikipediaMatch } = await import(
+      "@/lib/wikipedia-summary"
+    );
+    const summary = {
+      title: "The Dragon (roller coaster)",
+      extract:
+        "The Dragon is a series of roller coaster attractions located at multiple Legoland theme parks worldwide, including Legoland Billund, Legoland Windsor, Legoland California, Legoland Deutschland.",
+      url: "https://en.wikipedia.org/wiki/The_Dragon_(roller_coaster)",
+      imageUrl: null,
+    };
+    expect(isLikelyCoasterSummary("Dragon", summary, "Energylandia")).toBe(false);
+    expect(isAcceptableCoasterWikipediaMatch("Dragon", summary, "Energylandia")).toBe(false);
+  });
+
+  it("still accepts a short-named coaster when the extract names the park", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    expect(
+      isLikelyCoasterSummary(
+        "Dragon",
+        {
+          title: "Dragon (Energylandia)",
+          extract:
+            "Dragon is a steel family roller coaster at Energylandia in Zator, Poland.",
+          url: "https://en.wikipedia.org/wiki/Dragon_(Energylandia)",
+          imageUrl: null,
+        },
+        "Energylandia",
+      ),
+    ).toBe(true);
   });
 });
 

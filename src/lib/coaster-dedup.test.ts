@@ -37,6 +37,10 @@ describe("normalizeCoasterDedupKey", () => {
     expect(normalizeCoasterDedupKey("Dragon Fyre")).toBe(normalizeCoasterDedupKey("Dragon Fire"));
   });
 
+  it("collapses Jubilee Odyssey into The Odyssey", () => {
+    expect(normalizeCoasterDedupKey("Jubilee Odyssey")).toBe(normalizeCoasterDedupKey("The Odyssey"));
+  });
+
   it("does not collapse DareDeviler with The Fly (rename is a known-fix)", () => {
     expect(normalizeCoasterDedupKey("DareDeviler")).not.toBe(normalizeCoasterDedupKey("The Fly"));
   });

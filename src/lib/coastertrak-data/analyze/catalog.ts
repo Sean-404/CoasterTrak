@@ -40,10 +40,8 @@ export async function analyzeCatalogSnapshot(
   }
 
   const hasHardDuplicate =
-    options.failOnDuplicates &&
-    dedupe.findings.some(
-      (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
-    );
+    options.failOnDuplicates !== false &&
+    dedupe.findings.some((f) => f.code === "duplicate_name_same_park");
 
   const passed = dedupe.summary.errors === 0 && !hasHardDuplicate;
 

@@ -3,6 +3,8 @@
  *
  *   npx tsx scripts/data/publish-catalog.ts [--in data/wikidata_coasters.json]
  *   npx tsx --env-file=.env.local scripts/data/publish-catalog.ts --apply
+ *
+ * Same-park duplicate QIDs block publish by default; pass --allow-duplicates to override.
  */
 
 import { arg, hasFlag, runMain } from "../lib/cli";
@@ -17,7 +19,7 @@ async function main() {
     metaPath: arg("--meta") ?? undefined,
     reportRunId: arg("--from-run"),
     minRows,
-    failOnDuplicates: hasFlag("--fail-on-duplicates"),
+    failOnDuplicates: !hasFlag("--allow-duplicates"),
     allowLiteMeta: hasFlag("--allow-lite-meta"),
     apply: hasFlag("--apply"),
     onProgress: (msg) => console.error(msg),

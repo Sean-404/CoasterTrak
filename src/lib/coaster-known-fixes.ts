@@ -76,6 +76,11 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q19765421: { name: "Alpenblitz", status: "Operating" },
   Q21008851: { name: "Tornado", status: "Operating" },
   Q2505886: { name: "Dragon Wagon", status: "Operating" },
+  // Energylandia — Wikidata EN label is "Dragon"; park branding is RMF Dragon.
+  // No enwiki sitelink; fuzzy match previously stole the Legoland series article.
+  Q25412902: { name: "RMF Dragon", status: "Operating" },
+  // Fantasy Island (UK) — formerly Jubilee Odyssey; keep current park/Wikidata name.
+  Q1710760: { name: "The Odyssey", status: "Operating" },
   Q56697767: { name: "Coccinelle", status: "Operating" },
   // Camelot — Wikidata keeps Portopialand (2006) retirement on the same QID as 2007 UK reopen.
   Q13415786: { closing_year: 2012, status: "Defunct" },

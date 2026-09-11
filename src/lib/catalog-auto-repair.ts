@@ -1,6 +1,7 @@
 /**
  * Deterministic post-sync catalog repairs — safe to run unattended after Wikidata publish.
- * Applies known coaster fixes, park coordinate normalization, and park override relinks.
+ * Applies known coaster fixes, park coordinate normalization, park override relinks,
+ * former-name stub merges, and clears cross-park Wikipedia pollution.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -14,10 +15,19 @@ import {
   PARK_DISPLAY_NAME_BY_WIKIDATA_ID,
   type EnsureParkSpec,
 } from "@/lib/catalog-overrides";
+import {
+  aliasKeysForStubMerge,
+  findFormerNameStubMerges,
+} from "@/lib/catalog-stub-merge";
 import { effectiveClosingYear } from "@/lib/coaster-status";
+import type { DbAliasRow } from "@/lib/data-platform/coaster-aliases";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import { parkNamesMatch } from "@/lib/park-match";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
+import {
+  isAcceptableCoasterWikipediaMatch,
+  isLikelyWikipediaDerivedImageUrl,
+} from "@/lib/wikipedia-summary";
 import type { Coaster, Park } from "@/types/domain";
 
 export type AutoRepairResult = {
@@ -27,6 +37,8 @@ export type AutoRepairResult = {
   coastersUpdated: number;
   parkLinksUpdated: number;
   parksEnsured: number;
+  stubsMerged: number;
+  wikipediaBindingsCleared: number;
   details: string[];
 };
 
@@ -172,6 +184,8 @@ export async function applyCatalogAutoRepairs(
   let coastersUpdated = 0;
   let parkLinksUpdated = 0;
   let parksEnsured = 0;
+  let stubsMerged = 0;
+  let wikipediaBindingsCleared = 0;
 
   const parksResult = await fetchAllPages<ParkRow>(SUPABASE_PAGE_SIZE, (from, to) =>
     supabase
@@ -182,6 +196,7 @@ export async function applyCatalogAutoRepairs(
   );
   if (parksResult.error) throw new Error(parksResult.error.message);
   const parks = parksResult.data;
+  const parkNameById = new Map(parks.map((p) => [p.id, p.name]));
 
   for (const spec of ENSURE_PARKS) {
     const existingId = findParkIdByPreferredName(parks, spec.name);
@@ -201,6 +216,7 @@ export async function applyCatalogAutoRepairs(
       external_source: spec.external_source ?? null,
       external_id: spec.external_id ?? null,
     });
+    parkNameById.set(id, spec.name);
     parksEnsured += 1;
     details.push(`ensured park: ${spec.name} (id=${id})`);
   }
@@ -221,6 +237,7 @@ export async function applyCatalogAutoRepairs(
         .eq("id", park.id);
       if (error) throw error;
       Object.assign(park, patch);
+      if (patch.name) parkNameById.set(park.id, patch.name);
     }
   }
 
@@ -228,7 +245,7 @@ export async function applyCatalogAutoRepairs(
     supabase
       .from("coasters")
       .select(
-        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year",
+        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year,enwiki_title,summary_text",
       )
       .order("id", { ascending: true })
       .range(from, to),
@@ -244,10 +261,45 @@ export async function applyCatalogAutoRepairs(
     if (!dryRun) {
       const { error } = await supabase
         .from("coasters")
-        .update({ ...patch, last_synced_at: new Date().toISOString() })
+        .update({ ...patch, last_synced_at: nowIso() })
         .eq("id", coaster.id);
       if (error) throw error;
       Object.assign(coaster, patch);
+    }
+  }
+
+  // Clear Wikipedia bindings that name a competing park / multi-park series.
+  for (const coaster of coasters) {
+    const extract = coaster.summary_text?.trim();
+    const title = coaster.enwiki_title?.trim();
+    if (!extract || extract.length < 40 || !title) continue;
+    const parkName = parkNameById.get(coaster.park_id);
+    if (!parkName) continue;
+    const ok = isAcceptableCoasterWikipediaMatch(
+      coaster.name,
+      { title, extract, url: "", imageUrl: null },
+      parkName,
+    );
+    if (ok) continue;
+    wikipediaBindingsCleared += 1;
+    details.push(
+      `clear wiki ${coaster.name} (${coaster.id}): rejected "${title}" for park ${parkName}`,
+    );
+    if (!dryRun) {
+      const clearImage = isLikelyWikipediaDerivedImageUrl(coaster.image_url);
+      const { error } = await supabase
+        .from("coasters")
+        .update({
+          enwiki_title: null,
+          summary_text: null,
+          ...(clearImage ? { image_url: null } : {}),
+          last_synced_at: nowIso(),
+        })
+        .eq("id", coaster.id);
+      if (error) throw error;
+      coaster.enwiki_title = null;
+      coaster.summary_text = null;
+      if (clearImage) coaster.image_url = null;
     }
   }
 
@@ -264,19 +316,185 @@ export async function applyCatalogAutoRepairs(
     if (!dryRun) {
       const { error } = await supabase
         .from("coasters")
-        .update({ park_id: targetParkId, last_synced_at: new Date().toISOString() })
+        .update({ park_id: targetParkId, last_synced_at: nowIso() })
         .eq("id", coaster.id);
       if (error) throw error;
+      coaster.park_id = targetParkId;
     }
+  }
+
+  const aliasResult = await supabase
+    .from("data_coaster_name_aliases")
+    .select("key_a,key_b,park_id,approved")
+    .eq("approved", true);
+  const aliasRows = (aliasResult.data ?? []) as DbAliasRow[];
+  if (aliasResult.error) {
+    details.push(`alias load warning: ${aliasResult.error.message}`);
+  }
+
+  const merges = findFormerNameStubMerges(coasters, aliasRows);
+  for (const merge of merges) {
+    stubsMerged += 1;
+    details.push(
+      `merge stub ${merge.stubName} (#${merge.stubId}) → ${merge.keepName} (#${merge.keepId}) [${merge.reason}]`,
+    );
+    if (dryRun) continue;
+    await mergeCoasterStubIntoKeep(supabase, merge.stubId, merge.keepId);
+
+    const aliasKeys = aliasKeysForStubMerge(merge.stubName, merge.keepName);
+    if (aliasKeys) {
+      const { data: existingAlias } = await supabase
+        .from("data_coaster_name_aliases")
+        .select("key_a")
+        .eq("key_a", aliasKeys.key_a)
+        .eq("key_b", aliasKeys.key_b)
+        .eq("park_id", merge.parkId)
+        .maybeSingle();
+      if (!existingAlias) {
+        await supabase.from("data_coaster_name_aliases").insert({
+          key_a: aliasKeys.key_a,
+          key_b: aliasKeys.key_b,
+          park_id: merge.parkId,
+          source: "auto_repair",
+          approved: true,
+        });
+      }
+    }
+
+    // Drop stub from in-memory list so later steps don't touch it.
+    const idx = coasters.findIndex((c) => c.id === merge.stubId);
+    if (idx >= 0) coasters.splice(idx, 1);
   }
 
   return {
     parksScanned: parks.length,
     parksUpdated,
-    coastersScanned: coasters.length,
+    coastersScanned: coasters.length + stubsMerged,
     coastersUpdated,
     parkLinksUpdated,
     parksEnsured,
+    stubsMerged,
+    wikipediaBindingsCleared,
     details,
   };
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+/** Remap user credits / links from stub → keep, then delete the stub row. */
+async function mergeCoasterStubIntoKeep(
+  supabase: SupabaseClient,
+  stubId: number,
+  keepId: number,
+): Promise<void> {
+  const { data: stubEvents, error: stubEvErr } = await supabase
+    .from("ride_events")
+    .select("id,user_id,ridden_on,quantity")
+    .eq("coaster_id", stubId);
+  if (stubEvErr) throw stubEvErr;
+
+  for (const stub of stubEvents ?? []) {
+    const { data: keepEvents, error: keepEvErr } = await supabase
+      .from("ride_events")
+      .select("id,ridden_on,quantity")
+      .eq("user_id", stub.user_id)
+      .eq("coaster_id", keepId);
+    if (keepEvErr) throw keepEvErr;
+
+    const keepRow = (keepEvents ?? []).find((k) =>
+      stub.ridden_on == null ? k.ridden_on == null : k.ridden_on === stub.ridden_on,
+    );
+
+    if (keepRow) {
+      const nextQty = Math.min(99, Number(keepRow.quantity ?? 1) + Number(stub.quantity ?? 1));
+      const { error } = await supabase
+        .from("ride_events")
+        .update({ quantity: nextQty })
+        .eq("id", keepRow.id);
+      if (error) throw error;
+      const { error: delErr } = await supabase.from("ride_events").delete().eq("id", stub.id);
+      if (delErr) throw delErr;
+    } else {
+      const { error } = await supabase
+        .from("ride_events")
+        .update({ coaster_id: keepId })
+        .eq("id", stub.id);
+      if (error) throw error;
+    }
+  }
+
+  const { data: stubRides, error: stubRideErr } = await supabase
+    .from("rides")
+    .select("id,user_id")
+    .eq("coaster_id", stubId);
+  if (stubRideErr) throw stubRideErr;
+  for (const ride of stubRides ?? []) {
+    const { data: existing } = await supabase
+      .from("rides")
+      .select("id")
+      .eq("user_id", ride.user_id)
+      .eq("coaster_id", keepId)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from("rides").delete().eq("id", ride.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("rides").update({ coaster_id: keepId }).eq("id", ride.id);
+      if (error) throw error;
+    }
+  }
+
+  const { data: stubWish, error: wishErr } = await supabase
+    .from("wishlist")
+    .select("id,user_id")
+    .eq("coaster_id", stubId);
+  if (wishErr) throw wishErr;
+  for (const w of stubWish ?? []) {
+    const { data: existing } = await supabase
+      .from("wishlist")
+      .select("id")
+      .eq("user_id", w.user_id)
+      .eq("coaster_id", keepId)
+      .maybeSingle();
+    if (existing) {
+      const { error } = await supabase.from("wishlist").delete().eq("id", w.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from("wishlist").update({ coaster_id: keepId }).eq("id", w.id);
+      if (error) throw error;
+    }
+  }
+
+  await supabase.from("profiles").update({ favorite_ride_id: keepId }).eq("favorite_ride_id", stubId);
+
+  const { data: stubLinks } = await supabase
+    .from("data_coaster_source_links")
+    .select("id,source")
+    .eq("coaster_id", stubId);
+  for (const link of stubLinks ?? []) {
+    const { data: existing } = await supabase
+      .from("data_coaster_source_links")
+      .select("id")
+      .eq("coaster_id", keepId)
+      .eq("source", link.source)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from("data_coaster_source_links").delete().eq("id", link.id);
+    } else {
+      await supabase
+        .from("data_coaster_source_links")
+        .update({ coaster_id: keepId })
+        .eq("id", link.id);
+    }
+  }
+
+  await supabase
+    .from("data_review_findings")
+    .update({ coaster_id: keepId })
+    .eq("coaster_id", stubId);
+
+  const { error: delCoasterErr } = await supabase.from("coasters").delete().eq("id", stubId);
+  if (delCoasterErr) throw delCoasterErr;
 }

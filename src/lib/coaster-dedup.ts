@@ -128,6 +128,8 @@ export function normalizeCoasterDedupKey(raw: string): string {
   s = s.replace(/\bth13teen\b/gi, "thirteen");
   // Energylandia spelling drift between Fast Pass feed and park labels
   s = s.replace(/\btofiffee\b/gi, "toffifee");
+  // Fantasy Island (UK) — former marketing name of The Odyssey
+  s = s.replace(/\bjubilee\s+odyssey\b/gi, "odyssey");
   s = foldThemedSpellings(s);
   // Universal marketing prefix on VelociCoaster
   s = s.replace(/^jurassic\s+world\s+/i, "");

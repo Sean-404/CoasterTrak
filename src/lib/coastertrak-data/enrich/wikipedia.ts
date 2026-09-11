@@ -8,7 +8,10 @@ import {
   fetchWikipediaArticleHtml,
   inferStatusFromText,
 } from "@/lib/wikipedia-infobox";
-import { fetchWikipediaSummary } from "@/lib/wikipedia-summary";
+import {
+  fetchWikipediaSummary,
+  isAcceptableCoasterWikipediaMatch,
+} from "@/lib/wikipedia-summary";
 
 export type WikipediaEnrichOptions = {
   limit?: number;
@@ -67,6 +70,20 @@ export async function enrichWikidataRowsFromWikipedia(
     }
 
     try {
+      // Refuse to enrich from a cross-park / series article before touching the row.
+      const lead = await fetchWikipediaSummary(row.enwikiTitle);
+      if (
+        !lead ||
+        !isAcceptableCoasterWikipediaMatch(row.label, lead, row.parkLabel)
+      ) {
+        byId.set(
+          row.wikidataId,
+          deriveWikidataCoasterStats({ ...row, enwikiTitle: null }),
+        );
+        if (delayMs > 0) await new Promise((r) => setTimeout(r, delayMs));
+        continue;
+      }
+
       let next: WikidataCoasterRow = { ...row };
 
       if (allowStatEnrich || allowStatusRepair) {
@@ -127,8 +144,7 @@ export async function enrichWikidataRowsFromWikipedia(
       }
 
       if (allowImageEnrich && !sanitizeCoasterImageUrl(next.imageUrl ?? null)) {
-        const summary = await fetchWikipediaSummary(row.enwikiTitle);
-        const wikiImage = summary?.imageUrl ?? null;
+        const wikiImage = lead.imageUrl ?? null;
         if (wikiImage) {
           next = { ...next, imageUrl: wikiImage };
           imagesFilled += 1;

@@ -28,6 +28,7 @@ export type GateAndPublishOptions = {
   reportRunId?: string;
   dataRoot?: string;
   minRows?: number;
+  /** Default true — block when any same-park name collision exists across QIDs. */
   failOnDuplicates?: boolean;
   allowLiteMeta?: boolean;
   /** When true, upload to Supabase storage + DB after gates pass. Default false. */
@@ -111,11 +112,12 @@ export async function gateAndPublishCatalog(
 
   log("  running dedupe gate…");
   const dedupe = analyzeDedupeAndConflicts(rows);
+  // Default: block on any same-park name collision across different QIDs.
+  // Pass failOnDuplicates: false (CLI --allow-duplicates) to publish with warnings only.
+  const failOnDuplicates = options.failOnDuplicates !== false;
   const hasHardDuplicate =
-    options.failOnDuplicates &&
-    dedupe.findings.some(
-      (f) => f.code === "duplicate_name_same_park" && f.severity === "error",
-    );
+    failOnDuplicates &&
+    dedupe.findings.some((f) => f.code === "duplicate_name_same_park");
   const dedupePassed = dedupe.summary.errors === 0 && !hasHardDuplicate;
 
   const passed = validatePassed && dedupePassed;

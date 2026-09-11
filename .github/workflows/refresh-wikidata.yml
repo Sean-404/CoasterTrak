@@ -38,7 +38,7 @@ jobs:
         run: npm run data:enrich-wikipedia -- --enrich-limit 2500
 
       - name: Analyze catalog (dedupe + ThemeParks snapshot verify)
-        run: npm run data:analyze-catalog -- --in data/wikidata_coasters.json --fail-on-duplicates --max-parks 170
+        run: npm run data:analyze-catalog -- --in data/wikidata_coasters.json --max-parks 170
 
       - name: Validate catalog snapshot and write quality report
         run: npm run data:validate-wikidata -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --min-rows 800
@@ -47,7 +47,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npm run data:publish-catalog -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --fail-on-duplicates --min-rows 800 --apply
+        run: npm run data:publish-catalog -- --in data/wikidata_coasters.json --meta data/wikidata_coasters.meta.json --min-rows 800 --apply
 
       - name: Relink coasters off placeholder parks (DB)
         env:

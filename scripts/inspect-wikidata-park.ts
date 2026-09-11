@@ -7,6 +7,7 @@
  */
 
 import {
+  WIKIDATA_LABEL_LANGUAGES,
   WIKIDATA_SPARQL_ENDPOINT,
   WIKIDATA_USER_AGENT,
   parseUriToQid,
@@ -64,7 +65,7 @@ WHERE {
   OPTIONAL { ?item p:P2047/psn:P2047/wikibase:quantityAmount ?durationS . }
   OPTIONAL { ?item wdt:P625 ?coord . }
 
-  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,mul,en-gb,en-ca,nl,fr,de". }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "${WIKIDATA_LABEL_LANGUAGES}". }
 }
 ORDER BY ?itemLabel
 `;

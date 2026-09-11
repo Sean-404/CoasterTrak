@@ -48,6 +48,22 @@ describe("applyCoasterKnownFixes", () => {
     expect(fixed.name).toBe("Wickie The Ride");
   });
 
+  it("names Energylandia RMF Dragon from the park branding alias", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Dragon",
+      wikidata_id: "Q25412902",
+    });
+    expect(fixed.name).toBe("RMF Dragon");
+  });
+
+  it("keeps Fantasy Island Odyssey under the current park name", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Jubilee Odyssey",
+      wikidata_id: "Q1710760",
+    });
+    expect(fixed.name).toBe("The Odyssey");
+  });
+
   it("fills #LikeMe Coaster stats from the official Plopsaland page", () => {
     const fixed = applyCoasterKnownFixes({
       name: "#LikeMe Coaster",

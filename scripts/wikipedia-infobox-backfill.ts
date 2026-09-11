@@ -20,7 +20,11 @@ import {
   fetchInfoboxStatsForEnwikiTitle,
   type InfoboxCoasterStats,
 } from "../src/lib/wikipedia-infobox-coaster";
-import { fetchEnwikiTitleFromWikidata } from "../src/lib/wikipedia-summary";
+import {
+  fetchEnwikiTitleFromWikidata,
+  fetchWikipediaSummary,
+  isAcceptableCoasterWikipediaMatch,
+} from "../src/lib/wikipedia-summary";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
 import type { WikidataCoasterRow } from "../src/lib/wikidata-coasters";
 import { isThrillCoaster } from "../src/lib/coaster-dedup";
@@ -42,7 +46,15 @@ type DbCoaster = {
   inversions: number | null;
   opening_year: number | null;
   closing_year: number | null;
+  parks: { name: string } | { name: string }[] | null;
 };
+
+function parkNameFromRow(row: DbCoaster): string | null {
+  const p = row.parks;
+  if (!p) return null;
+  if (Array.isArray(p)) return p[0]?.name?.trim() || null;
+  return p.name?.trim() || null;
+}
 
 function typeMissing(c: DbCoaster): boolean {
   const t = (c.coaster_type ?? "").trim();
@@ -176,7 +188,7 @@ async function main() {
       supabase
         .from("coasters")
         .select(
-          "id, name, wikidata_id, enwiki_title, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions, opening_year, closing_year",
+          "id, name, wikidata_id, enwiki_title, coaster_type, manufacturer, length_ft, height_ft, speed_mph, duration_s, inversions, opening_year, closing_year, parks(name)",
         )
         .order("id", { ascending: true })
         .range(from, to),
@@ -210,6 +222,8 @@ async function main() {
   let updated = 0;
   let skippedNoTitle = 0;
   let skippedNoInfobox = 0;
+  let skippedUnsafeTitle = 0;
+  let clearedUnsafe = 0;
 
   for (const row of candidates) {
     if (processed >= limit) break;
@@ -223,6 +237,36 @@ async function main() {
     processed++;
     const qid = row.wikidata_id?.trim() || "no-qid";
     console.error(`[${processed}] ${row.name} (${qid}) → ${title}`);
+
+    const parkName = parkNameFromRow(row);
+    const lead = await fetchWikipediaSummary(title);
+    if (
+      !lead ||
+      !isAcceptableCoasterWikipediaMatch(row.name, lead, parkName)
+    ) {
+      console.error("  Skip: Wikipedia article failed park/ride safety check.");
+      skippedUnsafeTitle++;
+      if (
+        row.enwiki_title?.trim() &&
+        row.enwiki_title.trim().toLowerCase() === title.toLowerCase() &&
+        !DRY_RUN
+      ) {
+        const { error: clearErr } = await supabase
+          .from("coasters")
+          .update({
+            enwiki_title: null,
+            summary_text: null,
+            last_synced_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        if (!clearErr) {
+          clearedUnsafe++;
+          console.error("  Cleared stored enwiki_title / summary_text.");
+        }
+      }
+      await new Promise((r) => setTimeout(r, delayMs));
+      continue;
+    }
 
     const stats = await fetchInfoboxStatsForEnwikiTitle(title);
     await new Promise((r) => setTimeout(r, delayMs));
@@ -254,7 +298,7 @@ async function main() {
   }
 
   console.error(
-    `\nDone. Processed ${processed}, updated ${updated}, no enwiki title ${skippedNoTitle}, no infobox ${skippedNoInfobox}.`,
+    `\nDone. Processed ${processed}, updated ${updated}, no enwiki title ${skippedNoTitle}, unsafe title ${skippedUnsafeTitle} (cleared ${clearedUnsafe}), no infobox ${skippedNoInfobox}.`,
   );
   if (DRY_RUN) console.error("(dry-run: no DB writes)");
 }

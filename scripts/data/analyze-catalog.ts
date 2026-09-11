@@ -63,7 +63,7 @@ async function main() {
     skipThemeParks: hasFlag("--skip-themeparks"),
     maxParks,
     delayMs: parseInt(arg("--delay-ms") ?? "300", 10),
-    failOnDuplicates: hasFlag("--fail-on-duplicates"),
+    failOnDuplicates: !hasFlag("--allow-duplicates"),
     onProgress: (msg) => console.error(msg),
   });
 

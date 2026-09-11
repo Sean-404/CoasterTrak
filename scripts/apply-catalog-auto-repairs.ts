@@ -30,6 +30,8 @@ async function main() {
         coastersScanned: result.coastersScanned,
         coastersUpdated: result.coastersUpdated,
         parkLinksUpdated: result.parkLinksUpdated,
+        stubsMerged: result.stubsMerged,
+        wikipediaBindingsCleared: result.wikipediaBindingsCleared,
       },
       null,
       2,

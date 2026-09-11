@@ -15,12 +15,13 @@ export const WIKIDATA_USER_AGENT =
   "CoasterTrak/0.1 (roller coaster catalog sync; https://github.com/)";
 
 /**
- * WDQS label fallback. English-only returns the Q-id when an item has no `en` label
- * (common for continental European parks/rides). `mul` is the language-independent
- * official name — prefer it over regional English when `en` is missing.
+ * WDQS label fallback. Prefer English / language-independent names when present,
+ * then major coaster-region languages. Items with only a local label (common in
+ * continental Europe / East Asia) otherwise come back as bare Q-ids and get skipped
+ * by catalog sync. `mul` is the language-independent official name.
  */
 export const WIKIDATA_LABEL_LANGUAGES =
-  "en,mul,en-gb,en-ca,nl,fr,de,ja,es,it,pt,zh";
+  "en,mul,en-gb,en-ca,nl,fr,de,pl,cs,sk,hu,sv,da,fi,nb,nn,no,ja,ko,es,it,pt,zh,ru,uk,tr,ar";
 
 const WIKIDATA_LABEL_SERVICE = `SERVICE wikibase:label { bd:serviceParam wikibase:language "${WIKIDATA_LABEL_LANGUAGES}". }`;
 

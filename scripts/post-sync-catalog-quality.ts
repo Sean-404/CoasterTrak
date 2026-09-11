@@ -106,7 +106,9 @@ async function main(): Promise<void> {
     console.log(
       `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
         `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
-        `${repair.parkLinksUpdated} park links`,
+        `${repair.parkLinksUpdated} park links, ` +
+        `${repair.stubsMerged} stubs merged, ` +
+        `${repair.wikipediaBindingsCleared} wiki bindings cleared`,
     );
   } else {
     console.log("Skipping auto-repair / gap fill (Supabase env not set).");

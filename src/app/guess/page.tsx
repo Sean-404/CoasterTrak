@@ -137,7 +137,11 @@ export default function GuessPage() {
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-slate-50 lg:h-auto lg:min-h-screen lg:overflow-visible">
       <SiteHeader />
-      <main className="mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col overflow-hidden px-3 pt-2 pb-[7.25rem] sm:px-6 lg:overflow-visible lg:px-6 lg:py-6 lg:pb-6">
+      <main
+        className={`mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col overflow-hidden px-3 pt-2 sm:px-6 lg:overflow-visible lg:px-6 lg:py-6 lg:pb-6 ${
+          revealed ? "pb-[12.5rem]" : "pb-[7.25rem]"
+        }`}
+      >
         <div className="flex shrink-0 items-center justify-between gap-3">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">CoasterGuessr</p>
           {revealed || guess ? null : (
@@ -232,19 +236,21 @@ export default function GuessPage() {
 
       <div className="fixed inset-x-3 z-20 rounded-2xl border border-slate-200 bg-white/95 px-3 py-3 shadow-lg backdrop-blur bottom-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] lg:hidden">
         {revealed && result ? (
-          <div className="mx-auto flex max-w-6xl items-center gap-3">
-            <div className="min-w-0 flex-1">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3">
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">{result.resultLabel}</p>
               {result.gaveUp ? null : (
-                <p className="truncate text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-slate-900">
                   {result.score.toLocaleString("en-US")} / 5000 · {result.distanceLabel}
                 </p>
               )}
-              <p className="truncate text-sm text-slate-700">
+              <p className="mt-0.5 text-sm leading-snug text-slate-700">
                 <Link href={result.parkHref} className="font-semibold text-amber-800 underline-offset-2 hover:underline">
                   {result.parkName}
                 </Link>
-                {" · "}
+                {result.country && result.country !== "Unknown" ? `, ${result.country}` : ""}
+              </p>
+              <p className="text-sm leading-snug text-slate-700">
                 <Link href={result.coasterHref} className="font-semibold text-amber-800 underline-offset-2 hover:underline">
                   {result.coasterName}
                 </Link>
@@ -253,7 +259,7 @@ export default function GuessPage() {
             <button
               type="button"
               onClick={() => void loadRound(round?.token)}
-              className="shrink-0 rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-semibold text-slate-900"
+              className="w-full rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-semibold text-slate-900"
             >
               Next photo
             </button>
