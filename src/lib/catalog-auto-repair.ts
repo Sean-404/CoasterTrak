@@ -383,6 +383,10 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function throwOnError(error: { message: string } | null | undefined): void {
+  if (error) throw new Error(error.message);
+}
+
 /** Remap user credits / links from stub → keep, then delete the stub row. */
 async function mergeCoasterStubIntoKeep(
   supabase: SupabaseClient,
@@ -393,7 +397,7 @@ async function mergeCoasterStubIntoKeep(
     .from("ride_events")
     .select("id,user_id,ridden_on,quantity")
     .eq("coaster_id", stubId);
-  if (stubEvErr) throw stubEvErr;
+  throwOnError(stubEvErr);
 
   for (const stub of stubEvents ?? []) {
     const { data: keepEvents, error: keepEvErr } = await supabase
@@ -401,7 +405,7 @@ async function mergeCoasterStubIntoKeep(
       .select("id,ridden_on,quantity")
       .eq("user_id", stub.user_id)
       .eq("coaster_id", keepId);
-    if (keepEvErr) throw keepEvErr;
+    throwOnError(keepEvErr);
 
     const keepRow = (keepEvents ?? []).find((k) =>
       stub.ridden_on == null ? k.ridden_on == null : k.ridden_on === stub.ridden_on,
@@ -413,15 +417,15 @@ async function mergeCoasterStubIntoKeep(
         .from("ride_events")
         .update({ quantity: nextQty })
         .eq("id", keepRow.id);
-      if (error) throw error;
+      throwOnError(error);
       const { error: delErr } = await supabase.from("ride_events").delete().eq("id", stub.id);
-      if (delErr) throw delErr;
+      throwOnError(delErr);
     } else {
       const { error } = await supabase
         .from("ride_events")
         .update({ coaster_id: keepId })
         .eq("id", stub.id);
-      if (error) throw error;
+      throwOnError(error);
     }
   }
 
@@ -429,7 +433,7 @@ async function mergeCoasterStubIntoKeep(
     .from("rides")
     .select("id,user_id")
     .eq("coaster_id", stubId);
-  if (stubRideErr) throw stubRideErr;
+  throwOnError(stubRideErr);
   for (const ride of stubRides ?? []) {
     const { data: existing } = await supabase
       .from("rides")
@@ -439,31 +443,40 @@ async function mergeCoasterStubIntoKeep(
       .maybeSingle();
     if (existing) {
       const { error } = await supabase.from("rides").delete().eq("id", ride.id);
-      if (error) throw error;
+      throwOnError(error);
     } else {
       const { error } = await supabase.from("rides").update({ coaster_id: keepId }).eq("id", ride.id);
-      if (error) throw error;
+      throwOnError(error);
     }
   }
 
+  // wishlist PK is (user_id, coaster_id) — no surrogate id column
   const { data: stubWish, error: wishErr } = await supabase
     .from("wishlist")
-    .select("id,user_id")
+    .select("user_id,coaster_id")
     .eq("coaster_id", stubId);
-  if (wishErr) throw wishErr;
+  throwOnError(wishErr);
   for (const w of stubWish ?? []) {
     const { data: existing } = await supabase
       .from("wishlist")
-      .select("id")
+      .select("user_id")
       .eq("user_id", w.user_id)
       .eq("coaster_id", keepId)
       .maybeSingle();
     if (existing) {
-      const { error } = await supabase.from("wishlist").delete().eq("id", w.id);
-      if (error) throw error;
+      const { error } = await supabase
+        .from("wishlist")
+        .delete()
+        .eq("user_id", w.user_id)
+        .eq("coaster_id", stubId);
+      throwOnError(error);
     } else {
-      const { error } = await supabase.from("wishlist").update({ coaster_id: keepId }).eq("id", w.id);
-      if (error) throw error;
+      const { error } = await supabase
+        .from("wishlist")
+        .update({ coaster_id: keepId })
+        .eq("user_id", w.user_id)
+        .eq("coaster_id", stubId);
+      throwOnError(error);
     }
   }
 
@@ -496,5 +509,5 @@ async function mergeCoasterStubIntoKeep(
     .eq("coaster_id", stubId);
 
   const { error: delCoasterErr } = await supabase.from("coasters").delete().eq("id", stubId);
-  if (delCoasterErr) throw delCoasterErr;
+  throwOnError(delCoasterErr);
 }
