@@ -10,6 +10,7 @@ import { loadLocalEnvIfPresent } from "./lib/load-local-env";
 import { createServiceRoleClient } from "./lib/supabase-service";
 import {
   extraInstallInsertRow,
+  isCoasterParkNameUniqueViolation,
   planDiscoveredInfoboxInstalls,
 } from "../src/lib/catalog-extra-installs";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
@@ -105,6 +106,11 @@ async function main() {
           .insert(extraInstallInsertRow(plan.parkId, plan.spec, new Date().toISOString()))
           .select("id")
           .single();
+        if (error && isCoasterParkNameUniqueViolation(error)) {
+          console.error(`  skip insert (name already at park ${plan.parkId})`);
+          inserted -= 1;
+          continue;
+        }
         if (error) throw error;
         if (data?.id) {
           coasterRows.push({
@@ -134,6 +140,11 @@ async function main() {
       );
       if (dryRun) continue;
       const { error } = await supabase.from("coasters").update(plan.patch).eq("id", plan.coasterId);
+      if (error && isCoasterParkNameUniqueViolation(error)) {
+        console.error(`  skip patch #${plan.coasterId} (name already at park ${plan.parkId})`);
+        patched -= 1;
+        continue;
+      }
       if (error) throw error;
       const idx = coasterRows.findIndex((c) => c.id === plan.coasterId);
       if (idx >= 0) coasterRows[idx] = { ...coasterRows[idx]!, ...plan.patch };

@@ -36,6 +36,13 @@ describe("parkNamesMatch", () => {
       false,
     );
   });
+
+  it("does not treat Wonderla as a Wonderland park", () => {
+    expect(parkNamesMatch("Wonderla", "Canada's Wonderland")).toBe(false);
+    expect(parkNamesMatch("Wonderla", "Dutch Wonderland")).toBe(false);
+    expect(parkNamesMatch("Wonderla", "Wonderland Sydney")).toBe(false);
+    expect(parkNamesMatch("Darien Lake", "Six Flags Darien Lake")).toBe(true);
+  });
 });
 
 describe("dedupeParksForCatalog", () => {

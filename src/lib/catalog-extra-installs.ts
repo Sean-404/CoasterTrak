@@ -92,13 +92,28 @@ function fillIfBlank<T>(current: T | null | undefined, next: T | undefined): T |
   return undefined;
 }
 
+export function isCoasterParkNameUniqueViolation(
+  error: { code?: string; message?: string } | null | undefined,
+): boolean {
+  if (!error) return false;
+  if (error.code === "23505") return /coasters_park_id_name_key|\(park_id, name\)/i.test(error.message ?? "");
+  return /duplicate key value violates unique constraint "coasters_park_id_name_key"/i.test(
+    error.message ?? "",
+  );
+}
+
+function sameInstallName(a: string, b: string): boolean {
+  return normalizeCoasterDedupKey(a) === normalizeCoasterDedupKey(b);
+}
+
 export function buildExtraInstallPatch(
   existing: CoasterRef,
   spec: EnsureCoasterInstallSpec,
+  opts?: { nameTakenAtPark?: boolean },
 ): Partial<Coaster> | null {
   const patch: Partial<Coaster> = {};
 
-  if (existing.name !== spec.name) patch.name = spec.name;
+  if (existing.name !== spec.name && !opts?.nameTakenAtPark) patch.name = spec.name;
   if (existing.status !== spec.status) patch.status = spec.status;
   if (spec.status === "Operating" && existing.closing_year != null && spec.closing_year == null) {
     patch.closing_year = null;
@@ -125,8 +140,11 @@ export function buildExtraInstallPatch(
   if (duration != null) patch.duration_s = duration;
   const rcdb = fillIfBlank(existing.rcdb_id, spec.rcdb_id);
   if (rcdb) patch.rcdb_id = rcdb;
-  const wiki = fillIfBlank(existing.enwiki_title, spec.enwiki_title);
-  if (wiki) patch.enwiki_title = wiki;
+  const sameRide = sameInstallName(existing.name, spec.name) || Boolean(patch.name);
+  if (sameRide) {
+    const wiki = fillIfBlank(existing.enwiki_title, spec.enwiki_title);
+    if (wiki) patch.enwiki_title = wiki;
+  }
 
   return Object.keys(patch).length ? patch : null;
 }
@@ -146,11 +164,15 @@ export function planEnsureCoasterInstalls(opts: {
     const parkId = findParkIdForInstall(opts.parks, spec);
     if (parkId == null) continue;
 
-    const existing = opts.coasters.find(
-      (c) => c.park_id === parkId && coasterMatchesInstallName(c.name, spec),
-    );
+    const atPark = opts.coasters.filter((c) => c.park_id === parkId);
+    const exactName = atPark.find((c) => sameInstallName(c.name, spec.name));
+    const aliasMatch = atPark.find((c) => coasterMatchesInstallName(c.name, spec));
+    const existing = exactName ?? aliasMatch;
     if (existing) {
-      const patch = buildExtraInstallPatch(existing, spec);
+      const nameTakenAtPark = atPark.some(
+        (c) => c.id !== existing.id && sameInstallName(c.name, spec.name),
+      );
+      const patch = buildExtraInstallPatch(existing, spec, { nameTakenAtPark });
       if (patch) {
         plans.push({ action: "patch", coasterId: existing.id, parkId, spec, patch });
       }
@@ -199,7 +221,7 @@ export function specsFromInfoboxLocations(opts: {
     const status = locationStatusForInstall(loc);
     if (!status) continue;
 
-    const aliases = [rideName, loc.name, opts.articleTitle, existing?.name]
+    const aliases = [rideName, loc.name, opts.articleTitle]
       .map((n) => n?.trim())
       .filter((n): n is string => Boolean(n));
 

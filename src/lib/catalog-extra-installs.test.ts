@@ -200,4 +200,58 @@ describe("planDiscoveredInfoboxInstalls", () => {
     expect(plans.filter((p) => p.action === "insert")).toHaveLength(0);
     expect(plans.some((p) => p.action === "patch" && p.patch.name)).toBe(false);
   });
+
+  it("does not put Garuda Glide on a Wonderland park or rename T2 onto an existing Garuda Glide", () => {
+    const parks = [
+      { id: 87, name: "Canada's Wonderland" },
+      { id: 121, name: "Kentucky Kingdom" },
+      { id: 129, name: "Dutch Wonderland" },
+    ];
+    expect(
+      findParkIdForInstall(parks, {
+        parkName: "Wonderla",
+        name: "Garuda Glide",
+        coaster_type: "Steel",
+        status: "Operating",
+      }),
+    ).toBeNull();
+
+    const plans = planDiscoveredInfoboxInstalls({
+      parks,
+      coasters: [
+        {
+          id: 391,
+          park_id: 121,
+          name: "T2",
+          status: "Operating",
+          coaster_type: "Steel",
+          manufacturer: "Vekoma",
+          opening_year: 1995,
+          rcdb_id: null,
+          enwiki_title: "Garuda Glide",
+        },
+        {
+          id: 1194,
+          park_id: 121,
+          name: "Garuda Glide",
+          status: "Defunct",
+          coaster_type: "Steel",
+          manufacturer: "Intamin",
+          opening_year: 2026,
+          rcdb_id: null,
+          enwiki_title: "Garuda Glide",
+        },
+      ],
+      articleTitle: "Garuda Glide",
+      locations: [
+        { parkName: "Kentucky Kingdom", name: "Garuda Glide", status: "Operating", opening_year: 2026 },
+        { parkName: "Wonderla", name: "Garuda Glide", status: "Operating", opening_year: 2026, rcdb_id: "22601" },
+      ],
+    });
+
+    expect(plans.filter((p) => p.action === "insert")).toHaveLength(0);
+    const kkPatch = plans.find((p) => p.action === "patch" && p.coasterId === 1194);
+    expect(kkPatch?.action === "patch" ? kkPatch.patch.name : undefined).toBeUndefined();
+    expect(plans.some((p) => p.action === "patch" && p.coasterId === 391)).toBe(false);
+  });
 });

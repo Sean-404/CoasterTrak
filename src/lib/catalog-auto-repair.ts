@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import {
   extraInstallInsertRow,
+  isCoasterParkNameUniqueViolation,
   planEnsureCoasterInstalls,
 } from "@/lib/catalog-extra-installs";
 import {
@@ -385,6 +386,13 @@ export async function applyCatalogAutoRepairs(
         .insert(extraInstallInsertRow(plan.parkId, plan.spec, nowIso()))
         .select("id")
         .single();
+      if (error && isCoasterParkNameUniqueViolation(error)) {
+        details.push(
+          `skip ensure coaster ${plan.spec.name} at ${plan.spec.parkName} (name already at park)`,
+        );
+        coastersEnsured -= 1;
+        continue;
+      }
       if (error) throw error;
       if (inserted?.id) {
         coasters.push({
@@ -419,6 +427,11 @@ export async function applyCatalogAutoRepairs(
       .from("coasters")
       .update({ ...plan.patch, last_synced_at: nowIso() })
       .eq("id", plan.coasterId);
+    if (error && isCoasterParkNameUniqueViolation(error)) {
+      details.push(`skip patch coaster ${plan.spec.name} (#${plan.coasterId}) (name already at park)`);
+      coastersUpdated -= 1;
+      continue;
+    }
     if (error) throw error;
   }
 

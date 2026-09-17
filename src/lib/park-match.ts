@@ -247,6 +247,21 @@ export function findNearestParkForCoords(
  * True if two park display names likely refer to the same venue
  * (substring / token overlap, not geographic — pair with distance checks).
  */
+function containsAsWholePhrase(haystack: string, needle: string): boolean {
+  if (!needle || !haystack.includes(needle)) return false;
+  let from = 0;
+  while (from <= haystack.length) {
+    const i = haystack.indexOf(needle, from);
+    if (i < 0) return false;
+    const beforeOk = i === 0 || haystack[i - 1] === " ";
+    const after = i + needle.length;
+    const afterOk = after === haystack.length || haystack[after] === " ";
+    if (beforeOk && afterOk) return true;
+    from = i + 1;
+  }
+  return false;
+}
+
 export function parkNamesMatch(a: string, b: string): boolean {
   const na = normalizeParkNameForMatch(a);
   const nb = normalizeParkNameForMatch(b);
@@ -254,8 +269,9 @@ export function parkNamesMatch(a: string, b: string): boolean {
   if (na === nb) return true;
 
   const [short, long] = na.length <= nb.length ? [na, nb] : [nb, na];
-  if (short.length >= 8 && long.includes(short)) return true;
-  if (short.length >= 6 && long.length >= 10 && long.includes(short)) return true;
+  // Whole-phrase only: "wonderla" must not match "wonderland".
+  if (short.length >= 8 && containsAsWholePhrase(long, short)) return true;
+  if (short.length >= 6 && long.length >= 10 && containsAsWholePhrase(long, short)) return true;
 
   // Score only brand-like tokens so "Hong Kong" alone cannot match Disneyland ↔ Ocean Park.
   const ta = distinctiveParkNameTokens(a);
