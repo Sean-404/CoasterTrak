@@ -54,6 +54,27 @@ describe("relocated closing year fixes", () => {
     expect(fixed.closing_year).toBe(2012);
   });
 
+  it("keeps Kings Dominion Dominator operating despite Geauga Lake retirement", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Dominator",
+      wikidata_id: "Q951359",
+      opening_year: 2008,
+      closing_year: 2007,
+      status: "Defunct",
+    });
+    expect(fixed.status).toBe("Operating");
+    expect(fixed.closing_year).toBeNull();
+  });
+
+  it("does not mark Darien Lake Ride of Steel defunct from the SFA Wikidata id", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Ride of Steel",
+      wikidata_id: null,
+      status: "Operating",
+    });
+    expect(fixed.status).toBe("Operating");
+  });
+
   it("clears prior-life closing when opening_year/closing_year are loaded", () => {
     const patch = buildCoasterRepairPatch({
       id: 1,

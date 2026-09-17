@@ -108,8 +108,19 @@ async function main(): Promise<void> {
         `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
         `${repair.parkLinksUpdated} park links, ` +
         `${repair.stubsMerged} stubs merged, ` +
-        `${repair.wikipediaBindingsCleared} wiki bindings cleared`,
+        `${repair.wikipediaBindingsCleared} wiki bindings cleared` +
+        (repair.coastersEnsured ? `, ${repair.coastersEnsured} extra installs` : ""),
     );
+
+    if (!process.argv.includes("--skip-extend")) {
+      console.log("Ensuring Wikipedia /extend clone installs…");
+      runNodeTsx("scripts/ensure-wikipedia-extra-installs.ts", [
+        "--delay-ms",
+        process.env.CATALOG_EXTEND_DELAY_MS?.trim() || "200",
+      ]);
+    } else {
+      console.log("Skipping Wikipedia /extend extra installs (--skip-extend).");
+    }
   } else {
     console.log("Skipping auto-repair / gap fill (Supabase env not set).");
   }
@@ -120,7 +131,7 @@ async function main(): Promise<void> {
     process.env.AI_GATEWAY_API_KEY?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim(),
   );
   if (!skipAi && hasAiKey) {
-    runCli(["ai:review", "--limit", aiLimit]);
+    runCli(["ai:review", "--limit", aiLimit, "--include-duplicates"]);
   } else if (!skipAi) {
     console.log("Skipping AI review (set AI_GATEWAY_API_KEY to enable).");
   }

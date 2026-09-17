@@ -11,6 +11,7 @@ import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
 import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
 import { matchesSearchQuery } from "@/lib/display";
 import { isCatalogHiddenParkName } from "@/lib/park-match";
+import { isCoasterDefunct } from "@/lib/coaster-status";
 
 const PARK_COLUMNS = "id,name,country,latitude,longitude";
 const COASTER_COLUMNS_CORE =
@@ -262,6 +263,34 @@ export async function listCatalogParks(search?: string): Promise<Park[]> {
     const haystack = `${park.name} ${park.country ?? ""}`;
     return matchesSearchQuery(haystack, q);
   });
+}
+
+export type CatalogSnapshot = {
+  parkCount: number;
+  coasterCount: number;
+  countryCount: number;
+  operatingCount: number;
+  defunctCount: number;
+};
+
+/** Public catalog counts for original /catalog copy — not Wikipedia. */
+export async function getCatalogSnapshot(): Promise<CatalogSnapshot> {
+  const normalized = await getNormalizedCatalog();
+  const parks = buildPublicCatalogParks(normalized);
+  const coasters = buildPublicCoasterIndexRows(normalized);
+  const countries = new Set(
+    parks
+      .map((park) => park.country?.trim())
+      .filter((country): country is string => Boolean(country)),
+  );
+  const defunctCount = coasters.filter((coaster) => isCoasterDefunct(coaster)).length;
+  return {
+    parkCount: parks.length,
+    coasterCount: coasters.length,
+    countryCount: countries.size,
+    operatingCount: coasters.length - defunctCount,
+    defunctCount,
+  };
 }
 
 type ParkWithRideCount = ParkDetail & { rideCount: number };

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildCoasterEditorialIntro } from "./catalog-content";
+import {
+  buildCoasterEditorialIntro,
+  buildCoasterTrackerNote,
+  buildParkTrackerNote,
+} from "./catalog-content";
 import type { Coaster } from "@/types/domain";
 
 function makeCoaster(partial: Partial<Coaster>): Coaster {
@@ -31,5 +35,22 @@ describe("buildCoasterEditorialIntro", () => {
     expect(text).not.toMatch(/\ba Unknown\b/i);
     expect(text).toContain("78");
     expect(text).toContain("Track it on CoasterTrak");
+  });
+});
+
+describe("tracker notes", () => {
+  it("explains leftover credits on operating park pages", () => {
+    const note = buildParkTrackerNote("Alton Towers", [
+      makeCoaster({ id: 1, name: "Nemesis", status: "Operating" }),
+      makeCoaster({ id: 2, name: "Corkscrew", status: "Removed", closing_year: 2008 }),
+    ]);
+    expect(note).toContain("leftover credits");
+    expect(note).toContain("Alton Towers");
+  });
+
+  it("explains unique credits versus repeats on ride pages", () => {
+    const note = buildCoasterTrackerNote(makeCoaster({ name: "Nemesis" }), "Alton Towers");
+    expect(note).toContain("unique coaster credit");
+    expect(note).toContain("Alton Towers");
   });
 });

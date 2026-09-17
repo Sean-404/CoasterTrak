@@ -251,9 +251,12 @@ export default async function Home() {
         </section>
 
         <p className="mt-10 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Data quality note: Coaster and park data is sourced from third-party datasets and community-maintained
-          sources. Some entries may be incomplete, outdated, or occasionally inaccurate. Always confirm details with
-          the park before you travel.
+          Data quality note: Coaster and park data is compiled from Wikidata and other public sources, then curated
+          for credit tracking. Some entries may still be incomplete. Always confirm details with the park before you
+          travel.{" "}
+          <Link href="/catalog" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+            How we maintain the catalog
+          </Link>
         </p>
 
         <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -274,6 +277,12 @@ export default async function Home() {
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
             >
               Full tracker guide
+            </Link>
+            <Link
+              href="/catalog"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+            >
+              How the catalog works
             </Link>
             <Link
               href="/parks"

@@ -91,6 +91,13 @@ export default function AboutPage() {
           </p>
           <h2 className="pt-2 text-xl font-semibold text-slate-900">How the catalog is maintained</h2>
           <p>
+            Each park page is a planning sheet for leftover credits, not a copied encyclopedia entry. See{" "}
+            <Link href="/catalog" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              how the catalog works
+            </Link>{" "}
+            for live counts, sourcing, and how clone rides stay at the park you visited.
+          </p>
+          <p>
             Park and coaster records are compiled mainly from{" "}
             <a
               href="https://www.wikidata.org/"

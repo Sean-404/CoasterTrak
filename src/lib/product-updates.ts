@@ -14,6 +14,18 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-09-17-catalog-installs",
+    date: "2026-09-17",
+    title: "Clone rides stay at the park you visited",
+    summary:
+      "Same-named coasters at different parks now keep separate catalog rows, so a closed Ride of Steel does not hide the operating one at Darien Lake.",
+    highlights: [
+      "Ride of Steel, Superman: Ultimate Flight, Mr. Freeze, Hurler, and Flight of the Hippogriff clones restored where they were missing",
+      "Park and coaster pages lead with CoasterTrak lineup facts instead of Wikipedia copy",
+      "New catalog guide explains sourcing, clone installs, and how to report a missing ride",
+    ],
+  },
+  {
     id: "2026-09-08-coasterguessr",
     date: "2026-09-08",
     title: "CoasterGuessr",

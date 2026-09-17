@@ -37,18 +37,16 @@ export function parkBrandPriorityBonus(name: string): number {
   return best;
 }
 
-/** Stricter than page-level “substantial”: sitemap only wants pages with real copy or full stats. */
+/**
+ * Sitemap only wants rides with CoasterTrak catalog facts (photo + measurements).
+ * Wikipedia `summary_text` is not unique enough to earn a crawl slot.
+ */
 export function isCoasterSitemapEligible(coaster: Coaster): boolean {
-  const summaryLen = coaster.summary_text?.trim().length ?? 0;
-  if (summaryLen >= 120) return true;
   return Boolean(coaster.image_url) && coasterStatCount(coaster) >= 4;
 }
 
 export function coasterSitemapScore(coaster: Coaster): number {
   let score = 0;
-  const summaryLen = coaster.summary_text?.trim().length ?? 0;
-  if (summaryLen >= 280) score += 90;
-  else if (summaryLen >= 120) score += 50;
   score += coasterStatCount(coaster) * 8;
   if (coaster.image_url) score += 12;
   if (coaster.manufacturer?.trim()) score += 4;

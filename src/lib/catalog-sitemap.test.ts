@@ -25,7 +25,15 @@ function coaster(partial: Partial<Coaster> & Pick<Coaster, "id" | "park_id" | "n
   };
 }
 
-const richSummary = "A".repeat(140);
+function statedRide(partial: Partial<Coaster> & Pick<Coaster, "id" | "park_id" | "name">): Coaster {
+  return coaster({
+    image_url: "https://example.com/ride.jpg",
+    height_ft: 120,
+    speed_mph: 55,
+    length_ft: 2400,
+    ...partial,
+  });
+}
 
 describe("sitemap eligibility", () => {
   it("rejects image-only stubs that the public catalog still treats as substantial", () => {
@@ -36,20 +44,18 @@ describe("sitemap eligibility", () => {
     ).toBe(false);
   });
 
-  it("accepts a Wikipedia-length summary or a fully stated ride with a photo", () => {
-    expect(
-      isCoasterSitemapEligible(coaster({ id: 1, park_id: 1, name: "Nemesis", summary_text: richSummary })),
-    ).toBe(true);
+  it("rejects Wikipedia-only copy and accepts a fully stated ride with a photo", () => {
     expect(
       isCoasterSitemapEligible(
-        coaster({
+        coaster({ id: 1, park_id: 1, name: "Nemesis", summary_text: "A".repeat(140) }),
+      ),
+    ).toBe(false);
+    expect(
+      isCoasterSitemapEligible(
+        statedRide({
           id: 2,
           park_id: 1,
           name: "Oblivion",
-          image_url: "https://example.com/o.jpg",
-          height_ft: 180,
-          speed_mph: 68,
-          length_ft: 1222,
           inversions: 0,
         }),
       ),
@@ -64,8 +70,8 @@ describe("selectSitemapParks", () => {
       park({ id: 2, name: "Tiny Local Fair" }),
     ];
     const coasters = [
-      coaster({ id: 10, park_id: 1, name: "Nemesis", summary_text: richSummary }),
-      coaster({ id: 11, park_id: 1, name: "Oblivion", summary_text: richSummary }),
+      statedRide({ id: 10, park_id: 1, name: "Nemesis" }),
+      statedRide({ id: 11, park_id: 1, name: "Oblivion" }),
       coaster({ id: 12, park_id: 2, name: "Kiddie Loop" }),
     ];
     expect(selectSitemapParks(parks, coasters).map((p) => p.name)).toEqual(["Alton Towers"]);
@@ -77,11 +83,10 @@ describe("selectSitemapParks", () => {
     );
     const coasters = parks.flatMap((p) =>
       [1, 2, 3, 4].map((n) =>
-        coaster({
+        statedRide({
           id: p.id * 10 + n,
           park_id: p.id,
           name: `Ride ${p.id}-${n}`,
-          summary_text: richSummary,
         }),
       ),
     );
@@ -93,8 +98,8 @@ describe("selectSitemapCoasters", () => {
   it("prefers rides at selected parks, then fills from the rest", () => {
     const selected = new Set([1]);
     const rows = [
-      coaster({ id: 1, park_id: 1, name: "Alpha", summary_text: richSummary }),
-      coaster({ id: 2, park_id: 9, name: "Zulu", summary_text: `${richSummary} extra` }),
+      statedRide({ id: 1, park_id: 1, name: "Alpha" }),
+      statedRide({ id: 2, park_id: 9, name: "Zulu", height_ft: 200 }),
     ];
     expect(selectSitemapCoasters(rows, { parkIds: selected, limit: 1 }).map((c) => c.name)).toEqual([
       "Alpha",
@@ -103,11 +108,10 @@ describe("selectSitemapCoasters", () => {
 
   it("caps the coaster list", () => {
     const rows = Array.from({ length: SITEMAP_MAX_COASTERS + 50 }, (_, i) =>
-      coaster({
+      statedRide({
         id: i + 1,
         park_id: 1,
         name: `Ride ${String(i + 1).padStart(3, "0")}`,
-        summary_text: richSummary,
       }),
     );
     expect(selectSitemapCoasters(rows)).toHaveLength(SITEMAP_MAX_COASTERS);

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  cleanInfoboxParkName,
   cleanInfoboxWikiValue,
   extractInfoboxRollerCoasterBlock,
+  isCountryOnlyInfoboxLocation,
+  parseInfoboxCoasterLocationsFromWikitext,
   parseInfoboxCoasterStatsFromWikitext,
 } from "./wikipedia-infobox-coaster";
 
@@ -71,5 +74,73 @@ describe("wikipedia-infobox-coaster", () => {
 
   it("cleans wiki links and br separators in manufacturer cells", () => {
     expect(cleanInfoboxWikiValue("[[Mack Rides|Mack]]<br>[[Vekoma]]")).toBe("Mack · Vekoma");
+  });
+
+  it("reads Ride of Steel's Darien Lake extend location as operating", () => {
+    const wt = `
+{{Infobox roller coaster
+|name=Ride of Steel
+|location=Six Flags America
+|opened={{Start date|2000|05|13}}
+|status=Closed
+|closed={{Start date|2025|11|02}}
+|rcdb_number=699
+|extend={{Infobox roller coaster/extend
+|location=Six Flags Darien Lake
+|opened={{Start date|1999|05|15}}
+|status=Operating
+|rcdb_number=541
+}}
+}}
+`;
+    expect(parseInfoboxCoasterLocationsFromWikitext(wt)).toEqual([
+      {
+        name: "Ride of Steel",
+        parkName: "Six Flags America",
+        status: "Defunct",
+        opening_year: 2000,
+        closing_year: 2025,
+        rcdb_id: "699",
+      },
+      {
+        parkName: "Six Flags Darien Lake",
+        status: "Operating",
+        opening_year: 1999,
+        rcdb_id: "541",
+      },
+    ]);
+  });
+
+  it("reads Superman Ultimate Flight slashless extend parks", () => {
+    const wt = `
+{{Infobox roller coaster
+| location = Six Flags Over Georgia
+| status = Operating
+| opened = April 6, 2002
+| extend = {{Infobox roller coaster extend
+| location = Six Flags Great Adventure
+| status = Operating
+| opened = April 17, 2003
+| rcdb_number = 1976
+}}{{Infobox roller coaster extend
+| location = Six Flags Great America
+| status = Operating
+| opened = May 3, 2003
+| rcdb_number = 1977
+}}
+}}
+`;
+    expect(parseInfoboxCoasterLocationsFromWikitext(wt).map((l) => `${l.parkName}:${l.status}:${l.opening_year}`)).toEqual([
+      "Six Flags Over Georgia:Operating:2002",
+      "Six Flags Great Adventure:Operating:2003",
+      "Six Flags Great America:Operating:2003",
+    ]);
+  });
+
+  it("cleans leftover wikilink junk and skips country-only locations", () => {
+    expect(cleanInfoboxParkName("[[Wonderland Park (Texas)")).toBe("Wonderland Park (Texas)");
+    expect(cleanInfoboxParkName("Geauga Lake (amusement park)|Geauga Lake")).toBe("Geauga Lake");
+    expect(isCountryOnlyInfoboxLocation("Germany")).toBe(true);
+    expect(isCountryOnlyInfoboxLocation("Six Flags America")).toBe(false);
   });
 });

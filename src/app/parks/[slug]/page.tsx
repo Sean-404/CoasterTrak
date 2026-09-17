@@ -5,8 +5,10 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogStatPills, type CatalogStatPill } from "@/components/catalog-stat-pills";
 import { ParkCoasterList } from "@/components/park-coaster-list";
 import { ParkStatusBadge } from "@/components/park-status-badge";
+import { WikipediaBackground } from "@/components/wikipedia-background";
 import {
   buildParkEditorialIntro,
+  buildParkTrackerNote,
   CATALOG_THIN_ROBOTS,
   computeParkHighlights,
   isParkCatalogSubstantial,
@@ -18,7 +20,7 @@ import {
   resolveCatalogParkId,
 } from "@/lib/catalog-server";
 import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
-import { formatParkLabel, cleanCoasterName } from "@/lib/display";
+import { cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
 import { SITE_URL } from "@/lib/site-url";
@@ -46,15 +48,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const coasters = await getCoastersForPark(park.id);
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
-  const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
-  const intro = wikiSummary?.extract
-    ? clampSummaryText(wikiSummary.extract, 160)
-    : buildParkEditorialIntro(park.name, countryLabel, coasters).slice(0, 160);
+  const intro = clampSummaryText(
+    buildParkEditorialIntro(park.name, countryLabel, coasters),
+    160,
+  );
   const canonicalId = await resolveCatalogParkId(park.id);
   const canonicalPark =
     canonicalId === park.id ? park : ((await getParkById(canonicalId)) ?? park);
   const canonical = `/parks/${parkSlug(canonicalPark.name, canonicalPark.id)}`;
-  const indexable = isParkCatalogSubstantial(coasters, wikiSummary?.extract);
+  const indexable = isParkCatalogSubstantial(coasters);
 
   return {
     title: `${park.name} roller coasters`,
@@ -94,9 +96,8 @@ export default async function ParkDetailPage({ params }: PageProps) {
   const coasters = await getCoastersForPark(park.id);
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
   const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
-  const intro = wikiSummary?.extract
-    ? wikiSummary.extract
-    : buildParkEditorialIntro(park.name, countryLabel, coasters);
+  const intro = buildParkEditorialIntro(park.name, countryLabel, coasters);
+  const trackerNote = buildParkTrackerNote(park.name, coasters);
   const highlights = computeParkHighlights(coasters);
   const parkIsDefunct = highlights.isDefunctPark;
 
@@ -172,19 +173,13 @@ export default async function ParkDetailPage({ params }: PageProps) {
       {countryLabel ? <p className="mt-3 text-base text-slate-600">{countryLabel}</p> : null}
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{intro}</p>
-      {wikiSummary ? (
-        <p className="mt-3 text-sm text-slate-500">
-          Summary from{" "}
-          <a
-            href={wikiSummary.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-amber-700 hover:underline"
-          >
-            Wikipedia
-          </a>
-          . Ride stats and status may differ from the park&apos;s current lineup.
-        </p>
+      <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
+      {wikiSummary?.extract ? (
+        <WikipediaBackground
+          extract={wikiSummary.extract}
+          url={wikiSummary.url}
+          note="Ride stats and status may differ from the park's current lineup."
+        />
       ) : null}
 
       {highlightStats.length > 0 ? (

@@ -6,7 +6,13 @@ import {
 import { normalizeManufacturerLabel } from "@/lib/display";
 import { reconcileCountryWithCoords, normalizeParkLongitude } from "@/lib/geo-country";
 import {
+  extraInstallInsertRow,
+  findParkIdForInstall,
+  planEnsureCoasterInstalls,
+} from "@/lib/catalog-extra-installs";
+import {
   COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID,
+  ENSURE_COASTER_INSTALLS,
   PARK_DISPLAY_NAME_BY_EXACT_NAME,
   PARK_DISPLAY_NAME_BY_WIKIDATA_ID,
 } from "@/lib/catalog-overrides";
@@ -527,6 +533,43 @@ export async function syncCatalogFromWikidata() {
     }
 
     await flushCoasters();
+
+    const extraParkIds = [
+      ...new Set(
+        ENSURE_COASTER_INSTALLS.map((spec) => findParkIdForInstall(parkRows, spec)).filter(
+          (id): id is number => id != null,
+        ),
+      ),
+    ];
+    if (extraParkIds.length) {
+      const { data: extraExisting, error: extraLoadErr } = await supabase
+        .from("coasters")
+        .select(
+          "id,park_id,name,status,coaster_type,manufacturer,opening_year,closing_year,height_ft,speed_mph,length_ft,inversions,duration_s,rcdb_id,enwiki_title",
+        )
+        .in("park_id", extraParkIds);
+      if (extraLoadErr) throw extraLoadErr;
+      const extraPlans = planEnsureCoasterInstalls({
+        parks: parkRows,
+        coasters: extraExisting ?? [],
+      });
+      for (const plan of extraPlans) {
+        if (plan.action === "insert") {
+          const { error } = await supabase
+            .from("coasters")
+            .insert(extraInstallInsertRow(plan.parkId, plan.spec, new Date().toISOString()));
+          if (error) throw error;
+          coasterUpdates += 1;
+        } else {
+          const { error } = await supabase
+            .from("coasters")
+            .update({ ...plan.patch, last_synced_at: new Date().toISOString() })
+            .eq("id", plan.coasterId);
+          if (error) throw error;
+          coasterUpdates += 1;
+        }
+      }
+    }
 
     await finishSyncRun(runId, "success", { recordsUpdated: parkUpdates + coasterUpdates });
 

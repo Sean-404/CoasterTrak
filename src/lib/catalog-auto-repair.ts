@@ -8,6 +8,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import {
+  extraInstallInsertRow,
+  planEnsureCoasterInstalls,
+} from "@/lib/catalog-extra-installs";
+import {
   COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID,
   ENSURE_PARKS,
   PARK_COUNTRY_BY_NAME,
@@ -37,6 +41,7 @@ export type AutoRepairResult = {
   coastersUpdated: number;
   parkLinksUpdated: number;
   parksEnsured: number;
+  coastersEnsured: number;
   stubsMerged: number;
   wikipediaBindingsCleared: number;
   details: string[];
@@ -184,6 +189,7 @@ export async function applyCatalogAutoRepairs(
   let coastersUpdated = 0;
   let parkLinksUpdated = 0;
   let parksEnsured = 0;
+  let coastersEnsured = 0;
   let stubsMerged = 0;
   let wikipediaBindingsCleared = 0;
 
@@ -245,7 +251,7 @@ export async function applyCatalogAutoRepairs(
     supabase
       .from("coasters")
       .select(
-        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year,enwiki_title,summary_text",
+        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year,enwiki_title,summary_text,rcdb_id",
       )
       .order("id", { ascending: true })
       .range(from, to),
@@ -366,6 +372,56 @@ export async function applyCatalogAutoRepairs(
     if (idx >= 0) coasters.splice(idx, 1);
   }
 
+  const extraPlans = planEnsureCoasterInstalls({ parks, coasters });
+  for (const plan of extraPlans) {
+    if (plan.action === "insert") {
+      coastersEnsured += 1;
+      details.push(
+        `ensure coaster ${plan.spec.name} at ${plan.spec.parkName} (park_id=${plan.parkId})`,
+      );
+      if (dryRun) continue;
+      const { data: inserted, error } = await supabase
+        .from("coasters")
+        .insert(extraInstallInsertRow(plan.parkId, plan.spec, nowIso()))
+        .select("id")
+        .single();
+      if (error) throw error;
+      if (inserted?.id) {
+        coasters.push({
+          id: inserted.id,
+          park_id: plan.parkId,
+          name: plan.spec.name,
+          wikidata_id: null,
+          coaster_type: plan.spec.coaster_type,
+          manufacturer: plan.spec.manufacturer ?? null,
+          status: plan.spec.status,
+          image_url: null,
+          height_ft: plan.spec.height_ft ?? null,
+          speed_mph: plan.spec.speed_mph ?? null,
+          length_ft: plan.spec.length_ft ?? null,
+          inversions: plan.spec.inversions ?? null,
+          duration_s: plan.spec.duration_s ?? null,
+          opening_year: plan.spec.opening_year ?? null,
+          closing_year: plan.spec.closing_year ?? null,
+          enwiki_title: plan.spec.enwiki_title ?? null,
+          summary_text: null,
+        });
+      }
+      continue;
+    }
+
+    coastersUpdated += 1;
+    details.push(
+      `patch coaster ${plan.spec.name} (#${plan.coasterId}): ${Object.keys(plan.patch).join(", ")}`,
+    );
+    if (dryRun) continue;
+    const { error } = await supabase
+      .from("coasters")
+      .update({ ...plan.patch, last_synced_at: nowIso() })
+      .eq("id", plan.coasterId);
+    if (error) throw error;
+  }
+
   return {
     parksScanned: parks.length,
     parksUpdated,
@@ -373,6 +429,7 @@ export async function applyCatalogAutoRepairs(
     coastersUpdated,
     parkLinksUpdated,
     parksEnsured,
+    coastersEnsured,
     stubsMerged,
     wikipediaBindingsCleared,
     details,

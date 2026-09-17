@@ -12,7 +12,7 @@ export const WIKIDATA_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 
 /** Compliant with https://foundation.wikimedia.org/wiki/Policy:User-Agent_policy */
 export const WIKIDATA_USER_AGENT =
-  "CoasterTrak/0.1 (roller coaster catalog sync; https://github.com/)";
+  "CoasterTrak/1.0 (https://coastertrak.com; hello@coastertrak.com)";
 
 /**
  * WDQS label fallback. Prefer English / language-independent names when present,

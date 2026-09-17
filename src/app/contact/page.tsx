@@ -69,7 +69,11 @@ export default function ContactPage() {
           </ul>
           <p>
             We cannot promise an instant catalog edit, and we still ask you to confirm operating status with the park
-            before you travel.
+            before you travel. How records are compiled is on{" "}
+            <Link href="/catalog" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              how the catalog works
+            </Link>
+            .
           </p>
 
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Privacy and accounts</h2>

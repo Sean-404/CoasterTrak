@@ -21,16 +21,22 @@ export type InfoboxCoasterStats = {
   opening_year?: number;
 };
 
-const INFOBOX_START_RE =
-  /\{\{\s*[Ii]nfobox\s+(?:dual\s+)?roller\s+coaster\b/;
+/** One park installation from a roller-coaster infobox or `/extend` block. */
+export type InfoboxCoasterLocation = {
+  name?: string;
+  parkName: string;
+  status: "Operating" | "Defunct" | "Unknown";
+  opening_year?: number;
+  closing_year?: number;
+  rcdb_id?: string;
+};
 
-/** Extract the first roller-coaster infobox block, including nested templates. */
-export function extractInfoboxRollerCoasterBlock(wikitext: string): string | null {
-  const m = INFOBOX_START_RE.exec(wikitext);
-  if (!m) return null;
-  let i = m.index;
+const INFOBOX_START_RE =
+  /\{\{\s*[Ii]nfobox\s+(?:dual\s+)?roller\s+coaster(?:\s*\/\s*extend|\s+extend)?\b/g;
+
+function extractBalancedTemplate(wikitext: string, start: number): string | null {
+  let i = start;
   let depth = 0;
-  const start = i;
   while (i < wikitext.length - 1) {
     if (wikitext[i] === "{" && wikitext[i + 1] === "{") {
       depth++;
@@ -46,6 +52,29 @@ export function extractInfoboxRollerCoasterBlock(wikitext: string): string | nul
     i++;
   }
   return null;
+}
+
+/** Extract the first roller-coaster infobox block, including nested templates. */
+export function extractInfoboxRollerCoasterBlock(wikitext: string): string | null {
+  INFOBOX_START_RE.lastIndex = 0;
+  const m = INFOBOX_START_RE.exec(wikitext);
+  if (!m) return null;
+  return extractBalancedTemplate(wikitext, m.index);
+}
+
+/** Every infobox / extend block (mirror copies and relocations). */
+export function extractAllInfoboxRollerCoasterBlocks(wikitext: string): string[] {
+  const blocks: string[] = [];
+  const seen = new Set<number>();
+  const re = new RegExp(INFOBOX_START_RE.source, "g");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(wikitext))) {
+    if (seen.has(m.index)) continue;
+    seen.add(m.index);
+    const block = extractBalancedTemplate(wikitext, m.index);
+    if (block) blocks.push(block);
+  }
+  return blocks;
 }
 
 /** Split template body on `|` only at nesting depth 0 (outside `{{…}}`). */
@@ -155,6 +184,23 @@ export function cleanInfoboxWikiValue(val: string): string {
     .trim();
 }
 
+/** Park names from infobox `location=` — strip leftover wikilink junk. */
+export function cleanInfoboxParkName(raw: string): string {
+  let t = cleanInfoboxWikiValue(raw);
+  t = t.replace(/\[\[|\]\]/g, "").trim();
+  if (t.includes("|")) {
+    t = (t.split("|").pop() ?? t).trim();
+  }
+  return t;
+}
+
+const COUNTRY_ONLY_LOCATION =
+  /^(united states|usa|u\.s\.a?\.?|united kingdom|uk|germany|france|spain|italy|japan|china|canada|mexico|australia|netherlands|belgium|austria|switzerland|sweden|norway|denmark|finland|poland|russia|india|brazil|south korea|north korea|taiwan|hong kong|macau)$/i;
+
+export function isCountryOnlyInfoboxLocation(name: string): boolean {
+  return COUNTRY_ONLY_LOCATION.test(name.trim());
+}
+
 function parseCoasterType(raw: string): string | undefined {
   const cleaned = cleanInfoboxWikiValue(raw);
   const m = /\b(steel|wood|wooden|hybrid)\b/i.exec(cleaned);
@@ -237,18 +283,110 @@ export function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxC
   return out;
 }
 
-/** Extract a plausible opening year from Wikipedia infobox date text / templates. */
-export function parseOpeningYear(raw: string): number | null {
+function yearFromInfoboxDate(raw: string): number | null {
   const t = cleanInfoboxWikiValue(raw);
-  const startDate = /\{\{\s*[Ss]tart\s*date\s*\|(\d{4})\b/.exec(raw) ?? /\{\{\s*[Ss]tart\s*date\s*\|(\d{4})\b/.exec(t);
-  if (startDate) {
-    const y = Number(startDate[1]);
+  const tpl =
+    /\{\{\s*(?:[Ss]tart|[Ee]nd)\s*date\s*\|(\d{4})\b/.exec(raw) ??
+    /\{\{\s*(?:[Ss]tart|[Ee]nd)\s*date\s*\|(\d{4})\b/.exec(t);
+  if (tpl) {
+    const y = Number(tpl[1]);
     if (y >= 1880 && y <= 2100) return y;
   }
   const yearOnly = /\b(18\d{2}|19\d{2}|20\d{2})\b/.exec(t);
   if (!yearOnly) return null;
   const y = Number(yearOnly[1]);
   return y >= 1880 && y <= 2100 ? y : null;
+}
+
+/** Extract a plausible opening year from Wikipedia infobox date text / templates. */
+export function parseOpeningYear(raw: string): number | null {
+  return yearFromInfoboxDate(raw);
+}
+
+/** Extract a plausible closing year from Wikipedia infobox date text / templates. */
+export function parseClosingYear(raw: string): number | null {
+  return yearFromInfoboxDate(raw);
+}
+
+/**
+ * Infobox `status=` is a park-install lifecycle (Operating / Closed / Removed),
+ * not seasonal downtime.
+ */
+export function infoboxLocationStatus(raw: string): InfoboxCoasterLocation["status"] {
+  const t = raw.toLowerCase().replace(/\s+/g, " ").trim();
+  if (!t) return "Unknown";
+  if (/\boperating\b/.test(t) || t === "open") return "Operating";
+  if (
+    /\brelocated to\b/.test(t) ||
+    /\bremoved\b/.test(t) ||
+    /\bclosed\b/.test(t) ||
+    /\bdefunct\b/.test(t) ||
+    /\bsbno\b/.test(t)
+  ) {
+    return "Defunct";
+  }
+  return "Unknown";
+}
+
+function rcdbIdFromParam(raw: string): string | undefined {
+  const digits = raw.match(/\b(\d{2,6})\b/);
+  return digits?.[1];
+}
+
+function locationFromBlock(block: string): InfoboxCoasterLocation | null {
+  const p = parseParamsFromBlock(block);
+  const parkRaw = pickParam(p, ["location"]);
+  const parkName = parkRaw ? cleanInfoboxParkName(parkRaw) : "";
+  if (!parkName || isCountryOnlyInfoboxLocation(parkName)) return null;
+
+  const nameRaw = pickParam(p, ["altname", "name"]);
+  const statusRaw = pickParam(p, ["status"]);
+  const openedRaw = pickParam(p, ["opened", "year", "opened_date", "opened1", "open"]);
+  const closedRaw = pickParam(p, ["closed", "closing_date", "closed1"]);
+  const rcdbRaw = pickParam(p, ["rcdb_number", "location_rcdb_number"]);
+
+  const out: InfoboxCoasterLocation = {
+    parkName,
+    status: statusRaw ? infoboxLocationStatus(statusRaw) : "Unknown",
+  };
+  if (nameRaw) {
+    const name = cleanInfoboxWikiValue(nameRaw);
+    if (name) out.name = name;
+  }
+  if (openedRaw) {
+    const y = parseOpeningYear(openedRaw);
+    if (y != null) out.opening_year = y;
+  }
+  if (closedRaw) {
+    const y = parseClosingYear(closedRaw);
+    if (y != null) out.closing_year = y;
+  }
+  if (rcdbRaw) {
+    const id = rcdbIdFromParam(rcdbRaw);
+    if (id) out.rcdb_id = id;
+  }
+  return out;
+}
+
+/**
+ * Park installations listed on a Wikipedia article (primary infobox + extend copies).
+ * Unique Wikidata binding can only keep one of these in the catalog — extra parks
+ * must be inserted as sibling rows without sharing the Q-id.
+ */
+export function parseInfoboxCoasterLocationsFromWikitext(
+  wikitext: string,
+): InfoboxCoasterLocation[] {
+  const seenParks = new Set<string>();
+  const out: InfoboxCoasterLocation[] = [];
+  for (const block of extractAllInfoboxRollerCoasterBlocks(wikitext)) {
+    const loc = locationFromBlock(block);
+    if (!loc) continue;
+    const key = loc.parkName.trim().toLowerCase();
+    if (seenParks.has(key)) continue;
+    seenParks.add(key);
+    out.push(loc);
+  }
+  return out;
 }
 
 type WikiPage = {
@@ -309,4 +447,62 @@ export async function fetchInfoboxStatsForEnwikiTitle(
   if (!wt) return null;
   const stats = parseInfoboxCoasterStatsFromWikitext(wt);
   return Object.keys(stats).length > 0 ? stats : null;
+}
+
+type EmbeddedInResponse = {
+  continue?: { eicontinue?: string };
+  query?: { embeddedin?: Array<{ title?: string }> };
+};
+
+function mediaWikiApiUrl(params: Record<string, string>): string {
+  const search = new URLSearchParams(params);
+  // MediaWiki treats `%2F` in titles as a different page than `/` (subpages).
+  return `https://en.wikipedia.org/w/api.php?${search.toString().replace(/%2F/gi, "/")}`;
+}
+
+/**
+ * Article titles that transclude a template (main namespace only).
+ * Used to find Wikipedia `/extend` clone / relocation infoboxes.
+ */
+export async function listPagesEmbeddingTemplate(templateTitle: string): Promise<string[]> {
+  const titles: string[] = [];
+  let eicontinue: string | undefined;
+  let retries = 0;
+  do {
+    const params: Record<string, string> = {
+      action: "query",
+      format: "json",
+      formatversion: "2",
+      list: "embeddedin",
+      eititle: templateTitle,
+      einamespace: "0",
+      eilimit: "500",
+    };
+    if (eicontinue) params.eicontinue = eicontinue;
+
+    const res = await fetch(mediaWikiApiUrl(params), {
+      headers: { "User-Agent": WIKIDATA_USER_AGENT },
+    });
+    if (res.status === 429 && retries < 4) {
+      retries += 1;
+      await new Promise((r) => setTimeout(r, 4000 * retries));
+      continue;
+    }
+    if (!res.ok) break;
+    retries = 0;
+    const json = (await res.json()) as EmbeddedInResponse;
+    for (const row of json.query?.embeddedin ?? []) {
+      if (row.title?.trim()) titles.push(row.title.trim());
+    }
+    eicontinue = json.continue?.eicontinue;
+  } while (eicontinue);
+
+  return titles;
+}
+
+/** Wikipedia articles that list more than one park via infobox extend. */
+export async function listRollerCoasterExtendArticleTitles(): Promise<string[]> {
+  const slash = await listPagesEmbeddingTemplate("Template:Infobox roller coaster/extend");
+  const slashless = await listPagesEmbeddingTemplate("Template:Infobox roller coaster extend");
+  return [...new Set([...slash, ...slashless])].sort((a, b) => a.localeCompare(b));
 }

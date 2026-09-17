@@ -223,8 +223,11 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     inversions: 0,
     duration_s: 180,
   },
-  // Six Flags America — park closed 2 Nov 2025; Wikidata coords are the Maryland install
+  // Six Flags America — park closed 2 Nov 2025; Wikidata coords are the Maryland install.
+  // Darien Lake's mirrored Ride of Steel is a separate catalog row (no shared Q-id).
   Q839200: { status: "Defunct" },
+  // Kings Dominion — Geauga Lake retirement must not mark the 2008 relocate Defunct.
+  Q951359: { status: "Operating", closing_year: null },
   // Parque de la Ciudad (Buenos Aires) — Intamin racing coaster, never opened (SBNO)
   Q2518728: {
     status: "Defunct",

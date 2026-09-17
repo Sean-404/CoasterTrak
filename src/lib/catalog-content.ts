@@ -17,15 +17,16 @@ export function coasterStatCount(coaster: Coaster): number {
   return n;
 }
 
-/** Pages with almost no unique data should not inflate the sitemap or AdSense crawl. */
-export function isCoasterCatalogSubstantial(coaster: Coaster, summaryText?: string | null): boolean {
-  if (summaryText?.trim()) return true;
+/**
+ * Wikipedia extracts do not count as unique value. Index only when CoasterTrak has
+ * its own catalog facts (photo, measurements, or a real park lineup).
+ */
+export function isCoasterCatalogSubstantial(coaster: Coaster): boolean {
   if (coaster.image_url) return true;
   return coasterStatCount(coaster) >= 2;
 }
 
-export function isParkCatalogSubstantial(coasters: Coaster[], summaryText?: string | null): boolean {
-  if (summaryText?.trim()) return true;
+export function isParkCatalogSubstantial(coasters: Coaster[]): boolean {
   if (coasters.length >= 2) return true;
   return coasters.some((c) => isCoasterCatalogSubstantial(c));
 }
@@ -86,7 +87,7 @@ export function computeParkHighlights(coasters: Coaster[]): ParkHighlightStats {
   };
 }
 
-/** Unique editorial intro for park pages when no Wikipedia summary is available. */
+/** Unique editorial intro for park pages: CoasterTrak lineup facts, not Wikipedia. */
 export function buildParkEditorialIntro(
   parkName: string,
   countryLabel: string | null,
@@ -109,7 +110,7 @@ export function buildParkEditorialIntro(
 
   if (!highlights.isDefunctPark && highlights.operatingCount > 0 && highlights.defunctCount > 0) {
     parts.push(
-      `including ${highlights.operatingCount} currently listed as operating and ${highlights.defunctCount} defunct or historical`,
+      `It currently lists ${highlights.operatingCount} as operating and ${highlights.defunctCount} as defunct or historical`,
     );
   }
 
@@ -139,7 +140,19 @@ export function buildParkEditorialIntro(
   return parts.join(". ") + ".";
 }
 
-/** Unique editorial intro for coaster pages when no Wikipedia summary is available. */
+/** Extra original copy for park pages: how CoasterTrak uses this lineup. */
+export function buildParkTrackerNote(parkName: string, coasters: Coaster[]): string {
+  const highlights = computeParkHighlights(coasters);
+  if (highlights.isDefunctPark) {
+    return `On CoasterTrak you can still log historical credits from ${parkName} and keep them in your unique tally. Open the park on the map to see where it stood, or tell us if a cataloged installation does not match a ride you remember.`;
+  }
+  if (highlights.operatingCount > 0) {
+    return `Use this page to plan leftover credits at ${parkName}: log the operating catalog rides you have already done, then compare the rest against your wishlist before you go. CoasterTrak counts each distinct coaster once, with repeats stored as extra rides.`;
+  }
+  return `Log any cataloged credits from ${parkName} on CoasterTrak, then use Discover to find nearby parks with leftover rides.`;
+}
+
+/** Unique editorial intro for coaster pages: CoasterTrak catalog facts, not Wikipedia. */
 export function buildCoasterEditorialIntro(
   coaster: Coaster,
   parkLabel: string | null,
@@ -186,4 +199,16 @@ export function buildCoasterEditorialIntro(
 
   parts.push("Track it on CoasterTrak after you ride, or open it on the interactive map to plan a visit");
   return parts.join(". ") + ".";
+}
+
+/** Extra original copy for coaster pages: credits vs repeats. */
+export function buildCoasterTrackerNote(coaster: Coaster, parkName: string | null): string {
+  const name = cleanCoasterName(coaster.name);
+  if (isCoasterDefunct(coaster)) {
+    return `${name} is listed as defunct, so it still counts as a unique credit if you rode it while it operated. Log it on CoasterTrak to keep historical credits in your tally.`;
+  }
+  if (parkName) {
+    return `After you ride ${name}, log it once as a unique coaster credit. Repeats at ${parkName} add to total rides, not your credit count. Open the park page to see leftover credits you have not logged yet.`;
+  }
+  return `After you ride ${name}, log it once as a unique coaster credit. Repeats add to total rides, not your credit count.`;
 }

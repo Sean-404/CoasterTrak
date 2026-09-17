@@ -56,6 +56,167 @@ export type EnsureParkSpec = {
   external_id?: string;
 };
 
+/**
+ * Wikipedia `/extend` infobox parks that are the same venue as a catalog name
+ * (rebrand, missing apostrophe, etc.).
+ */
+export const PARK_NAME_ALIASES: Record<string, string> = {
+  "Mid America Adventure": "Six Flags St. Louis",
+  "Mid-America Adventure": "Six Flags St. Louis",
+  "Universal Islands of Adventure": "Universal's Islands of Adventure",
+};
+
+/**
+ * Extra park installations from a shared Wikipedia article.
+ * Do not set wikidata_id — one Q-id can bind to only one catalog row.
+ */
+export type EnsureCoasterInstallSpec = {
+  parkName: string;
+  parkNameAliases?: string[];
+  name: string;
+  nameAliases?: string[];
+  coaster_type: string;
+  manufacturer?: string;
+  status: "Operating" | "Defunct";
+  opening_year?: number;
+  closing_year?: number | null;
+  height_ft?: number;
+  speed_mph?: number;
+  length_ft?: number;
+  inversions?: number;
+  duration_s?: number;
+  rcdb_id?: string;
+  enwiki_title?: string;
+};
+
+/**
+ * Mirror-copy rides that Wikidata/Wikipedia collapse onto one Q-id.
+ * Keep the unique-bound row at its Wikidata park; ensure these siblings exist.
+ */
+export const ENSURE_COASTER_INSTALLS: EnsureCoasterInstallSpec[] = [
+  {
+    parkName: "Six Flags Darien Lake",
+    name: "Ride of Steel",
+    nameAliases: ["Superman Ride of Steel", "Superman – Ride of Steel", "Superman - Ride of Steel"],
+    coaster_type: "Steel",
+    manufacturer: "Intamin",
+    status: "Operating",
+    opening_year: 1999,
+    height_ft: 208,
+    speed_mph: 73,
+    length_ft: 5400,
+    inversions: 0,
+    duration_s: 122,
+    rcdb_id: "541",
+    enwiki_title: "Ride of Steel",
+  },
+  {
+    parkName: "Six Flags Great America",
+    name: "Superman: Ultimate Flight",
+    nameAliases: ["Superman Ultimate Flight"],
+    coaster_type: "Steel",
+    manufacturer: "Bolliger & Mabillard",
+    status: "Operating",
+    opening_year: 2003,
+    height_ft: 106,
+    speed_mph: 51,
+    length_ft: 2769,
+    inversions: 2,
+    rcdb_id: "1977",
+    enwiki_title: "Superman: Ultimate Flight",
+  },
+  {
+    parkName: "Six Flags Great Adventure",
+    name: "Superman: Ultimate Flight",
+    nameAliases: ["Superman Ultimate Flight"],
+    coaster_type: "Steel",
+    manufacturer: "Bolliger & Mabillard",
+    status: "Operating",
+    opening_year: 2003,
+    height_ft: 106,
+    speed_mph: 51,
+    length_ft: 2769,
+    inversions: 2,
+    rcdb_id: "1976",
+    enwiki_title: "Superman: Ultimate Flight",
+  },
+  {
+    parkName: "Six Flags St. Louis",
+    parkNameAliases: ["Mid America Adventure", "Mid-America Adventure"],
+    name: "Mr. Freeze",
+    nameAliases: ["Mr. Freeze Reverse Blast", "Mr Freeze Reverse Blast"],
+    coaster_type: "Steel",
+    manufacturer: "Premier Rides",
+    status: "Operating",
+    opening_year: 1998,
+    height_ft: 218,
+    speed_mph: 70,
+    length_ft: 1300,
+    inversions: 1,
+    enwiki_title: "Mr. Freeze (roller coaster)",
+  },
+  {
+    parkName: "Carowinds",
+    name: "Hurler",
+    coaster_type: "Wood",
+    manufacturer: "International Coasters",
+    status: "Operating",
+    opening_year: 1994,
+    height_ft: 83,
+    speed_mph: 50,
+    length_ft: 3157,
+    inversions: 0,
+    duration_s: 120,
+    rcdb_id: "85",
+    enwiki_title: "Hurler (roller coaster)",
+  },
+  {
+    parkName: "Universal Studios Japan",
+    name: "Flight of the Hippogriff",
+    coaster_type: "Steel",
+    manufacturer: "Vekoma",
+    status: "Operating",
+    opening_year: 2014,
+    height_ft: 43,
+    speed_mph: 29,
+    length_ft: 1099,
+    inversions: 0,
+    duration_s: 66,
+    rcdb_id: "11885",
+    enwiki_title: "Flight of the Hippogriff",
+  },
+  {
+    parkName: "Universal Studios Hollywood",
+    name: "Flight of the Hippogriff",
+    coaster_type: "Steel",
+    manufacturer: "Mack Rides",
+    status: "Operating",
+    opening_year: 2016,
+    height_ft: 43,
+    speed_mph: 29,
+    length_ft: 1099,
+    inversions: 0,
+    duration_s: 66,
+    rcdb_id: "12812",
+    enwiki_title: "Flight of the Hippogriff",
+  },
+  {
+    parkName: "Universal Studios Beijing",
+    name: "Flight of the Hippogriff",
+    coaster_type: "Steel",
+    manufacturer: "Mack Rides",
+    status: "Operating",
+    opening_year: 2021,
+    height_ft: 43,
+    speed_mph: 29,
+    length_ft: 1099,
+    inversions: 0,
+    duration_s: 66,
+    rcdb_id: "17463",
+    enwiki_title: "Flight of the Hippogriff",
+  },
+];
+
 export const ENSURE_PARKS: EnsureParkSpec[] = [
   {
     name: "COTALAND",

@@ -249,6 +249,36 @@ describe("catalog content helpers", () => {
     ]);
     expect(intro).toContain("Alton Towers");
     expect(intro).toContain("2 roller coasters");
-    expect(isParkCatalogSubstantial([], intro)).toBe(true);
+    expect(isParkCatalogSubstantial([])).toBe(false);
+    expect(
+      isParkCatalogSubstantial([
+        {
+          id: 1,
+          park_id: 1,
+          name: "Nemesis",
+          coaster_type: "Steel",
+          status: "Operating",
+        },
+        {
+          id: 2,
+          park_id: 1,
+          name: "Oblivion",
+          coaster_type: "Steel",
+          status: "Operating",
+        },
+      ]),
+    ).toBe(true);
+  });
+
+  it("does not treat Wikipedia copy as unique catalog value", () => {
+    expect(
+      isCoasterCatalogSubstantial({
+        id: 1,
+        park_id: 1,
+        name: "Stub",
+        coaster_type: "Unknown",
+        status: "Operating",
+      }),
+    ).toBe(false);
   });
 });

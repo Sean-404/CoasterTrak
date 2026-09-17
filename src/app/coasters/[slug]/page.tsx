@@ -6,8 +6,10 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { CoasterDetailActions } from "@/components/coaster-detail-actions";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
+import { WikipediaBackground } from "@/components/wikipedia-background";
 import {
   buildCoasterEditorialIntro,
+  buildCoasterTrackerNote,
   CATALOG_THIN_ROBOTS,
   isCoasterCatalogSubstantial,
 } from "@/lib/catalog-content";
@@ -56,11 +58,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     storedEnwikiTitle: coaster.enwiki_title,
   });
   const title = parkLabel ? `${name} at ${coaster.parks?.name}` : name;
-  const description = wikiSummary
-    ? clampSummaryText(wikiSummary.extract, 160)
-    : clampSummaryText(buildCoasterEditorialIntro(coaster, parkLabel || null), 160);
+  const description = clampSummaryText(
+    buildCoasterEditorialIntro(coaster, parkLabel || null),
+    160,
+  );
   const canonical = `/coasters/${coasterSlug(coaster.name, coaster.id)}`;
-  const indexable = isCoasterCatalogSubstantial(coaster, wikiSummary?.extract ?? coaster.summary_text);
+  const indexable = isCoasterCatalogSubstantial(coaster);
   const ogImage = coaster.image_url || wikiSummary?.imageUrl || null;
 
   return {
@@ -119,8 +122,8 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   const rcdbUrl = rcdbCoasterUrl(coaster.rcdb_id);
 
   const siteUrl = SITE_URL;
-  const bodyIntro =
-    wikiSummary?.extract ?? buildCoasterEditorialIntro(coaster, parkLabel || null);
+  const bodyIntro = buildCoasterEditorialIntro(coaster, parkLabel || null);
+  const trackerNote = buildCoasterTrackerNote(coaster, park?.name ?? null);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -182,19 +185,13 @@ export default async function CoasterDetailPage({ params }: PageProps) {
       ) : null}
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>
-      {wikiSummary ? (
-        <p className="mt-3 text-sm text-slate-500">
-          Summary from{" "}
-          <a
-            href={wikiSummary.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-amber-700 hover:underline"
-          >
-            Wikipedia
-          </a>
-          . Confirm ride status with the park before visiting.
-        </p>
+      <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
+      {wikiSummary?.extract ? (
+        <WikipediaBackground
+          extract={wikiSummary.extract}
+          url={wikiSummary.url}
+          note="Confirm ride status with the park before visiting."
+        />
       ) : null}
 
       {(metaPills.length > 0 || measurementPills.length > 0) ? (
