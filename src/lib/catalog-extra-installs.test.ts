@@ -125,8 +125,8 @@ describe("planDiscoveredInfoboxInstalls", () => {
 `;
     const plans = planDiscoveredInfoboxInstalls({
       parks: [
-        { id: 88, name: "Six Flags Darien Lake", country: "United States", latitude: 0, longitude: 0 },
-        { id: 17, name: "Six Flags America", country: "United States", latitude: 0, longitude: 0 },
+        { id: 88, name: "Six Flags Darien Lake" },
+        { id: 17, name: "Six Flags America" },
       ],
       coasters: [
         {
@@ -162,8 +162,8 @@ describe("planDiscoveredInfoboxInstalls", () => {
   it("does not insert Superman – Ride of Steel beside an existing Ride of Steel row", () => {
     const plans = planDiscoveredInfoboxInstalls({
       parks: [
-        { id: 88, name: "Six Flags Darien Lake", country: "United States", latitude: 0, longitude: 0 },
-        { id: 17, name: "Six Flags America", country: "United States", latitude: 0, longitude: 0 },
+        { id: 88, name: "Six Flags Darien Lake" },
+        { id: 17, name: "Six Flags America" },
       ],
       coasters: [
         {
@@ -192,7 +192,7 @@ describe("planDiscoveredInfoboxInstalls", () => {
       ],
       articleTitle: "Ride of Steel",
       locations: [
-        { parkName: "Six Flags America", name: "Superman – Ride of Steel", status: "Closed", opening_year: 2000, rcdb_id: "699" },
+        { parkName: "Six Flags America", name: "Superman – Ride of Steel", status: "Defunct", opening_year: 2000, rcdb_id: "699" },
         { parkName: "Six Flags Darien Lake", name: "Superman – Ride of Steel", status: "Operating", opening_year: 1999, rcdb_id: "541" },
       ],
     });
