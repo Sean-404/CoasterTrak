@@ -114,12 +114,28 @@ export function buildExtraInstallPatch(
   const patch: Partial<Coaster> = {};
 
   if (existing.name !== spec.name && !opts?.nameTakenAtPark) patch.name = spec.name;
-  if (existing.status !== spec.status) patch.status = spec.status;
-  if (spec.status === "Operating" && existing.closing_year != null && spec.closing_year == null) {
-    patch.closing_year = null;
+
+  const opening = spec.opening_year ?? existing.opening_year ?? null;
+  let closing: number | null | undefined =
+    spec.closing_year !== undefined ? spec.closing_year : existing.closing_year;
+  if (spec.status === "Operating" && spec.closing_year == null) {
+    closing = null;
   }
-  if (spec.closing_year !== undefined && existing.closing_year !== spec.closing_year) {
-    patch.closing_year = spec.closing_year;
+  // Never write prior-life retirement years onto a later reopen/rebuild row.
+  if (opening != null && closing != null && opening > closing) {
+    closing = null;
+  }
+
+  let status = spec.status;
+  if (status === "Defunct" && closing == null && opening != null) {
+    // Wikipedia often marks the series Defunct from a prior park while this
+    // installation's opening year is later — keep the current credit operating.
+    status = "Operating";
+  }
+
+  if (existing.status !== status) patch.status = status;
+  if ((existing.closing_year ?? null) !== (closing ?? null)) {
+    patch.closing_year = closing ?? null;
   }
 
   const type = fillIfBlank(existing.coaster_type, spec.coaster_type);

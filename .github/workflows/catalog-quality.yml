@@ -48,7 +48,15 @@ jobs:
         working-directory: coastertrak-data
         run: npm ci
 
-      - name: Auto-repair + Wikipedia gap fill + analyze + publish
+      # Fail fast on catalog repair issues before the slower gap-fill / AI steps.
+      # post-sync also re-runs repairs after Wikipedia fill (idempotent).
+      - name: Apply catalog auto-repairs (DB)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: npm run data:auto-repair
+
+      - name: Wikipedia gap fill + auto-repair + analyze + publish
         env:
           COASTERTRAK_DATA_DIR: ${{ github.workspace }}/coastertrak-data
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

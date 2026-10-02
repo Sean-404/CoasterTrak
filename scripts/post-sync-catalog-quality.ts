@@ -15,6 +15,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { applyCatalogAutoRepairs } from "../src/lib/catalog-auto-repair";
 import { loadLocalEnvIfPresent } from "./lib/load-local-env";
+import { requestPublicCatalogRevalidation } from "./lib/request-catalog-revalidation";
 
 loadLocalEnvIfPresent();
 
@@ -24,6 +25,7 @@ const coastertrakDataDir =
 
 const skipAi = process.argv.includes("--skip-ai");
 const skipFill = process.argv.includes("--skip-fill");
+const skipRepair = process.argv.includes("--skip-repair");
 const aiLimit = process.env.AI_REVIEW_LIMIT?.trim() || "20";
 const envFile = process.env.COASTERTRAK_ENV_FILE?.trim();
 const fillLimit = process.env.CATALOG_FILL_LIMIT?.trim() || "800";
@@ -100,18 +102,6 @@ async function main(): Promise<void> {
       console.log("Skipping Wikipedia gap fill (--skip-fill).");
     }
 
-    // After gap fill so stale prior-life closing years (opening > closing) are cleared.
-    console.log("Applying catalog auto-repairs…");
-    const repair = await applyCatalogAutoRepairs(supabase);
-    console.log(
-      `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
-        `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
-        `${repair.parkLinksUpdated} park links, ` +
-        `${repair.stubsMerged} stubs merged, ` +
-        `${repair.wikipediaBindingsCleared} wiki bindings cleared` +
-        (repair.coastersEnsured ? `, ${repair.coastersEnsured} extra installs` : ""),
-    );
-
     if (!process.argv.includes("--skip-extend")) {
       console.log("Ensuring Wikipedia /extend clone installs…");
       runNodeTsx("scripts/ensure-wikipedia-extra-installs.ts", [
@@ -120,6 +110,32 @@ async function main(): Promise<void> {
       ]);
     } else {
       console.log("Skipping Wikipedia /extend extra installs (--skip-extend).");
+    }
+
+    // After gap fill + /extend so prior-life closing years reintroduced by Wikipedia are cleared.
+    if (skipRepair) {
+      console.log("Skipping catalog auto-repairs (--skip-repair; already applied upstream).");
+    } else {
+      console.log("Applying catalog auto-repairs…");
+      const repair = await applyCatalogAutoRepairs(supabase);
+      console.log(
+        `  parks ${repair.parksUpdated}/${repair.parksScanned} updated, ` +
+          `coasters ${repair.coastersUpdated}/${repair.coastersScanned} updated, ` +
+          `${repair.parkLinksUpdated} park links, ` +
+          `${repair.stubsMerged} stubs merged, ` +
+          `${repair.wikipediaBindingsCleared} wiki bindings cleared` +
+          (repair.coastersEnsured ? `, ${repair.coastersEnsured} extra installs` : ""),
+      );
+    }
+
+    console.log("Requesting public catalog revalidation…");
+    const reval = await requestPublicCatalogRevalidation();
+    if (reval.skipped) {
+      console.log(`  skipped (${reval.error})`);
+    } else if (reval.ok) {
+      console.log("  ok");
+    } else {
+      console.warn(`  failed (${reval.status ?? "?"}): ${reval.error ?? "unknown"}`);
     }
   } else {
     console.log("Skipping auto-repair / gap fill (Supabase env not set).");

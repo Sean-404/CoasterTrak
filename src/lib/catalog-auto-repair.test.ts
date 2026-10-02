@@ -96,6 +96,27 @@ describe("relocated closing year fixes", () => {
     expect(patch).toEqual({ closing_year: null });
   });
 
+  it("restores Operating when prior-life closing left the row Defunct", () => {
+    const patch = buildCoasterRepairPatch({
+      id: 1,
+      park_id: 1,
+      name: "Test Relocate",
+      wikidata_id: "Q999999901",
+      coaster_type: "Steel",
+      manufacturer: "Intamin",
+      status: "Defunct",
+      image_url: null,
+      height_ft: null,
+      speed_mph: null,
+      length_ft: null,
+      inversions: null,
+      duration_s: null,
+      opening_year: 2015,
+      closing_year: 2010,
+    });
+    expect(patch).toEqual({ closing_year: null, status: "Operating" });
+  });
+
   it("cannot clear closing years when year columns were not selected", () => {
     const patch = buildCoasterRepairPatch({
       id: 1,

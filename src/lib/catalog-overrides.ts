@@ -3,7 +3,9 @@
 /** Multi-install / mislabeled Wikidata items → preferred catalog park name. */
 export const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q3073731: "Universal's Islands of Adventure",
-  Q21051432: "Universal Studios Florida",
+  // Q21051432 is Universal Studios Singapore — do not remap to Florida (Q2146774).
+  // Firebird / Apocalypse current install is Six Flags America (coords still point at SFGAm).
+  Q618765: "Six Flags America",
   Q13415786: "Camelot Theme Park",
   Q10658106: "Dyrehavsbakken",
   Q1415640: "Dyrehavsbakken",
@@ -25,6 +27,8 @@ export const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q130213969: "COTALAND",
   Q137049593: "Gumbuya World",
   Q86663690: "Happy Valley Beijing",
+  // Wikidata item has no P361 / P625 — keep the ensure-install row at Tokyo Joypolis.
+  Q106941958: "Tokyo Joypolis",
 };
 
 /** Correct country when Wikidata P17 or legacy CSV is wrong for a known park name. */
@@ -215,6 +219,21 @@ export const ENSURE_COASTER_INSTALLS: EnsureCoasterInstallSpec[] = [
     rcdb_id: "17463",
     enwiki_title: "Flight of the Hippogriff",
   },
+  {
+    // Wikidata Q106941958 has no park (P361) or coordinates, so sync never creates this row.
+    parkName: "Tokyo Joypolis",
+    name: "Gekion Live Coaster",
+    nameAliases: ["Veil of Dark"],
+    coaster_type: "Steel",
+    manufacturer: "Gerstlauer",
+    status: "Operating",
+    opening_year: 2012,
+    height_ft: 16,
+    speed_mph: 24,
+    length_ft: 984,
+    inversions: 1,
+    rcdb_id: "6453",
+  },
 ];
 
 export const ENSURE_PARKS: EnsureParkSpec[] = [
@@ -247,5 +266,12 @@ export const ENSURE_PARKS: EnsureParkSpec[] = [
     longitude: 28.0142,
     external_source: "wikidata",
     external_id: "Q1483280",
+  },
+  {
+    // No dedicated Wikidata park item (only the Joypolis chain Q11310533).
+    name: "Tokyo Joypolis",
+    country: "Japan",
+    latitude: 35.628738,
+    longitude: 139.775314,
   },
 ];

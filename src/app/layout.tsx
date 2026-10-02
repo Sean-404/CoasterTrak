@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Bungee, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { PresenceBeacon } from "@/components/presence-beacon";
 import { UnitsProvider } from "@/components/providers";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -136,7 +137,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${bungee.variable} antialiased`}
       >
-        <UnitsProvider>{children}</UnitsProvider>
+        <UnitsProvider>
+          <PresenceBeacon />
+          {children}
+        </UnitsProvider>
         <Analytics />
         <SpeedInsights />
       </body>

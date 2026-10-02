@@ -19,6 +19,7 @@ type ProfileRow = {
   favorite_ride_id: number | null;
   favorite_park_id: number | null;
   updated_at: string | null;
+  last_seen_at: string | null;
 };
 
 type RideRow = {
@@ -72,6 +73,7 @@ export type AdminUserActivityResponse = {
     authBanned: boolean;
     createdAt: string | null;
     lastSignInAt: string | null;
+    lastSeenAt: string | null;
   };
   stats: {
     uniqueCredits: number;
@@ -125,7 +127,7 @@ export async function GET(
     ctx.service
       .from("profiles")
       .select(
-        "user_id, display_name, country_code, avatar_key, avatar_path, stats_visibility, banned_at, ban_reason, favorite_ride_id, favorite_park_id, updated_at",
+        "user_id, display_name, country_code, avatar_key, avatar_path, stats_visibility, banned_at, ban_reason, favorite_ride_id, favorite_park_id, updated_at, last_seen_at",
       )
       .eq("user_id", userId)
       .maybeSingle(),
@@ -236,6 +238,7 @@ export async function GET(
       authBanned: isAuthBanned(authUser.banned_until),
       createdAt: authUser.created_at ?? null,
       lastSignInAt: authUser.last_sign_in_at ?? null,
+      lastSeenAt: profile?.last_seen_at ?? null,
     },
     stats: {
       uniqueCredits: rides.length,

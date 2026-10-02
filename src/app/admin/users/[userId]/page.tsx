@@ -145,7 +145,8 @@ export default function AdminUserActivityPage() {
                       : " · Active"}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Signed up {formatWhen(data.user.createdAt)} · Last sign-in{" "}
+                    Signed up {formatWhen(data.user.createdAt)} · Last on site{" "}
+                    {formatWhen(data.user.lastSeenAt)} · Last sign-in{" "}
                     {formatWhen(data.user.lastSignInAt)}
                   </p>
                 </div>

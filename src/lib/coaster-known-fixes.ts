@@ -213,6 +213,7 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     inversions: 0,
     duration_s: 66,
   },
+  // Universal Studios Singapore Revenge of the Mummy (not Florida — that is Q2146774)
   Q21051432: {
     coaster_type: "Steel",
     status: "Operating",
@@ -223,6 +224,30 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     inversions: 0,
     duration_s: 180,
   },
+  // Tokyo Joypolis — Wikidata has only a German label and no park/coords
+  Q106941958: {
+    name: "Gekion Live Coaster",
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Gerstlauer",
+    height_ft: 16,
+    speed_mph: 24,
+    length_ft: 984,
+    inversions: 1,
+  },
+  // Six Flags America — Firebird (ex-Iron Wolf). Park closed Nov 2025; coords lag at SFGAm.
+  Q618765: {
+    name: "Firebird",
+    status: "Defunct",
+    closing_year: 2025,
+    coaster_type: "Steel",
+    manufacturer: "Bolliger & Mabillard",
+  },
+  // Relocated Wikidata rows that kept prior-life Defunct after closing_year clear
+  Q7537977: { status: "Operating", closing_year: null }, // Freestyle @ Canada's Wonderland
+  Q17361975: { status: "Operating", closing_year: null }, // Goliath @ Six Flags New England
+  Q21593102: { name: "The Joker", status: "Operating", closing_year: null }, // Discovery Kingdom
+  Q2183558: { name: "Garuda Glide", status: "Operating", closing_year: null }, // Kentucky Kingdom
   // Six Flags America — park closed 2 Nov 2025; Wikidata coords are the Maryland install.
   // Darien Lake's mirrored Ride of Steel is a separate catalog row (no shared Q-id).
   Q839200: { status: "Defunct" },

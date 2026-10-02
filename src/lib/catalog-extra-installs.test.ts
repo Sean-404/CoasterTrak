@@ -103,6 +103,61 @@ describe("planEnsureCoasterInstalls", () => {
     const spec = ENSURE_COASTER_INSTALLS.find((s) => s.parkName === "Six Flags Darien Lake")!;
     expect(coasterMatchesInstallName("Superman: Ride of Steel", spec)).toBe(true);
   });
+
+  it("plans Tokyo Joypolis Gekion Live Coaster when the park and ride are missing", () => {
+    const plans = planEnsureCoasterInstalls({
+      parks: [{ id: 900, name: "Tokyo Joypolis" }],
+      coasters: [],
+      specs: ENSURE_COASTER_INSTALLS.filter((s) => s.name === "Gekion Live Coaster"),
+    });
+
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({
+      action: "insert",
+      parkId: 900,
+      spec: {
+        name: "Gekion Live Coaster",
+        status: "Operating",
+        rcdb_id: "6453",
+        manufacturer: "Gerstlauer",
+      },
+    });
+  });
+
+  it("does not re-apply prior-life closing years from Wikipedia extend specs", () => {
+    const patch = buildExtraInstallPatch(
+      {
+        id: 228,
+        park_id: 1,
+        name: "Freestyle",
+        status: "Defunct",
+        coaster_type: "Steel",
+        manufacturer: "TOGO",
+        opening_year: 2015,
+        closing_year: 2014,
+        height_ft: null,
+        speed_mph: null,
+        length_ft: null,
+        inversions: null,
+        duration_s: null,
+        rcdb_id: null,
+        enwiki_title: null,
+      },
+      {
+        parkName: "Canada's Wonderland",
+        name: "Freestyle (roller coaster)",
+        coaster_type: "Steel",
+        status: "Defunct",
+        opening_year: 2015,
+        closing_year: 2014,
+      },
+    );
+    expect(patch).toMatchObject({
+      name: "Freestyle (roller coaster)",
+      status: "Operating",
+      closing_year: null,
+    });
+  });
 });
 
 describe("planDiscoveredInfoboxInstalls", () => {

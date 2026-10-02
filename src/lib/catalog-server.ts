@@ -43,7 +43,10 @@ export type CoasterDetail = Coaster & {
 export async function getParkById(id: number): Promise<ParkDetail | null> {
   const canonicalId = await resolveCatalogParkId(id);
   const normalized = await getNormalizedCatalog();
-  const park = normalized.parks.find((row) => row.id === canonicalId);
+  let park = normalized.parks.find((row) => row.id === canonicalId) ?? null;
+  if (!park) {
+    park = await fetchParkByIdDirect(canonicalId);
+  }
   if (!park || isCatalogHiddenParkName(park.name)) return null;
   return {
     id: park.id,
@@ -124,10 +127,19 @@ export async function listGuessCandidates(): Promise<GuessCandidate[]> {
 
 export async function getCoasterById(id: number): Promise<CoasterDetail | null> {
   const normalized = await getNormalizedCatalog();
-  const coaster = normalized.coasters.find((row) => row.id === id);
-  if (!coaster) return null;
+  let coaster = normalized.coasters.find((row) => row.id === id) ?? null;
+  let park =
+    (coaster ? normalized.parks.find((row) => row.id === coaster!.park_id) : null) ?? null;
 
-  const park = normalized.parks.find((row) => row.id === coaster.park_id) ?? null;
+  // Cached catalog can lag behind DB inserts (auto-repair / ensure installs).
+  // Fall back to a live read so brand-new rides are not sticky 404s.
+  if (!coaster || !park) {
+    const live = await fetchCoasterDetailByIdDirect(id);
+    if (!live) return null;
+    coaster = live.coaster;
+    park = live.park;
+  }
+
   if (!park || isCatalogHiddenParkName(park.name)) return null;
 
   const fixed = applyCoasterKnownFixes(coaster);
@@ -389,6 +401,35 @@ async function fetchAllIds<T>(table: "parks" | "coasters", columns: string): Pro
     from += pageSize;
   }
   return rows;
+}
+
+async function fetchParkByIdDirect(id: number): Promise<Park | null> {
+  const supabase = getSupabaseAnonServerClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.from("parks").select(PARK_COLUMNS).eq("id", id).maybeSingle();
+  if (error || !data || typeof data !== "object" || !("id" in data)) return null;
+  return data as unknown as Park;
+}
+
+async function fetchCoasterDetailByIdDirect(
+  id: number,
+): Promise<{ coaster: Coaster; park: Park } | null> {
+  const supabase = getSupabaseAnonServerClient();
+  if (!supabase) return null;
+
+  const { data: coaster, error: coasterError } = await supabase
+    .from("coasters")
+    .select(activeCoasterColumns())
+    .eq("id", id)
+    .maybeSingle();
+  if (coasterError || !coaster || typeof coaster !== "object" || !("id" in coaster)) {
+    return null;
+  }
+
+  const row = coaster as unknown as Coaster;
+  const park = await fetchParkByIdDirect(row.park_id);
+  if (!park) return null;
+  return { coaster: row, park };
 }
 
 export type CatalogIndexCounts = {

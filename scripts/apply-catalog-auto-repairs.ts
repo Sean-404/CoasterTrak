@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { applyCatalogAutoRepairs } from "@/lib/catalog-auto-repair";
 import { loadLocalEnvIfPresent } from "./lib/load-local-env";
+import { requestPublicCatalogRevalidation } from "./lib/request-catalog-revalidation";
 
 loadLocalEnvIfPresent();
 
@@ -47,6 +48,28 @@ async function main() {
     }
   } else {
     console.log("\nNo changes needed.");
+  }
+
+  const changed =
+    result.parksUpdated +
+      result.parksEnsured +
+      result.coastersUpdated +
+      result.coastersEnsured +
+      result.parkLinksUpdated +
+      result.stubsMerged +
+      result.wikipediaBindingsCleared >
+    0;
+  if (!dryRun && changed) {
+    const reval = await requestPublicCatalogRevalidation();
+    if (reval.skipped) {
+      console.log(`\nSkipped public catalog revalidation (${reval.error}).`);
+    } else if (reval.ok) {
+      console.log("\nRequested public catalog revalidation.");
+    } else {
+      console.warn(
+        `\nPublic catalog revalidation failed (${reval.status ?? "?"}): ${reval.error ?? "unknown"}`,
+      );
+    }
   }
 }
 

@@ -48,6 +48,24 @@ describe("applyCoasterKnownFixes", () => {
     expect(fixed.name).toBe("Wickie The Ride");
   });
 
+  it("names Tokyo Joypolis Gekion Live Coaster from the German-only Wikidata item", () => {
+    const fixed = applyCoasterKnownFixes({
+      name: "Gekion Live Coaster",
+      wikidata_id: "Q106941958",
+      manufacturer: undefined,
+      height_ft: undefined,
+      speed_mph: undefined,
+      length_ft: undefined,
+      inversions: undefined,
+    });
+    expect(fixed.name).toBe("Gekion Live Coaster");
+    expect(fixed.manufacturer).toBe("Gerstlauer");
+    expect(fixed.height_ft).toBe(16);
+    expect(fixed.speed_mph).toBe(24);
+    expect(fixed.length_ft).toBe(984);
+    expect(fixed.inversions).toBe(1);
+  });
+
   it("names Energylandia RMF Dragon from the park branding alias", () => {
     const fixed = applyCoasterKnownFixes({
       name: "Dragon",

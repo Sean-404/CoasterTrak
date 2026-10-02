@@ -22,6 +22,7 @@ type AdminUserRow = {
   has_profile: boolean;
   created_at: string | null;
   last_sign_in_at: string | null;
+  last_seen_at: string | null;
   updated_at: string | null;
   unique_credits: number;
 };
@@ -32,6 +33,7 @@ type AdminUserSort =
   | "signup-desc"
   | "signup-asc"
   | "signin-desc"
+  | "seen-desc"
   | "credits";
 
 function compareTime(a: string | null, b: string | null, newestFirst: boolean): number {
@@ -51,6 +53,9 @@ function compareAdminUsers(a: AdminUserRow, b: AdminUserRow, sort: AdminUserSort
   }
   if (sort === "signin-desc") {
     return compareTime(a.last_sign_in_at, b.last_sign_in_at, true) || a.user_id.localeCompare(b.user_id);
+  }
+  if (sort === "seen-desc") {
+    return compareTime(a.last_seen_at, b.last_seen_at, true) || a.user_id.localeCompare(b.user_id);
   }
   if (sort === "credits") {
     if (a.unique_credits !== b.unique_credits) return b.unique_credits - a.unique_credits;
@@ -315,6 +320,7 @@ export default function AdminPage() {
                   <option value="name-desc">Name (Z–A)</option>
                   <option value="signup-desc">Recent sign-up</option>
                   <option value="signup-asc">Oldest sign-up</option>
+                  <option value="seen-desc">Recently on site</option>
                   <option value="signin-desc">Recent sign-in</option>
                   <option value="credits">Most credits</option>
                 </select>
@@ -364,7 +370,8 @@ export default function AdminPage() {
                             {!user.has_profile ? " · No profile row" : ""}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            Signed up {formatWhen(user.created_at)} · Last sign-in{" "}
+                            Signed up {formatWhen(user.created_at)} · Last on site{" "}
+                            {formatWhen(user.last_seen_at)} · Last sign-in{" "}
                             {formatWhen(user.last_sign_in_at)}
                           </p>
                           <div className="mt-3 flex flex-wrap gap-2">

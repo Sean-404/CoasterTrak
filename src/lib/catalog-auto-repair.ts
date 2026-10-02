@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import {
   extraInstallInsertRow,
   isCoasterParkNameUniqueViolation,
@@ -24,7 +25,7 @@ import {
   aliasKeysForStubMerge,
   findFormerNameStubMerges,
 } from "@/lib/catalog-stub-merge";
-import { effectiveClosingYear } from "@/lib/coaster-status";
+import { effectiveClosingYear, normalizeLifecycleStatus } from "@/lib/coaster-status";
 import type { DbAliasRow } from "@/lib/data-platform/coaster-aliases";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import { parkNamesMatch } from "@/lib/park-match";
@@ -53,7 +54,20 @@ type ParkRow = Park & {
   external_id?: string | null;
 };
 
-type CoasterRow = Coaster;
+type CoasterRow = Coaster & {
+  external_source?: string | null;
+  external_id?: string | null;
+};
+
+function coasterBoundWikidataQid(coaster: CoasterRow): string | null {
+  const wd = coaster.wikidata_id?.trim().toUpperCase();
+  if (wd) return wd;
+  if (coaster.external_source === "wikidata") {
+    const ext = coaster.external_id?.trim().toUpperCase();
+    if (ext && /^Q\d+$/i.test(ext)) return ext;
+  }
+  return null;
+}
 
 const COASTER_REPAIR_FIELDS = [
   "name",
@@ -126,11 +140,28 @@ export function buildCoasterRepairPatch(coaster: CoasterRow): Partial<CoasterRow
     ? { ...coaster, height_ft: swapped.height_ft, length_ft: swapped.length_ft }
     : coaster;
   const fixed = applyCoasterKnownFixes(base);
+  const hadPriorLifeClosing =
+    fixed.opening_year != null &&
+    fixed.closing_year != null &&
+    fixed.opening_year > fixed.closing_year;
   const clearedClosing = effectiveClosingYear(fixed.opening_year, fixed.closing_year);
-  const withYears =
+  let withYears =
     clearedClosing !== (fixed.closing_year ?? null)
       ? { ...fixed, closing_year: clearedClosing }
       : fixed;
+
+  // Wikidata often keeps the prior park's retirement on a relocated Q-id.
+  // Once that closing year is cleared, Defunct usually means the old install.
+  if (
+    hadPriorLifeClosing &&
+    withYears.closing_year == null &&
+    normalizeLifecycleStatus(withYears.status, {
+      openingYear: withYears.opening_year,
+      closingYear: withYears.closing_year,
+    }) === "Defunct"
+  ) {
+    withYears = { ...withYears, status: "Operating" };
+  }
 
   const patch: Partial<CoasterRow> = {};
   for (const field of COASTER_REPAIR_FIELDS) {
@@ -252,7 +283,7 @@ export async function applyCatalogAutoRepairs(
     supabase
       .from("coasters")
       .select(
-        "id,park_id,name,wikidata_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year,enwiki_title,summary_text,rcdb_id",
+        "id,park_id,name,wikidata_id,external_source,external_id,coaster_type,manufacturer,status,image_url,height_ft,speed_mph,length_ft,inversions,duration_s,opening_year,closing_year,enwiki_title,summary_text,rcdb_id",
       )
       .order("id", { ascending: true })
       .range(from, to),
@@ -316,8 +347,59 @@ export async function applyCatalogAutoRepairs(
       details.push(`skip link ${qid}: park "${parkName}" not found`);
       continue;
     }
-    const coaster = coasters.find((c) => c.wikidata_id?.trim().toUpperCase() === qid);
+    const coaster = coasters.find((c) => coasterBoundWikidataQid(c) === qid);
     if (!coaster || coaster.park_id === targetParkId) continue;
+    const conflict = coasters.find(
+      (c) =>
+        c.id !== coaster.id &&
+        c.park_id === targetParkId &&
+        normalizeCoasterDedupKey(c.name) === normalizeCoasterDedupKey(coaster.name),
+    );
+    if (conflict) {
+      // Same name already at the preferred park — fold the Wikidata row into it.
+      const conflictQid = conflict.wikidata_id?.trim().toUpperCase();
+      if (conflictQid && conflictQid !== qid) {
+        details.push(
+          `skip link ${coaster.name} (${qid}): "${coaster.name}" already at park ${parkName} as ${conflictQid}`,
+        );
+        continue;
+      }
+      stubsMerged += 1;
+      details.push(
+        `merge override ${coaster.name} (#${coaster.id} ${qid}) → #${conflict.id} at ${parkName}`,
+      );
+      if (dryRun) continue;
+      // Unique Wikidata binding guard also treats external_id as a Q-id.
+      const { error: clearErr } = await supabase
+        .from("coasters")
+        .update({
+          wikidata_id: null,
+          external_id: null,
+          external_source: null,
+          last_synced_at: nowIso(),
+        })
+        .eq("id", coaster.id);
+      if (clearErr) throw clearErr;
+      coaster.wikidata_id = null;
+
+      if (!conflictQid) {
+        const { error: qidErr } = await supabase
+          .from("coasters")
+          .update({
+            wikidata_id: qid,
+            external_source: "wikidata",
+            external_id: qid,
+            last_synced_at: nowIso(),
+          })
+          .eq("id", conflict.id);
+        if (qidErr) throw qidErr;
+        conflict.wikidata_id = qid;
+      }
+      await mergeCoasterStubIntoKeep(supabase, coaster.id, conflict.id);
+      const idx = coasters.findIndex((c) => c.id === coaster.id);
+      if (idx >= 0) coasters.splice(idx, 1);
+      continue;
+    }
     parkLinksUpdated += 1;
     details.push(`link ${coaster.name} (${qid}): park_id ${coaster.park_id}→${targetParkId}`);
     if (!dryRun) {
@@ -325,6 +407,13 @@ export async function applyCatalogAutoRepairs(
         .from("coasters")
         .update({ park_id: targetParkId, last_synced_at: nowIso() })
         .eq("id", coaster.id);
+      if (error && isCoasterParkNameUniqueViolation(error)) {
+        details.push(
+          `skip link ${coaster.name} (${qid}): name already at park ${parkName}`,
+        );
+        parkLinksUpdated -= 1;
+        continue;
+      }
       if (error) throw error;
       coaster.park_id = targetParkId;
     }

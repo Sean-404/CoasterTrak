@@ -15,6 +15,7 @@ type ProfileRow = {
   banned_at: string | null;
   ban_reason: string | null;
   updated_at: string | null;
+  last_seen_at: string | null;
 };
 
 export type AdminUserRow = {
@@ -31,12 +32,13 @@ export type AdminUserRow = {
   has_profile: boolean;
   created_at: string | null;
   last_sign_in_at: string | null;
+  last_seen_at: string | null;
   updated_at: string | null;
   unique_credits: number;
 };
 
 const PROFILE_SELECT =
-  "user_id, display_name, country_code, avatar_key, avatar_path, banned_at, ban_reason, updated_at";
+  "user_id, display_name, country_code, avatar_key, avatar_path, banned_at, ban_reason, updated_at, last_seen_at";
 
 const AUTH_PAGE_SIZE = 1000;
 
@@ -66,6 +68,7 @@ function mergeAuthAndProfile(
     has_profile: Boolean(profile),
     created_at: authUser.created_at ?? null,
     last_sign_in_at: authUser.last_sign_in_at ?? null,
+    last_seen_at: profile?.last_seen_at ?? null,
     updated_at: profile?.updated_at ?? authUser.updated_at ?? null,
     unique_credits: uniqueCredits,
   };
