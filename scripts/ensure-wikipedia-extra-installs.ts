@@ -10,7 +10,7 @@ import { loadLocalEnvIfPresent } from "./lib/load-local-env";
 import { createServiceRoleClient } from "./lib/supabase-service";
 import {
   extraInstallInsertRow,
-  isCoasterParkNameUniqueViolation,
+  isCoasterUniqueViolation,
   planDiscoveredInfoboxInstalls,
 } from "../src/lib/catalog-extra-installs";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "../src/lib/supabase-fetch-all";
@@ -106,8 +106,10 @@ async function main() {
           .insert(extraInstallInsertRow(plan.parkId, plan.spec, new Date().toISOString()))
           .select("id")
           .single();
-        if (error && isCoasterParkNameUniqueViolation(error)) {
-          console.error(`  skip insert (name already at park ${plan.parkId})`);
+        if (error && isCoasterUniqueViolation(error)) {
+          console.error(
+            `  skip insert (unique constraint at park ${plan.parkId}: ${error.message ?? error.code})`,
+          );
           inserted -= 1;
           continue;
         }
@@ -140,8 +142,10 @@ async function main() {
       );
       if (dryRun) continue;
       const { error } = await supabase.from("coasters").update(plan.patch).eq("id", plan.coasterId);
-      if (error && isCoasterParkNameUniqueViolation(error)) {
-        console.error(`  skip patch #${plan.coasterId} (name already at park ${plan.parkId})`);
+      if (error && isCoasterUniqueViolation(error)) {
+        console.error(
+          `  skip patch #${plan.coasterId} (unique constraint: ${error.message ?? error.code})`,
+        );
         patched -= 1;
         continue;
       }

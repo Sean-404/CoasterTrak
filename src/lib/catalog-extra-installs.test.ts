@@ -309,4 +309,78 @@ describe("planDiscoveredInfoboxInstalls", () => {
     expect(kkPatch?.action === "patch" ? kkPatch.patch.name : undefined).toBeUndefined();
     expect(plans.some((p) => p.action === "patch" && p.coasterId === 391)).toBe(false);
   });
+
+  it("does not reassign an RCDB id already owned at the park (Goliath / Chupacabra)", () => {
+    const wt = `
+{{Infobox roller coaster
+| name = Goliath
+| extend = {{Infobox roller coaster extend
+| name = Déjà Vu
+| location = Six Flags Magic Mountain
+| status = Relocated to Six Flags New England
+| opened = {{Start date|2001|08|25}}
+| closed = {{End date|2011|10|16}}
+| rcdb_number = 748
+}}
+| location = Six Flags New England
+| status = Removed
+| opened = {{Start date|2012|05|25}}
+| closed = {{End date|2019}}
+| rcdb_number = 10138
+}}
+`;
+    const plans = planDiscoveredInfoboxInstalls({
+      parks: [
+        { id: 43, name: "Six Flags New England" },
+        { id: 64, name: "Six Flags Magic Mountain" },
+      ],
+      coasters: [
+        {
+          id: 15803,
+          park_id: 43,
+          name: "Goliath (Six Flags New England)",
+          status: "Defunct",
+          coaster_type: "Steel",
+          manufacturer: "Vekoma",
+          opening_year: 2012,
+          closing_year: 2019,
+          rcdb_id: "10138",
+          enwiki_title: "Goliath (Six Flags New England)",
+        },
+        {
+          id: 536,
+          park_id: 64,
+          name: "Chupacabra",
+          status: "Defunct",
+          coaster_type: "Steel",
+          manufacturer: "Vekoma",
+          opening_year: 2012,
+          closing_year: null,
+          rcdb_id: "748",
+          enwiki_title: null,
+        },
+        {
+          id: 15883,
+          park_id: 64,
+          name: "Goliath",
+          status: "Defunct",
+          coaster_type: "Steel",
+          manufacturer: null,
+          opening_year: 2001,
+          closing_year: 2011,
+          rcdb_id: null,
+          enwiki_title: "Goliath (Six Flags New England)",
+        },
+      ],
+      articleTitle: "Goliath (Six Flags New England)",
+      locations: parseInfoboxCoasterLocationsFromWikitext(wt),
+    });
+
+    expect(plans.some((p) => p.action === "patch" && p.patch.rcdb_id === "748")).toBe(false);
+    expect(plans.some((p) => p.action === "patch" && p.coasterId === 15883 && p.patch.rcdb_id)).toBe(
+      false,
+    );
+    // Mislabelled row that already owns RCDB 748 must not be renamed from the SFNE article.
+    expect(plans.some((p) => p.action === "patch" && p.coasterId === 536)).toBe(false);
+  });
 });

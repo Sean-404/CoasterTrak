@@ -10,7 +10,7 @@ import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import {
   extraInstallInsertRow,
-  isCoasterParkNameUniqueViolation,
+  isCoasterUniqueViolation,
   planEnsureCoasterInstalls,
 } from "@/lib/catalog-extra-installs";
 import {
@@ -407,7 +407,7 @@ export async function applyCatalogAutoRepairs(
         .from("coasters")
         .update({ park_id: targetParkId, last_synced_at: nowIso() })
         .eq("id", coaster.id);
-      if (error && isCoasterParkNameUniqueViolation(error)) {
+      if (error && isCoasterUniqueViolation(error)) {
         details.push(
           `skip link ${coaster.name} (${qid}): name already at park ${parkName}`,
         );
@@ -475,7 +475,7 @@ export async function applyCatalogAutoRepairs(
         .insert(extraInstallInsertRow(plan.parkId, plan.spec, nowIso()))
         .select("id")
         .single();
-      if (error && isCoasterParkNameUniqueViolation(error)) {
+      if (error && isCoasterUniqueViolation(error)) {
         details.push(
           `skip ensure coaster ${plan.spec.name} at ${plan.spec.parkName} (name already at park)`,
         );
@@ -516,7 +516,7 @@ export async function applyCatalogAutoRepairs(
       .from("coasters")
       .update({ ...plan.patch, last_synced_at: nowIso() })
       .eq("id", plan.coasterId);
-    if (error && isCoasterParkNameUniqueViolation(error)) {
+    if (error && isCoasterUniqueViolation(error)) {
       details.push(`skip patch coaster ${plan.spec.name} (#${plan.coasterId}) (name already at park)`);
       coastersUpdated -= 1;
       continue;

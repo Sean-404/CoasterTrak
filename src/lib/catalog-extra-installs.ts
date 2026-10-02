@@ -102,6 +102,22 @@ export function isCoasterParkNameUniqueViolation(
   );
 }
 
+export function isCoasterRcdbUniqueViolation(
+  error: { code?: string; message?: string; details?: string } | null | undefined,
+): boolean {
+  if (!error) return false;
+  const haystack = `${error.message ?? ""} ${error.details ?? ""}`;
+  if (error.code === "23505") return /coasters_rcdb_id_uidx|\(rcdb_id\)/i.test(haystack);
+  return /duplicate key value violates unique constraint "coasters_rcdb_id_uidx"/i.test(haystack);
+}
+
+/** Name or RCDB uniqueness collisions that should skip rather than fail the job. */
+export function isCoasterUniqueViolation(
+  error: { code?: string; message?: string; details?: string } | null | undefined,
+): boolean {
+  return isCoasterParkNameUniqueViolation(error) || isCoasterRcdbUniqueViolation(error);
+}
+
 function sameInstallName(a: string, b: string): boolean {
   return normalizeCoasterDedupKey(a) === normalizeCoasterDedupKey(b);
 }
@@ -109,11 +125,30 @@ function sameInstallName(a: string, b: string): boolean {
 export function buildExtraInstallPatch(
   existing: CoasterRef,
   spec: EnsureCoasterInstallSpec,
-  opts?: { nameTakenAtPark?: boolean },
+  opts?: {
+    nameTakenAtPark?: boolean;
+    /** When set, never write an RCDB id already owned by another catalog row. */
+    rcdbTakenByOther?: boolean;
+    /**
+     * Row was chosen only because RCDB matched. If the catalog name is unrelated
+     * (rename / bad label), do not push Wikipedia article name/status onto it.
+     */
+    rcdbOnlyMatch?: boolean;
+  },
 ): Partial<Coaster> | null {
   const patch: Partial<Coaster> = {};
 
-  if (existing.name !== spec.name && !opts?.nameTakenAtPark) patch.name = spec.name;
+  // Only rename when the existing row already looks like this install.
+  // Avoid overwriting unrelated current names (e.g. Chupacabra) with a
+  // Wikipedia article title just because RCDB matched a prior life.
+  const nameRelated =
+    sameInstallName(existing.name, spec.name) || coasterMatchesInstallName(existing.name, spec);
+  if (opts?.rcdbOnlyMatch && !nameRelated) {
+    return null;
+  }
+  if (existing.name !== spec.name && !opts?.nameTakenAtPark && nameRelated) {
+    patch.name = spec.name;
+  }
 
   const opening = spec.opening_year ?? existing.opening_year ?? null;
   let closing: number | null | undefined =
@@ -154,9 +189,11 @@ export function buildExtraInstallPatch(
   if (inversions != null) patch.inversions = inversions;
   const duration = fillIfBlank(existing.duration_s, spec.duration_s);
   if (duration != null) patch.duration_s = duration;
-  const rcdb = fillIfBlank(existing.rcdb_id, spec.rcdb_id);
-  if (rcdb) patch.rcdb_id = rcdb;
-  const sameRide = sameInstallName(existing.name, spec.name) || Boolean(patch.name);
+  if (!opts?.rcdbTakenByOther) {
+    const rcdb = fillIfBlank(existing.rcdb_id, spec.rcdb_id);
+    if (rcdb) patch.rcdb_id = rcdb;
+  }
+  const sameRide = nameRelated || Boolean(patch.name);
   if (sameRide) {
     const wiki = fillIfBlank(existing.enwiki_title, spec.enwiki_title);
     if (wiki) patch.enwiki_title = wiki;
@@ -181,16 +218,37 @@ export function planEnsureCoasterInstalls(opts: {
     if (parkId == null) continue;
 
     const atPark = opts.coasters.filter((c) => c.park_id === parkId);
+    // Prefer RCDB: relocates / renames keep the same id (Déjà Vu → mislabeled row).
+    const byRcdb =
+      spec.rcdb_id != null
+        ? atPark.find((c) => c.rcdb_id?.trim() === spec.rcdb_id!.trim())
+        : undefined;
     const exactName = atPark.find((c) => sameInstallName(c.name, spec.name));
     const aliasMatch = atPark.find((c) => coasterMatchesInstallName(c.name, spec));
-    const existing = exactName ?? aliasMatch;
+    const existing = byRcdb ?? exactName ?? aliasMatch;
     if (existing) {
       const nameTakenAtPark = atPark.some(
         (c) => c.id !== existing.id && sameInstallName(c.name, spec.name),
       );
-      const patch = buildExtraInstallPatch(existing, spec, { nameTakenAtPark });
+      const rcdbTakenByOther = Boolean(
+        spec.rcdb_id &&
+          usedRcdb.has(spec.rcdb_id) &&
+          existing.rcdb_id?.trim() !== spec.rcdb_id.trim(),
+      );
+      const rcdbOnlyMatch = Boolean(
+        byRcdb &&
+          byRcdb.id === existing.id &&
+          !(exactName && exactName.id === existing.id) &&
+          !(aliasMatch && aliasMatch.id === existing.id),
+      );
+      const patch = buildExtraInstallPatch(existing, spec, {
+        nameTakenAtPark,
+        rcdbTakenByOther,
+        rcdbOnlyMatch,
+      });
       if (patch) {
         plans.push({ action: "patch", coasterId: existing.id, parkId, spec, patch });
+        if (patch.rcdb_id) usedRcdb.add(patch.rcdb_id.trim());
       }
       continue;
     }
