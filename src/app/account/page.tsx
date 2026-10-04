@@ -937,7 +937,7 @@ export default function AccountPage() {
                     Email notifications
                   </legend>
                   <p className="mt-1 text-xs text-slate-500">
-                    Only event emails about friends — no newsletters. On by default; turn off anytime.
+                    Only emails about friend activity. On by default; turn off anytime.
                   </p>
                   <div className="mt-3 space-y-2">
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">

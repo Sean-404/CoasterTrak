@@ -251,7 +251,7 @@ function LoginForm() {
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
                 />
                 <span className="text-xs text-slate-600">
-                  Email me about friend requests (you can change this later in Account). No newsletters.
+                  Email me about friend requests (you can change this later in Account).
                 </span>
               </label>
             )}
