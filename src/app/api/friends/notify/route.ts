@@ -101,10 +101,14 @@ export async function POST(request: Request) {
   });
 
   if (!result.ok) {
-    return NextResponse.json(
-      { ok: false, skipped: result.skipped === true, error: result.error },
-      { status: result.skipped ? 200 : 502 },
-    );
+    // Friendship action already succeeded; don't fail the request over email delivery.
+    console.error("[friends/notify] email not sent:", result.error);
+    return NextResponse.json({
+      ok: false,
+      skipped: true,
+      reason: result.skipped ? "not_configured" : "delivery_failed",
+      error: result.error,
+    });
   }
 
   return NextResponse.json({ ok: true, id: result.id });

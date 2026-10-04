@@ -38,11 +38,17 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
       }),
     });
 
-    const body = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+    const body = (await res.json().catch(() => ({}))) as {
+      id?: string;
+      message?: string;
+      name?: string;
+      statusCode?: number;
+    };
     if (!res.ok) {
+      const detail = [body.name, body.message].filter(Boolean).join(": ");
       return {
         ok: false,
-        error: body.message || `Resend error ${res.status}`,
+        error: detail || `Resend error ${res.status}`,
       };
     }
     return { ok: true, id: body.id };
