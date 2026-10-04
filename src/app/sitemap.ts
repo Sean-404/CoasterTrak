@@ -3,8 +3,8 @@ import { listCoastersForSitemap, listParksForSitemap } from "@/lib/catalog-serve
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
 import { coasterSlug, parkSlug } from "@/lib/slug";
 
-// Weekly, matching the Sunday catalog sync. Daily ISR rewrites were hitting Vercel's write cap.
-export const revalidate = 604800;
+// On-demand only — sync revalidates after real catalog changes.
+export const revalidate = false;
 export const maxDuration = 60;
 
 /** Stable within the UTC week so deploys don't fake mass catalog updates. */

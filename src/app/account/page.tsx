@@ -8,6 +8,11 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { AVATAR_OPTIONS, DEFAULT_AVATAR_KEY, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { validateDisplayName } from "@/lib/display-name";
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  prefsFromProfileRow,
+  type NotificationPrefs,
+} from "@/lib/notification-prefs";
 import { isStatsVisibility, type StatsVisibility } from "@/lib/ride-photos";
 import { AVATAR_ACCEPT, removeAvatar, signAvatarUrls, uploadAvatar } from "@/lib/profile-photos";
 
@@ -189,6 +194,7 @@ export default function AccountPage() {
   const [favoriteParkName, setFavoriteParkName] = useState("");
   const [favoriteParkCountry, setFavoriteParkCountry] = useState("");
   const [statsVisibility, setStatsVisibility] = useState<StatsVisibility>("friends");
+  const [notifyPrefs, setNotifyPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [favoriteRideResults, setFavoriteRideResults] = useState<RideSearchResult[]>([]);
   const [favoriteRideSearching, setFavoriteRideSearching] = useState(false);
   const [favoriteParkResults, setFavoriteParkResults] = useState<ParkSearchResult[]>([]);
@@ -215,7 +221,9 @@ export default function AccountPage() {
       setEmail(user.email ?? "");
       void supabase
         .from("profiles")
-        .select("display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility")
+        .select(
+          "display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility, notify_friend_requests, notify_friend_accepted",
+        )
         .eq("user_id", user.id)
         .maybeSingle()
         .then(async ({ data, error }) => {
@@ -233,6 +241,7 @@ export default function AccountPage() {
             }
             setCountryCode((data?.country_code ?? "").toUpperCase());
             setStatsVisibility(isStatsVisibility(data?.stats_visibility) ? data.stats_visibility : "friends");
+            setNotifyPrefs(prefsFromProfileRow(data));
             const selectedRideId = (data?.favorite_ride_id as number | null | undefined) ?? null;
             setFavoriteRideId(selectedRideId);
             if (selectedRideId != null) {
@@ -426,6 +435,8 @@ export default function AccountPage() {
           favorite_ride_id: favoriteRideId,
           favorite_park_id: favoriteParkId,
           stats_visibility: statsVisibility,
+          notify_friend_requests: notifyPrefs.notifyFriendRequests,
+          notify_friend_accepted: notifyPrefs.notifyFriendAccepted,
         },
         { onConflict: "user_id" },
       );
@@ -917,6 +928,58 @@ export default function AccountPage() {
                       <span className="block text-sm font-semibold text-slate-900">Public</span>
                       <span className="mt-1 block text-xs text-slate-500">
                         Signed-in users can find you under Friends → Browse public profiles and open your stats and photos.
+                      </span>
+                    </label>
+                  </div>
+                </fieldset>
+                <fieldset className="pt-2">
+                  <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Email notifications
+                  </legend>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Only event emails about friends — no newsletters. On by default; turn off anytime.
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={notifyPrefs.notifyFriendRequests}
+                        onChange={(e) => {
+                          setNotifyPrefs((prev) => ({
+                            ...prev,
+                            notifyFriendRequests: e.target.checked,
+                          }));
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-slate-900">Friend requests</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Email me when someone sends a friend request.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={notifyPrefs.notifyFriendAccepted}
+                        onChange={(e) => {
+                          setNotifyPrefs((prev) => ({
+                            ...prev,
+                            notifyFriendAccepted: e.target.checked,
+                          }));
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-slate-900">Accepted requests</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Email me when someone accepts my friend request.
+                        </span>
                       </span>
                     </label>
                   </div>

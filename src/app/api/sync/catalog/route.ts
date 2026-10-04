@@ -12,10 +12,15 @@ export async function POST(request: Request) {
 
   try {
     const result = await syncCatalogFromWikidata();
-    if (result.parkUpdates + result.coasterUpdates > 0) {
-      revalidatePublicCatalog();
+    const changed =
+      result.changedParks.length + result.changedCoasters.length > 0;
+    if (changed) {
+      revalidatePublicCatalog({
+        parks: result.changedParks,
+        coasters: result.changedCoasters,
+      });
     }
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, revalidated: changed });
   } catch (error) {
     return jsonSyncError(error);
   }

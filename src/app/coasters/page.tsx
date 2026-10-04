@@ -16,8 +16,8 @@ import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug } from "@/lib/slug";
 
-// Weekly, matching the Sunday catalog sync. Daily ISR rewrites were hitting Vercel's write cap.
-export const revalidate = 604800;
+// On-demand only — Sunday sync revalidates indexes; timers were burning Hobby ISR writes.
+export const revalidate = false;
 
 type PageProps = {
   searchParams: Promise<{ q?: string | string[]; page?: string | string[] }>;

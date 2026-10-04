@@ -5,7 +5,8 @@ import { SiteHeader } from "@/components/site-header";
 import { getCatalogSnapshot } from "@/lib/catalog-server";
 import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
 
-export const revalidate = 3600;
+// On-demand only — sync revalidates after real catalog changes (hourly ISR was wasteful).
+export const revalidate = false;
 
 export const metadata: Metadata = {
   title: "How the CoasterTrak catalog works",

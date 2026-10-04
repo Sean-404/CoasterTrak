@@ -17,8 +17,9 @@ export async function POST(request: Request) {
   const authError = requireCronAuth(request);
   if (authError) return authError;
 
+  // Indexes + data tag only (no blanket detail-page purge).
   revalidatePublicCatalog();
-  return NextResponse.json({ ok: true, revalidated: true });
+  return NextResponse.json({ ok: true, revalidated: true, scope: "indexes" });
 }
 
 export async function GET(request: Request) {

@@ -17,6 +17,8 @@ CoasterTrak is an MVP rollercoaster tracking app with:
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `SYNC_CRON_SECRET`
+   - `RESEND_API_KEY` (friend notification emails)
+   - `EMAIL_FROM` (optional, defaults to `CoasterTrak <notify@coastertrak.com>`)
 4. Run schema in Supabase SQL editor:
    - `supabase/schema.sql`
    - Catalog JSON bucket (for hosting `wikidata_coasters.json`): `supabase/migrations/003_catalog_storage_bucket.sql`

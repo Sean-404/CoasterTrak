@@ -17,8 +17,8 @@ import { formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { parkSlug } from "@/lib/slug";
 import type { Park } from "@/types/domain";
 
-// Weekly, matching the Sunday catalog sync. Daily ISR rewrites were hitting Vercel's write cap.
-export const revalidate = 604800;
+// On-demand only — Sunday sync revalidates indexes; timers were burning Hobby ISR writes.
+export const revalidate = false;
 
 type PageProps = {
   searchParams: Promise<{

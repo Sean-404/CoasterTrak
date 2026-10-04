@@ -52,6 +52,11 @@ export default function PrivacyPage() {
             <li>Provide, maintain, and improve the Service</li>
             <li>Authenticate you and secure your account</li>
             <li>Remember your ride history, wishlist, photos, and settings</li>
+            <li>
+              Send optional transactional emails about friend activity (for example a new friend request). These are
+              on by default, can be turned off in Account, and include an unsubscribe link. We do not send marketing
+              newsletters.
+            </li>
             <li>Understand aggregate usage and fix performance issues</li>
             <li>Comply with legal obligations when required</li>
           </ul>
@@ -68,9 +73,9 @@ export default function PrivacyPage() {
 
           <h2 className="text-xl font-semibold text-slate-900">Service providers</h2>
           <p>
-            We rely on trusted processors to run the Service, including hosting and database/auth providers (such as
-            Vercel and Supabase). They process data only as needed to provide their services to us, under their own
-            privacy terms.
+            We rely on trusted processors to run the Service, including hosting, database/auth, and transactional email
+            providers (such as Vercel, Supabase, and Resend). They process data only as needed to provide their
+            services to us, under their own privacy terms.
           </p>
 
           <h2 className="text-xl font-semibold text-slate-900">Advertising</h2>

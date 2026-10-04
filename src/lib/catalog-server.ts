@@ -92,7 +92,8 @@ const getNormalizedCatalogCached = unstable_cache(
     return serializeNormalizedCatalog(normalizeCatalog(parks, coasters));
   },
   ["catalog-normalized-v4"],
-  { revalidate: 3600, tags: [CATALOG_CACHE_TAG] },
+  // Long fallback; catalog sync busts via CATALOG_CACHE_TAG (on-demand).
+  { revalidate: 604800, tags: [CATALOG_CACHE_TAG] },
 );
 
 async function getNormalizedCatalog() {

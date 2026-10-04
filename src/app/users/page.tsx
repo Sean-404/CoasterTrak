@@ -7,6 +7,7 @@ import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
+import { requestFriendNotification } from "@/lib/friend-notify-client";
 import { signAvatarUrls } from "@/lib/profile-photos";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
@@ -293,6 +294,7 @@ export default function UsersPage() {
       }
       await loadFriendships(supabase, userId);
       setToast("Friend request accepted.");
+      void requestFriendNotification("friend_accepted", String(existing.id));
       return;
     }
 
@@ -301,7 +303,7 @@ export default function UsersPage() {
       return;
     }
 
-    const { error: insertError } = existing
+    const mutation = existing
       ? await supabase
           .from("friendships")
           .update({
@@ -311,18 +313,28 @@ export default function UsersPage() {
             responded_at: null,
           })
           .eq("id", existing.id)
-      : await supabase.from("friendships").insert({
-          requester_id: userId,
-          addressee_id: targetId,
-          status: "pending",
-        });
+          .select("id")
+          .single()
+      : await supabase
+          .from("friendships")
+          .insert({
+            requester_id: userId,
+            addressee_id: targetId,
+            status: "pending",
+          })
+          .select("id")
+          .single();
     setBusyId(null);
-    if (insertError) {
-      setToast(insertError.message ?? "Could not send request.");
+    if (mutation.error) {
+      setToast(mutation.error.message ?? "Could not send request.");
       return;
     }
     await loadFriendships(supabase, userId);
     setToast("Friend request sent.");
+    const friendshipId = mutation.data?.id ?? existing?.id;
+    if (friendshipId != null) {
+      void requestFriendNotification("friend_request", String(friendshipId));
+    }
   }
 
   return (

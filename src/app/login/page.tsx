@@ -50,6 +50,7 @@ function LoginForm() {
   );
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notifyFriendEmails, setNotifyFriendEmails] = useState(true);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -131,7 +132,15 @@ function LoginForm() {
         if (signUpData.user?.id) {
           const { error: profileErr } = await supabase
             .from("profiles")
-            .upsert({ user_id: signUpData.user.id, display_name: normalizedDisplayName }, { onConflict: "user_id" });
+            .upsert(
+              {
+                user_id: signUpData.user.id,
+                display_name: normalizedDisplayName,
+                notify_friend_requests: notifyFriendEmails,
+                notify_friend_accepted: notifyFriendEmails,
+              },
+              { onConflict: "user_id" },
+            );
           if (profileErr) {
             const message = (profileErr.message ?? "").toLowerCase();
             const isDuplicate = message.includes("profiles_display_name_lower_uidx") || message.includes("duplicate key");
@@ -232,6 +241,19 @@ function LoginForm() {
                 autoComplete="new-password"
                 required
               />
+            )}
+            {mode === "signup" && (
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  checked={notifyFriendEmails}
+                  onChange={(e) => setNotifyFriendEmails(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                />
+                <span className="text-xs text-slate-600">
+                  Email me about friend requests (you can change this later in Account). No newsletters.
+                </span>
+              </label>
             )}
 
             {mode === "signin" && (

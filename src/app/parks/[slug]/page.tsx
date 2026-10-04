@@ -26,8 +26,8 @@ import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
 import { SITE_URL } from "@/lib/site-url";
 import { clampSummaryText, fetchWikipediaSummaryForPark } from "@/lib/wikipedia-summary";
 
-// Weekly, matching the Sunday catalog sync. Daily ISR rewrites were hitting Vercel's write cap.
-export const revalidate = 604800;
+// On-demand only — sync revalidates specific changed slugs; timers were burning Hobby ISR writes.
+export const revalidate = false;
 export const dynamicParams = true;
 
 type PageProps = {

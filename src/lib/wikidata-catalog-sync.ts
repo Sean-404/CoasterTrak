@@ -31,7 +31,10 @@ import {
   wikidataInsertName,
   yearFromDate,
 } from "@/lib/wikidata-coaster-inference";
-import { upsertCoastersByExternalKeys } from "@/lib/coasters-external-upsert";
+import {
+  upsertCoastersByExternalKeys,
+  type UpsertedCoasterRef,
+} from "@/lib/coasters-external-upsert";
 import { effectiveClosingYear, normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { normalizeRcdbId } from "@/lib/rcdb";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
@@ -243,12 +246,50 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
 
 const UPSERT_CHUNK = 200;
 
+export type CatalogSyncChangedRef = {
+  id: number;
+  name: string;
+};
+
+export type CatalogSyncResult = {
+  source: "wikidata";
+  startedAt: string;
+  finishedAt: string;
+  /** Rows written (includes last_synced_at-only park touches and bulk upserts). */
+  parkUpdates: number;
+  coasterUpdates: number;
+  /** Parks whose public fields changed (or were created) — for targeted ISR. */
+  changedParks: CatalogSyncChangedRef[];
+  /** Coasters whose public fields changed (or were created) — for targeted ISR. */
+  changedCoasters: CatalogSyncChangedRef[];
+};
+
+function sameCoord(a: number | null | undefined, b: number): boolean {
+  if (a == null || !Number.isFinite(a)) return false;
+  return Math.abs(a - b) < 1e-5;
+}
+
+function parkPublicFieldsChanged(
+  row: ParkForSync | undefined,
+  next: { name?: string; country: string; lat: number; lng: number; external_id: string | null },
+): boolean {
+  if (!row) return true;
+  if (next.name != null && row.name !== next.name) return true;
+  if ((row.country ?? "") !== (next.country ?? "")) return true;
+  if (!sameCoord(row.latitude, next.lat) || !sameCoord(row.longitude, next.lng)) return true;
+  if ((row.external_id ?? null) !== (next.external_id ?? null)) return true;
+  if (row.external_source !== "wikidata" && row.external_source !== "wikidata_unknown_park") {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Full catalog sync from the Wikidata JSON snapshot (CoasterTrak Data pipeline / WIKIDATA_COASTERS_URL).
  * Creates/updates parks and upserts coasters. Parks without coordinates are skipped
  * (nothing to show on the map).
  */
-export async function syncCatalogFromWikidata() {
+export async function syncCatalogFromWikidata(): Promise<CatalogSyncResult> {
   const { supabase, startedAt, runId } = await startSyncRun("wikidata");
   try {
     const merged = mergeRowsByItem(await loadWikidataRows());
@@ -296,6 +337,19 @@ export async function syncCatalogFromWikidata() {
 
     let parkUpdates = 0;
     let coasterUpdates = 0;
+    const changedParks = new Map<number, string>();
+    const changedCoasters = new Map<number, string>();
+
+    const notePark = (id: number, name: string) => {
+      if (id > 0 && name.trim()) changedParks.set(id, name);
+    };
+    const noteCoaster = (ref: UpsertedCoasterRef | { id: number; name: string; parkId?: number }) => {
+      if (ref.id > 0 && ref.name.trim()) changedCoasters.set(ref.id, ref.name);
+      if (ref.parkId != null && ref.parkId > 0) {
+        const parkName = parkRows.find((p) => p.id === ref.parkId)?.name;
+        if (parkName) notePark(ref.parkId, parkName);
+      }
+    };
 
     // Repair legacy "Other" / unknown-historical park assignments before upserting.
     {
@@ -324,6 +378,17 @@ export async function syncCatalogFromWikidata() {
       });
       const actionable = plans.filter((p) => p.action !== "skip");
       if (actionable.length) {
+        for (const plan of actionable) {
+          if (plan.action === "move") {
+            noteCoaster({ id: plan.coasterId, name: plan.coasterName, parkId: plan.toParkId });
+            notePark(plan.fromParkId, plan.fromParkName);
+            notePark(plan.toParkId, plan.toParkName);
+          } else if (plan.action === "merge") {
+            noteCoaster({ id: plan.keepId, name: plan.coasterName, parkId: plan.toParkId });
+            notePark(plan.fromParkId, plan.fromParkName);
+            notePark(plan.toParkId, plan.toParkName);
+          }
+        }
         const byId = new Map(existingCoasters.map((c) => [c.id, c]));
         const { applied } = await applyPlaceholderRelinkPlans(supabase, plans, byId);
         coasterUpdates += applied;
@@ -335,11 +400,13 @@ export async function syncCatalogFromWikidata() {
     async function flushCoasters() {
       if (!coasterBatch.length) return;
       const chunk = coasterBatch.splice(0, UPSERT_CHUNK);
-      await upsertCoastersByExternalKeys(
+      const result = await upsertCoastersByExternalKeys(
         supabase,
         chunk as unknown as Record<string, unknown>[],
       );
       coasterUpdates += chunk.length;
+      for (const ref of result.inserted) noteCoaster(ref);
+      for (const ref of result.contentChanged) noteCoaster(ref);
     }
 
     function queueCoaster(wd: WikidataCoasterRow, parkId: number) {
@@ -412,9 +479,18 @@ export async function syncCatalogFromWikidata() {
         });
         if (parkQid) parkIdByExternalQid.set(parkQid, parkId);
         parkUpdates += 1;
+        notePark(parkId, parkName);
       } else {
         const row = parkRows.find((p) => p.id === parkId);
         const renameFromQid = isWikidataQidLabel(row?.name);
+        const nextName = renameFromQid ? parkName : undefined;
+        const contentChanged = parkPublicFieldsChanged(row, {
+          name: nextName,
+          country,
+          lat: syncCentroid.lat,
+          lng: syncCentroid.lng,
+          external_id: parkQid,
+        });
         const updateRes = await supabase
           .from("parks")
           .update({
@@ -441,6 +517,7 @@ export async function syncCatalogFromWikidata() {
         }
         if (parkQid) parkIdByExternalQid.set(parkQid, parkId);
         parkUpdates += 1;
+        if (contentChanged) notePark(parkId, row?.name ?? parkName);
       }
 
       for (const wd of groupRows) {
@@ -527,6 +604,7 @@ export async function syncCatalogFromWikidata() {
           external_id: unknownExt,
         });
         parkUpdates += 1;
+        notePark(unknownParkId, unknownName);
       }
       queueCoaster(wd, unknownParkId);
       if (coasterBatch.length >= UPSERT_CHUNK) await flushCoasters();
@@ -554,12 +632,20 @@ export async function syncCatalogFromWikidata() {
         coasters: extraExisting ?? [],
       });
       for (const plan of extraPlans) {
+        const parkName = parkRows.find((p) => p.id === plan.parkId)?.name ?? plan.spec.parkName;
         if (plan.action === "insert") {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from("coasters")
-            .insert(extraInstallInsertRow(plan.parkId, plan.spec, new Date().toISOString()));
+            .insert(extraInstallInsertRow(plan.parkId, plan.spec, new Date().toISOString()))
+            .select("id, name")
+            .single();
           if (error) throw error;
           coasterUpdates += 1;
+          noteCoaster({
+            id: Number(data.id),
+            name: String(data.name ?? plan.spec.name),
+            parkId: plan.parkId,
+          });
         } else {
           const { error } = await supabase
             .from("coasters")
@@ -567,11 +653,14 @@ export async function syncCatalogFromWikidata() {
             .eq("id", plan.coasterId);
           if (error) throw error;
           coasterUpdates += 1;
+          noteCoaster({ id: plan.coasterId, name: plan.spec.name, parkId: plan.parkId });
         }
       }
     }
 
-    await finishSyncRun(runId, "success", { recordsUpdated: parkUpdates + coasterUpdates });
+    await finishSyncRun(runId, "success", {
+      recordsUpdated: changedParks.size + changedCoasters.size,
+    });
 
     return {
       source: "wikidata" as const,
@@ -579,6 +668,8 @@ export async function syncCatalogFromWikidata() {
       finishedAt: new Date().toISOString(),
       parkUpdates,
       coasterUpdates,
+      changedParks: [...changedParks.entries()].map(([id, name]) => ({ id, name })),
+      changedCoasters: [...changedCoasters.entries()].map(([id, name]) => ({ id, name })),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown sync error";

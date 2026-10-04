@@ -7,6 +7,7 @@ import { AppPageHeading } from "@/components/app-page-heading";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
+import { requestFriendNotification } from "@/lib/friend-notify-client";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { canViewOtherUserStats } from "@/lib/ride-photos";
 import { signAvatarUrls } from "@/lib/profile-photos";
@@ -241,17 +242,18 @@ export default function FriendsPage() {
     id: number,
     mutation: () => PromiseLike<{ error: { message?: string } | null }>,
     successMessage: string,
-  ) {
-    if (!userId) return;
+  ): Promise<boolean> {
+    if (!userId) return false;
     setBusyId(id);
     const { error } = await mutation();
     setBusyId(null);
     if (error) {
       setToast(error.message ?? "Action failed. Please try again.");
-      return;
+      return false;
     }
     await loadData(userId);
     setToast(successMessage);
+    return true;
   }
 
   async function sendRequest(targetId: string) {
@@ -275,7 +277,7 @@ export default function FriendsPage() {
         setToast("Friend request already sent.");
         return;
       }
-      await runMutation(
+      const accepted = await runMutation(
         existing.id,
         () =>
           supabase
@@ -285,11 +287,12 @@ export default function FriendsPage() {
             .eq("addressee_id", userId),
         "Friend request accepted.",
       );
+      if (accepted) void requestFriendNotification("friend_accepted", String(existing.id));
       return;
     }
 
     if (existing) {
-      await runMutation(
+      const resent = await runMutation(
         existing.id,
         () =>
           supabase
@@ -303,15 +306,20 @@ export default function FriendsPage() {
             .eq("id", existing.id),
         "Friend request sent.",
       );
+      if (resent) void requestFriendNotification("friend_request", String(existing.id));
       return;
     }
 
     setSearching(true);
-    const { error } = await supabase.from("friendships").insert({
-      requester_id: userId,
-      addressee_id: targetId,
-      status: "pending",
-    });
+    const { data: inserted, error } = await supabase
+      .from("friendships")
+      .insert({
+        requester_id: userId,
+        addressee_id: targetId,
+        status: "pending",
+      })
+      .select("id")
+      .single();
     setSearching(false);
 
     if (error) {
@@ -321,6 +329,9 @@ export default function FriendsPage() {
 
     await loadData(userId);
     setToast("Friend request sent.");
+    if (inserted?.id != null) {
+      void requestFriendNotification("friend_request", String(inserted.id));
+    }
   }
 
   async function submitSearch(e: FormEvent) {
@@ -354,7 +365,7 @@ export default function FriendsPage() {
   async function acceptRequest(row: FriendshipRow) {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !userId) return;
-    await runMutation(
+    const accepted = await runMutation(
       row.id,
       () =>
         supabase
@@ -364,6 +375,7 @@ export default function FriendsPage() {
           .eq("addressee_id", userId),
       "Friend request accepted.",
     );
+    if (accepted) void requestFriendNotification("friend_accepted", String(row.id));
   }
 
   async function declineRequest(row: FriendshipRow) {
