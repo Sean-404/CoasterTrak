@@ -29,7 +29,8 @@
     "data:fetch-catalog-quality": "tsx scripts/fetch-catalog-quality-report.ts",
     "data:ensure-extend-installs": "tsx --env-file=.env.local scripts/ensure-wikipedia-extra-installs.ts",
     "data:fill-gaps": "tsx scripts/fill-catalog-gaps.ts",
-    "data:catalog-quality": "tsx scripts/post-sync-catalog-quality.ts"
+    "data:catalog-quality": "tsx scripts/post-sync-catalog-quality.ts",
+    "email:render-headings": "tsx scripts/render-email-headings.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
