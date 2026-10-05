@@ -2,14 +2,13 @@ import { SITE_URL, siteHref } from "@/lib/site-url";
 import { buildUnsubscribeUrl } from "@/lib/unsubscribe-token";
 
 const LOGO_URL = `${SITE_URL}/coastertrak-logo.png`;
-const HEADING_REQUEST_URL = `${SITE_URL}/email/heading-friend-request.jpg`;
-const HEADING_ACCEPTED_URL = `${SITE_URL}/email/heading-friend-accepted.jpg`;
 
 /**
- * Body copy uses a web-safe stack. Gmail strips custom webfonts, so headings
- * are baked into images under /public/email/.
+ * Gmail strips webfonts. Keep a Bungee/Geist stack for clients that load
+ * Google Fonts (Apple Mail), with Arial Black / Arial fallbacks for Gmail.
  */
-const FONT_BODY = "Arial, Helvetica, sans-serif";
+const FONT_BRAND = "'Bungee', 'Arial Black', Arial, sans-serif";
+const FONT_BODY = "Geist, Arial, Helvetica, sans-serif";
 
 function escapeHtml(value: string): string {
   return value
@@ -22,7 +21,6 @@ function escapeHtml(value: string): string {
 function emailShell(opts: {
   preheader: string;
   heading: string;
-  headingImageUrl: string;
   bodyHtml: string;
   ctaLabel: string;
   ctaUrl: string;
@@ -41,13 +39,18 @@ function emailShell(opts: {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light only" />
     <meta name="supported-color-schemes" content="light only" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Geist:wght@400;600;700&display=swap" rel="stylesheet" />
     <style type="text/css">
       :root { color-scheme: light only; supported-color-schemes: light only; }
       @media (prefers-color-scheme: dark) {
         .email-bg { background-color: #f8fafc !important; }
         .email-card { background-color: #ffffff !important; }
+        .email-header { background-color: #fffbeb !important; }
         .email-text { color: #0f172a !important; }
         .email-muted { color: #334155 !important; }
+        .email-brand { color: #b45309 !important; }
         .email-footer { color: #64748b !important; }
       }
     </style>
@@ -59,16 +62,21 @@ function emailShell(opts: {
         <td align="center">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#ffffff" class="email-card" style="max-width:480px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
             <tr>
-              <td align="center" bgcolor="#fffbeb" style="padding:20px 24px 12px;text-align:center;background-color:#fffbeb;">
+              <td align="center" bgcolor="#fffbeb" class="email-header" style="padding:22px 24px 14px;text-align:center;background-color:#fffbeb;">
                 <img src="${LOGO_URL}" width="64" height="64" alt="CoasterTrak" style="display:block;margin:0 auto;border:0;border-radius:14px;width:64px;height:64px;" />
+                <div class="email-brand" style="margin-top:10px;font-family:${FONT_BRAND};font-size:15px;line-height:1.2;letter-spacing:0.06em;text-transform:uppercase;color:#b45309;">
+                  CoasterTrak
+                </div>
               </td>
             </tr>
             <tr>
               <td bgcolor="#ffffff" class="email-card" style="padding:8px 24px 24px;font-family:${FONT_BODY};color:#0f172a;line-height:1.5;background-color:#ffffff;">
-                <img src="${opts.headingImageUrl}" width="360" alt="${escapeHtml(opts.heading)}" style="display:block;margin:0 0 14px;border:0;width:360px;max-width:100%;height:auto;" />
+                <h1 class="email-text" style="margin:0 0 12px;font-family:${FONT_BRAND};font-size:24px;line-height:1.2;font-weight:400;color:#0f172a;">
+                  ${escapeHtml(opts.heading)}
+                </h1>
                 ${opts.bodyHtml}
                 <p style="margin:20px 0 0;">
-                  <a href="${opts.ctaUrl}" style="display:inline-block;background-color:#f59e0b;color:#0f172a;text-decoration:none;font-family:${FONT_BODY};font-weight:700;padding:12px 16px;border-radius:10px;">
+                  <a href="${opts.ctaUrl}" style="display:inline-block;background-color:#f59e0b;color:#0f172a;text-decoration:none;font-family:${FONT_BODY};font-weight:700;font-size:15px;padding:12px 16px;border-radius:10px;">
                     ${escapeHtml(opts.ctaLabel)}
                   </a>
                 </p>
@@ -111,7 +119,6 @@ export function buildFriendRequestEmail(opts: {
   const html = emailShell({
     preheader: `${name} sent you a friend request.`,
     heading: "New friend request",
-    headingImageUrl: HEADING_REQUEST_URL,
     bodyHtml: `<p class="email-muted" style="margin:0;font-size:15px;color:#334155;font-family:${FONT_BODY};"><strong class="email-text" style="color:#0f172a">${escapeHtml(name)}</strong> wants to be friends on CoasterTrak so you can compare credits and stats.</p>`,
     ctaLabel: "View request",
     ctaUrl: friendsUrl,
@@ -145,7 +152,6 @@ export function buildFriendAcceptedEmail(opts: {
   const html = emailShell({
     preheader: `${name} accepted your friend request.`,
     heading: "Friend request accepted",
-    headingImageUrl: HEADING_ACCEPTED_URL,
     bodyHtml: `<p class="email-muted" style="margin:0;font-size:15px;color:#334155;font-family:${FONT_BODY};"><strong class="email-text" style="color:#0f172a">${escapeHtml(name)}</strong> accepted your friend request. You can now compare credits and stats.</p>`,
     ctaLabel: "Open Friends",
     ctaUrl: friendsUrl,
