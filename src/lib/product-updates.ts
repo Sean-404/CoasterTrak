@@ -14,6 +14,18 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-10-05-friend-emails",
+    date: "2026-10-05",
+    title: "Friend request emails",
+    summary:
+      "Get an email when someone sends or accepts a friend request. Notifications are on by default, with toggles in Account and an unsubscribe link in every message.",
+    highlights: [
+      "Emails for new friend requests and accepted requests",
+      "Turn them off anytime under Account → Email notifications",
+      "Signup includes an opt-out checkbox",
+    ],
+  },
+  {
     id: "2026-09-17-catalog-installs",
     date: "2026-09-17",
     title: "Clone rides stay at the park you visited",
