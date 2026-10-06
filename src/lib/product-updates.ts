@@ -18,11 +18,11 @@ export const PRODUCT_UPDATES: ProductUpdate[] = [
     date: "2026-10-06",
     title: "Weekly credit digest",
     summary:
-      "A Sunday email with your new credits, rides, and a light community note — only when you (or a friend) logged something that week. On by default; turn off at signup or in Account.",
+      "A Sunday email with your new credits, rides, and a light community note — only when you logged rides that week. On by default; turn off at signup or in Account.",
     highlights: [
       "Signup checkbox to keep or skip the weekly digest",
       "Account → Email notifications → Weekly credit digest",
-      "Unsubscribe link in every digest · empty weeks are skipped",
+      "Unsubscribe link in every digest · weeks with no rides are skipped",
     ],
   },
   {
