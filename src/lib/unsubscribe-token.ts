@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { SITE_URL } from "@/lib/site-url";
 
-export type UnsubscribeScope = "friend";
+export type UnsubscribeScope = "friend" | "digest";
 
 function unsubscribeSecret(): string | null {
   return (

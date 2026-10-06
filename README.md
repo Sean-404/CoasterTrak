@@ -54,6 +54,11 @@ Manual units render only when both are set:
 
 Ads are mounted on guides and selected content pages only — never on thin stubs, login, or app chrome. Keep the flag off until AdSense approves the site.
 
+### Weekly digest cron
+
+Vercel Cron hits `GET /api/cron/weekly-digest` Sundays 18:00 UTC (`Authorization: Bearer <SYNC_CRON_SECRET>`).
+Users must opt in under Account → Weekly credit digest. Apply migration `20261006180000_notify_weekly_digest.sql` first.
+
 ## Deploy (Vercel free tier)
 
 1. Import repo in Vercel.

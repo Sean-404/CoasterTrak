@@ -20,16 +20,22 @@ function escapeHtml(value: string): string {
 function emailShell(opts: {
   preheader: string;
   heading: string;
-  headingImageUrl: string;
+  /** When set, brand heading is a PNG; otherwise a styled text heading (Gmail-safe). */
+  headingImageUrl?: string;
   bodyHtml: string;
   ctaLabel: string;
   ctaUrl: string;
   accountUrl: string;
   unsubUrl: string | null;
+  unsubLabel?: string;
 }): string {
   const unsubHtml = opts.unsubUrl
-    ? ` · <a href="${opts.unsubUrl}" style="color:#64748b;text-decoration:underline">Unsubscribe from friend emails</a>`
+    ? ` · <a href="${opts.unsubUrl}" style="color:#64748b;text-decoration:underline">${escapeHtml(opts.unsubLabel ?? "Unsubscribe from friend emails")}</a>`
     : "";
+
+  const headingHtml = opts.headingImageUrl
+    ? `<img src="${opts.headingImageUrl}" width="360" alt="${escapeHtml(opts.heading)}" style="display:block;margin:0 0 14px;border:0;width:360px;max-width:100%;height:auto;" />`
+    : `<h1 class="email-text" style="margin:0 0 14px;font-family:${FONT_BODY};font-size:22px;line-height:1.25;font-weight:700;color:#0f172a;">${escapeHtml(opts.heading)}</h1>`;
 
   return `
 <!DOCTYPE html>
@@ -65,7 +71,7 @@ function emailShell(opts: {
             </tr>
             <tr>
               <td bgcolor="#ffffff" class="email-card" style="padding:12px 24px 24px;font-family:${FONT_BODY};color:#0f172a;line-height:1.5;background-color:#ffffff;">
-                <img src="${opts.headingImageUrl}" width="360" alt="${escapeHtml(opts.heading)}" style="display:block;margin:0 0 14px;border:0;width:360px;max-width:100%;height:auto;" />
+                ${headingHtml}
                 ${opts.bodyHtml}
                 <p style="margin:20px 0 0;">
                   <a href="${opts.ctaUrl}" style="display:inline-block;background-color:#f59e0b;color:#0f172a;text-decoration:none;font-family:${FONT_BODY};font-weight:700;font-size:15px;padding:12px 16px;border-radius:10px;">
@@ -87,6 +93,8 @@ function emailShell(opts: {
 </html>
   `.trim();
 }
+
+export { emailShell, escapeHtml };
 
 export function buildFriendRequestEmail(opts: {
   recipientUserId: string;

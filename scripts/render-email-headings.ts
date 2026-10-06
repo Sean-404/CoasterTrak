@@ -21,6 +21,7 @@ const OUT_DIR = path.join(ROOT, "public/email");
 const HEADINGS = [
   { file: "heading-friend-request.png", text: "New friend request", color: "#0f172a" },
   { file: "heading-friend-accepted.png", text: "Friend request accepted", color: "#0f172a" },
+  { file: "heading-weekly-digest.png", text: "Your week on CoasterTrak", color: "#0f172a", size: 30 },
   { file: "wordmark.png", text: "COASTERTRAK", color: "#b45309", size: 28 },
 ] as const;
 

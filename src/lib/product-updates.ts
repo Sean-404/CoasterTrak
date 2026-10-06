@@ -14,6 +14,18 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-10-06d-weekly-digest",
+    date: "2026-10-06",
+    title: "Optional weekly credit digest",
+    summary:
+      "Opt in from Account for a Sunday email with your new credits, rides, and a light community note — only sent when you (or a friend) logged something that week.",
+    highlights: [
+      "Account → Email notifications → Weekly credit digest (off by default)",
+      "Unsubscribe link in every digest",
+      "No empty “you did nothing” emails",
+    ],
+  },
+  {
     id: "2026-10-06c-home-screen",
     date: "2026-10-06",
     title: "Add CoasterTrak to your home screen",

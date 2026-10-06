@@ -223,7 +223,7 @@ export default function AccountPage() {
       void supabase
         .from("profiles")
         .select(
-          "display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility, notify_friend_requests, notify_friend_accepted",
+          "display_name, country_code, avatar_key, avatar_path, favorite_ride_id, favorite_park_id, stats_visibility, notify_friend_requests, notify_friend_accepted, notify_weekly_digest",
         )
         .eq("user_id", user.id)
         .maybeSingle()
@@ -438,6 +438,7 @@ export default function AccountPage() {
           stats_visibility: statsVisibility,
           notify_friend_requests: notifyPrefs.notifyFriendRequests,
           notify_friend_accepted: notifyPrefs.notifyFriendAccepted,
+          notify_weekly_digest: notifyPrefs.notifyWeeklyDigest,
         },
         { onConflict: "user_id" },
       );
@@ -952,7 +953,8 @@ export default function AccountPage() {
                     Email notifications
                   </legend>
                   <p className="mt-1 text-xs text-slate-500">
-                    Only emails about friend activity. On by default; turn off anytime.
+                    Friend alerts are on by default. The weekly digest is opt-in — a Sunday summary of your credits
+                    when you logged something.
                   </p>
                   <div className="mt-3 space-y-2">
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
@@ -994,6 +996,28 @@ export default function AccountPage() {
                         <span className="block text-sm font-semibold text-slate-900">Accepted requests</span>
                         <span className="mt-0.5 block text-xs text-slate-500">
                           Email me when someone accepts my friend request.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={notifyPrefs.notifyWeeklyDigest}
+                        onChange={(e) => {
+                          setNotifyPrefs((prev) => ({
+                            ...prev,
+                            notifyWeeklyDigest: e.target.checked,
+                          }));
+                          setProfileError("");
+                          setProfileSuccess("");
+                        }}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-slate-900">Weekly credit digest</span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Sunday email with your new credits, rides, and a light community note — only when you (or a
+                          friend) logged something that week.
                         </span>
                       </span>
                     </label>

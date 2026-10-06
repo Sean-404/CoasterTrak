@@ -4,7 +4,7 @@ import { SITE_URL } from "@/lib/site-url";
 import { verifyUnsubscribeToken, type UnsubscribeScope } from "@/lib/unsubscribe-token";
 
 function parseScope(value: string | null): UnsubscribeScope {
-  return value === "friend" ? "friend" : "friend";
+  return value === "digest" ? "digest" : "friend";
 }
 
 export async function GET(request: Request) {
@@ -28,13 +28,15 @@ export async function GET(request: Request) {
     );
   }
 
-  const { error } = await service
-    .from("profiles")
-    .update({
-      notify_friend_requests: false,
-      notify_friend_accepted: false,
-    })
-    .eq("user_id", verified.userId);
+  const patch =
+    scope === "digest"
+      ? { notify_weekly_digest: false }
+      : {
+          notify_friend_requests: false,
+          notify_friend_accepted: false,
+        };
+
+  const { error } = await service.from("profiles").update(patch).eq("user_id", verified.userId);
 
   if (error) {
     return NextResponse.redirect(
@@ -43,7 +45,8 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.redirect(`${SITE_URL}/notifications/unsubscribed?ok=1`, {
-    status: 303,
-  });
+  return NextResponse.redirect(
+    `${SITE_URL}/notifications/unsubscribed?ok=1&scope=${scope}`,
+    { status: 303 },
+  );
 }

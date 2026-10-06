@@ -9,13 +9,14 @@ export const metadata: Metadata = {
 };
 
 type PageProps = {
-  searchParams: Promise<{ ok?: string; error?: string }>;
+  searchParams: Promise<{ ok?: string; error?: string; scope?: string }>;
 };
 
 export default async function NotificationsUnsubscribedPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const ok = params.ok === "1";
   const error = params.error;
+  const digest = params.scope === "digest";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -24,8 +25,9 @@ export default async function NotificationsUnsubscribedPage({ searchParams }: Pa
         <h1 className="font-bungee text-3xl text-slate-900">Email preferences</h1>
         {ok ? (
           <p className="mt-3 text-sm text-slate-600">
-            You&apos;re unsubscribed from friend notification emails. You can turn them back on anytime
-            in Account.
+            {digest
+              ? "You're unsubscribed from the weekly credit digest. Friend emails are unchanged — you can adjust everything in Account."
+              : "You're unsubscribed from friend notification emails. You can turn them back on anytime in Account."}
           </p>
         ) : (
           <p className="mt-3 text-sm text-slate-600">
