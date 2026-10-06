@@ -16,19 +16,19 @@ describe("weeklyDigestPeriod", () => {
 });
 
 describe("shouldSendWeeklyDigest", () => {
-  it("skips empty personal weeks even if friends rode", () => {
+  it("skips empty weeks with no personal or friend activity", () => {
     expect(
       shouldSendWeeklyDigest({
         newCredits: 0,
         totalRides: 0,
         parksVisited: 0,
-        friendsActive: 2,
+        friendsActive: 0,
         communityRiders: 40,
       }),
     ).toBe(false);
   });
 
-  it("sends only when the rider logged credits or rides", () => {
+  it("sends when the rider or a friend logged something", () => {
     expect(
       shouldSendWeeklyDigest({
         newCredits: 2,
@@ -45,6 +45,15 @@ describe("shouldSendWeeklyDigest", () => {
         parksVisited: 1,
         friendsActive: 0,
         communityRiders: 0,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSendWeeklyDigest({
+        newCredits: 0,
+        totalRides: 0,
+        parksVisited: 0,
+        friendsActive: 1,
+        communityRiders: 12,
       }),
     ).toBe(true);
   });

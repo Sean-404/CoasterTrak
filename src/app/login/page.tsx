@@ -277,7 +277,8 @@ function LoginForm() {
                     className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
                   />
                   <span className="text-xs text-slate-600">
-                    Send me a weekly credit digest on Sundays when I&apos;ve logged rides (change anytime in Account).
+                    Send me a weekly credit digest on Sundays when I or a friend logged rides (change anytime in
+                    Account).
                   </span>
                 </label>
               </>

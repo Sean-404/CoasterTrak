@@ -1015,8 +1015,8 @@ export default function AccountPage() {
                       <span>
                         <span className="block text-sm font-semibold text-slate-900">Weekly credit digest</span>
                         <span className="mt-0.5 block text-xs text-slate-500">
-                          Sunday email with your new credits, rides, and a light community note — only when you
-                          logged rides that week. On by default.
+                          Sunday email with your new credits, rides, and a light community note — only when you or a
+                          friend logged rides that week. On by default.
                         </span>
                       </span>
                     </label>

@@ -39,9 +39,9 @@ function formatShortUtc(d: Date): string {
   });
 }
 
-/** True when the recipient logged dated rides (or new credits) in the window. */
+/** True when the recipient or an accepted friend logged dated rides in the window. */
 export function shouldSendWeeklyDigest(stats: WeeklyDigestStats): boolean {
-  return stats.newCredits > 0 || stats.totalRides > 0;
+  return stats.newCredits > 0 || stats.totalRides > 0 || stats.friendsActive > 0;
 }
 
 export function buildWeeklyDigestEmail(opts: {
@@ -125,7 +125,7 @@ export function buildWeeklyDigestEmail(opts: {
       <ul style="margin:0;padding-left:20px;">${listHtml}</ul>
       ${communityHtml}
       <p class="email-muted" style="margin:14px 0 0;font-size:13px;color:#64748b;font-family:${FONT_BODY};">
-        Digests only go out when you logged rides that week. Turn them off anytime in Account.
+        Digests only go out when you or a friend logged rides that week. Turn them off anytime in Account.
       </p>
     `,
     ctaLabel: "Open Stats",
