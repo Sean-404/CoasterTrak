@@ -1,5 +1,5 @@
 export type ProductUpdate = {
-  /** Stable id; newer entries should sort after older ones lexicographically when prefixed YYYY-MM-DD. */
+  /** Stable id; newer entries must be lexicographically greater (array is newest-first). */
   id: string;
   /** ISO date YYYY-MM-DD */
   date: string;
@@ -14,7 +14,7 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
-    id: "2026-10-06-home-screen",
+    id: "2026-10-06c-home-screen",
     date: "2026-10-06",
     title: "Add CoasterTrak to your home screen",
     summary:
@@ -26,7 +26,7 @@ export const PRODUCT_UPDATES: ProductUpdate[] = [
     ],
   },
   {
-    id: "2026-10-06-public-profiles-invites",
+    id: "2026-10-06b-public-profiles-invites",
     date: "2026-10-06",
     title: "Public profiles & invite links",
     summary:
@@ -39,7 +39,7 @@ export const PRODUCT_UPDATES: ProductUpdate[] = [
     ],
   },
   {
-    id: "2026-10-06-guides",
+    id: "2026-10-06a-guides",
     date: "2026-10-06",
     title: "New coaster credit guides",
     summary:
