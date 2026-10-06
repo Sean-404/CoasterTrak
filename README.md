@@ -37,12 +37,22 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 ## Key routes
 
 - `/` - landing page
+- `/guides` - original coaster credit guides (AdSense / SEO substance)
 - `/map` - interactive map with country and name filter
 - `/login` - sign up / sign in
 - `/wishlist` - user wishlist
 - `/stats` - personal stats dashboard
 - `/api/health` - health endpoint
 - `POST /api/sync/catalog` - protected Wikidata catalog sync (JSON → Supabase).
+
+### AdSense (optional)
+
+Manual units render only when both are set:
+
+- `NEXT_PUBLIC_ADSENSE_ENABLED=true`
+- `NEXT_PUBLIC_ADSENSE_GUIDE_SLOT=<slot id from AdSense>`
+
+Ads are mounted on guides and selected content pages only — never on thin stubs, login, or app chrome. Keep the flag off until AdSense approves the site.
 
 ## Deploy (Vercel free tier)
 

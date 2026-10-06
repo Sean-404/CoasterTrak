@@ -12,6 +12,8 @@ type StatsShareControlsProps = {
   card: StatsShareCardProps;
   disabled?: boolean;
   onFeedback: (message: string) => void;
+  /** Absolute profile URL included in share text when set. */
+  profileUrl?: string | null;
 };
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -216,18 +218,27 @@ export function ShareCardCapture({
   );
 }
 
-export function StatsShareControls({ card, disabled, onFeedback }: StatsShareControlsProps) {
+export function StatsShareControls({
+  card,
+  disabled,
+  onFeedback,
+  profileUrl,
+}: StatsShareControlsProps) {
+  const shareText = profileUrl
+    ? `My roller coaster stats on CoasterTrak — ${profileUrl}`
+    : "My roller coaster stats on CoasterTrak — https://coastertrak.com";
+
   return (
     <ShareCardCapture
       disabled={disabled}
       onFeedback={onFeedback}
       filename="coastertrak-stats.png"
       shareTitle="My CoasterTrak stats"
-      shareText="My roller coaster stats on CoasterTrak"
+      shareText={shareText}
       successShared="Stats card shared."
       successDownloaded="Stats card downloaded."
       failMessage="Could not create the stats card. Please try again."
-      renderCard={(ref) => <StatsShareCard ref={ref} {...card} />}
+      renderCard={(ref) => <StatsShareCard ref={ref} {...card} profileUrl={profileUrl} />}
     />
   );
 }

@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Bungee, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { PresenceBeacon } from "@/components/presence-beacon";
+import { RegisterServiceWorker } from "@/components/register-service-worker";
 import { UnitsProvider } from "@/components/providers";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -74,12 +75,18 @@ export const metadata: Metadata = {
   creator: "CoasterTrak",
   publisher: "CoasterTrak",
   manifest: "/site.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "CoasterTrak",
+    statusBarStyle: "black-translucent",
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
-      { url: "/coastertrak-logo.png", sizes: "384x384", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     shortcut: [{ url: "/favicon.ico" }],
     apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
@@ -139,6 +146,7 @@ export default function RootLayout({
       >
         <UnitsProvider>
           <PresenceBeacon />
+          <RegisterServiceWorker />
           {children}
         </UnitsProvider>
         <Analytics />

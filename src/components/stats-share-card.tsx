@@ -19,6 +19,8 @@ export type StatsShareCardProps = {
   achievementsTotal: number;
   records: StatsShareCardRecord[];
   filterNote: string;
+  /** Shown in the card footer when set (e.g. coastertrak.com/u/Name). */
+  profileUrl?: string | null;
 };
 
 /** Fixed square artboard for PNG export (Discord / Reddit friendly). */
@@ -45,10 +47,16 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
       achievementsTotal,
       records,
       filterNote,
+      profileUrl,
     },
     ref,
   ) {
     const headline = displayName.trim() || "CoasterTrak rider";
+    const footerUrl = (() => {
+      const raw = profileUrl?.trim();
+      if (!raw) return "coastertrak.com";
+      return raw.replace(/^https?:\/\//i, "");
+    })();
     const shownRecords = records.slice(0, 4);
     const achievementPct =
       achievementsTotal > 0
@@ -396,7 +404,7 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
                 letterSpacing: "0.04em",
               }}
             >
-              coastertrak.com
+              {footerUrl}
             </p>
           </div>
         </div>

@@ -14,6 +14,43 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-10-06-home-screen",
+    date: "2026-10-06",
+    title: "Add CoasterTrak to your home screen",
+    summary:
+      "Install tips on Stats and Account so park-day logging is one tap away — works like an app without the app store.",
+    highlights: [
+      "iPhone: Safari Share → Add to Home Screen",
+      "Android: Install app when your browser offers it",
+      "Dismiss anytime; tip stays hidden after that",
+    ],
+  },
+  {
+    id: "2026-10-06-public-profiles-invites",
+    date: "2026-10-06",
+    title: "Public profiles & invite links",
+    summary:
+      "Share a public /u/yourname profile, copy an invite link for friends, and point stats cards at a real destination — plus new coaster credit guides.",
+    highlights: [
+      "Public profiles at /u/displayname when stats visibility is Public",
+      "Invite links from Stats and Friends that send a friend request after signup",
+      "Share cards and Wrapped include your profile or invite URL",
+      "Guides hub at /guides with six original articles",
+    ],
+  },
+  {
+    id: "2026-10-06-guides",
+    date: "2026-10-06",
+    title: "New coaster credit guides",
+    summary:
+      "Original long-form guides on credits, park-day logging, leftovers, first-year hunting, and CoasterGuessr.",
+    highlights: [
+      "Hub at /guides with six new articles",
+      "Linked from the footer and sitemap for discovery",
+      "Written as CoasterTrak originals, not Wikipedia republishing",
+    ],
+  },
+  {
     id: "2026-10-05-friend-emails",
     date: "2026-10-05",
     title: "Friend request emails",

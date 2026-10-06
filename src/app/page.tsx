@@ -6,6 +6,7 @@ import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { listFeaturedParks } from "@/lib/catalog-server";
+import { countRegisteredProfiles } from "@/lib/public-profile";
 import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 import { parkSlug } from "@/lib/slug";
 
@@ -28,7 +29,10 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const featuredParks = await listFeaturedParks(6);
+  const [featuredParks, profileCount] = await Promise.all([
+    listFeaturedParks(6),
+    countRegisteredProfiles(),
+  ]);
 
   const websiteJsonLd = {
     "@context": "https://schema.org",
@@ -136,6 +140,11 @@ export default async function Home() {
             Free coaster tracker in your browser — log unique credits, discover parks on the map, and see what you
             still need before the next trip. No app download required.
           </p>
+          {profileCount != null && profileCount > 0 ? (
+            <p className="mt-3 text-sm font-medium text-amber-200/90">
+              Join {profileCount.toLocaleString()} coaster enthusiasts already tracking credits
+            </p>
+          ) : null}
           <HomeHeroCtas />
         </div>
       </section>

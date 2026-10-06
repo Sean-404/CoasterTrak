@@ -13,6 +13,8 @@ import { SiteHeader } from "@/components/site-header";
 import { StarRating } from "@/components/star-rating";
 import { StatsShareControls } from "@/components/stats-share-controls";
 import { StatsComparePanel } from "@/components/stats-compare-panel";
+import { StatsOnboardingChecklist } from "@/components/stats-onboarding-checklist";
+import { AddToHomeScreenTip } from "@/components/add-to-home-screen-tip";
 import type { StatsShareCardProps } from "@/components/stats-share-card";
 import {
   ACHIEVEMENT_COUNT,
@@ -37,6 +39,7 @@ import {
   signRidePhotoVariants,
 } from "@/lib/ride-photos";
 import { signAvatarUrls } from "@/lib/profile-photos";
+import { inviteHref, publicProfileHref } from "@/lib/public-profile";
 import {
   buildStatsCopyText,
   formatRideCount,
@@ -366,6 +369,7 @@ function StatsPageContent() {
   const [rideListViewportHeight, setRideListViewportHeight] = useState(0);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [shareDisplayName, setShareDisplayName] = useState<string | null>(null);
+  const [ownStatsVisibility, setOwnStatsVisibility] = useState<string | null>(null);
   const [profileAvatarKey, setProfileAvatarKey] = useState<string | null>(null);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [favoriteRideLabel, setFavoriteRideLabel] = useState("Not set");
@@ -387,6 +391,7 @@ function StatsPageContent() {
     setViewingPublicProfile(false);
     setRides([]);
     setShareDisplayName(null);
+    setOwnStatsVisibility(null);
     setProfileAvatarKey(null);
     setProfileAvatarUrl(null);
     setFavoriteRideLabel("Not set");
@@ -481,6 +486,9 @@ function StatsPageContent() {
       const profile = (profileRes.data as ProfileRow | null) ?? null;
       const displayName = profile?.display_name?.trim() || null;
       setShareDisplayName(displayName);
+      if (targetUserId === user.id) {
+        setOwnStatsVisibility(profile?.stats_visibility ?? null);
+      }
       setProfileAvatarKey(profile?.avatar_key ?? null);
       if (profile?.avatar_path) {
         const signed = await signAvatarUrls(supabase, [profile.avatar_path]);
@@ -984,8 +992,13 @@ function StatsPageContent() {
   ];
 
   async function copyStatsSummary() {
+    const profileUrl =
+      isOwnStatsView && ownStatsVisibility === "public" && shareDisplayName
+        ? publicProfileHref(shareDisplayName)
+        : null;
     const summary = buildStatsCopyText({
       displayName: shareDisplayName,
+      profileUrl,
       includeFamilyRides,
       uniqueCoasters: filteredUniqueRides.length,
       totalRides,
@@ -1140,6 +1153,13 @@ function StatsPageContent() {
               <div className="flex flex-wrap items-center gap-2">
                 <StatsShareControls
                   card={shareCardProps}
+                  profileUrl={
+                    ownStatsVisibility === "public" && shareDisplayName
+                      ? publicProfileHref(shareDisplayName)
+                      : userId
+                        ? inviteHref(userId)
+                        : null
+                  }
                   onFeedback={setShareFeedback}
                 />
                 <button
@@ -1149,6 +1169,22 @@ function StatsPageContent() {
                 >
                   Copy text
                 </button>
+                {userId ? (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(inviteHref(userId));
+                        setShareFeedback("Invite link copied.");
+                      } catch {
+                        setShareFeedback("Could not copy invite link.");
+                      }
+                    }}
+                    className="cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Copy invite link
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
@@ -1167,6 +1203,16 @@ function StatsPageContent() {
                 : "This profile is private or could not be found. You can view stats for accepted friends, or for users who have made their profile public."}
             </p>
           )}
+          {!loading && isOwnStatsView && !friendAccessDenied ? (
+            <>
+              <AddToHomeScreenTip className="mb-4" />
+              <StatsOnboardingChecklist
+                creditCount={rides.length}
+                hasDisplayName={Boolean(shareDisplayName?.trim())}
+                statsVisibility={ownStatsVisibility}
+              />
+            </>
+          ) : null}
           {!friendAccessDenied && (
             <>
               {viewingOther && requestedUserId && (

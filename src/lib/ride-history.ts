@@ -201,6 +201,8 @@ export function migrateCreditsToEvents(credits: LegacyCredit[]): RideEvent[] {
 
 export type StatsCopyInput = {
   displayName: string | null;
+  /** Absolute or path URL for public profile when stats are shareable. */
+  profileUrl?: string | null;
   includeFamilyRides: boolean;
   uniqueCoasters: number;
   totalRides: number;
@@ -230,6 +232,7 @@ export function buildStatsCopyText(input: StatsCopyInput): string {
     input.mostRidden && input.mostRidden.rides > 1
       ? `- Most ridden: ${input.mostRidden.name} (${input.mostRidden.rides} rides)`
       : null;
+  const trackUrl = input.profileUrl?.trim() || "https://coastertrak.com";
   return [
     shareTitle,
     `- Ride filter: ${input.includeFamilyRides ? "Includes kiddie/family rides" : "Thrill rides only"}`,
@@ -251,7 +254,7 @@ export function buildStatsCopyText(input: StatsCopyInput): string {
     input.mostInversions ? `- Most inversions: ${input.mostInversions}` : null,
     input.longestRide ? `- Longest ride: ${input.longestRide}` : null,
     "",
-    "Track your rides on CoasterTrak: https://coastertrak.com",
+    `Track your rides on CoasterTrak: ${trackUrl}`,
   ]
     .filter((line) => line !== null)
     .join("\n");

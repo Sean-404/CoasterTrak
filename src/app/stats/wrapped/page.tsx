@@ -20,6 +20,7 @@ import {
 import { canViewOtherUserStats } from "@/lib/ride-photos";
 import { loadDatedRideEventsInRange, loadRideCreditSummaries } from "@/lib/ride-log";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { inviteHref, publicProfileHref } from "@/lib/public-profile";
 
 type RideMetaRow = {
   coaster_id: number;
@@ -43,6 +44,7 @@ function StatsWrappedInner() {
   const [loading, setLoading] = useState(true);
   const [friendAccessDenied, setFriendAccessDenied] = useState(false);
   const [viewingPublicProfile, setViewingPublicProfile] = useState(false);
+  const [ownStatsVisibility, setOwnStatsVisibility] = useState<string | null>(null);
   const [rideMeta, setRideMeta] = useState<RideMetaRow[]>([]);
   const [wrappedPeriod, setWrappedPeriod] = useState(ALL_TIME_WRAPPED_PERIOD);
   const [wrappedSummary, setWrappedSummary] = useState<MonthWrappedSummary | null>(null);
@@ -96,6 +98,13 @@ function StatsWrappedInner() {
       const displayName =
         typeof profilePreview.data?.display_name === "string" ? profilePreview.data.display_name : null;
       setShareDisplayName(displayName);
+      if (targetUserId === user.id) {
+        setOwnStatsVisibility(
+          typeof profilePreview.data?.stats_visibility === "string"
+            ? profilePreview.data.stats_visibility
+            : null,
+        );
+      }
 
       if (targetUserId !== user.id) {
         const isFriend = !friendshipRes.error && (friendshipRes.data?.length ?? 0) > 0;
@@ -277,6 +286,14 @@ function StatsWrappedInner() {
               error={wrappedError}
               isOwnStats={isOwnStatsView}
               hasAnyCredits={rideMeta.length > 0}
+              displayName={shareDisplayName}
+              profileUrl={
+                isOwnStatsView && ownStatsVisibility === "public" && shareDisplayName
+                  ? publicProfileHref(shareDisplayName)
+                  : userId
+                    ? inviteHref(userId)
+                    : "https://coastertrak.com"
+              }
             />
           )}
         </AuthGate>

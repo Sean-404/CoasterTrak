@@ -195,6 +195,27 @@ describe("mostRiddenCoaster / copy stats", () => {
     expect(text).toContain("Total rides: 26");
     expect(text).toContain("Most ridden: VelociCoaster (12 rides)");
     expect(text).toContain("Sheen404's CoasterTrak stats");
+    expect(text).toContain("Track your rides on CoasterTrak: https://coastertrak.com");
+  });
+
+  it("uses a public profile URL when provided", () => {
+    const text = buildStatsCopyText({
+      displayName: "Sheen404",
+      profileUrl: "https://coastertrak.com/u/Sheen404",
+      includeFamilyRides: false,
+      uniqueCoasters: 3,
+      totalRides: 26,
+      parksVisited: 15,
+      countriesVisited: 5,
+      continentsVisited: 2,
+      totalTrackLength: "10 mi",
+      totalRideTime: "1h",
+      totalInversions: "40",
+      averageSpeed: "50 mph",
+      favoriteRideLabel: "VelociCoaster",
+      favoriteParkLabel: "Islands of Adventure",
+    });
+    expect(text).toContain("https://coastertrak.com/u/Sheen404");
   });
 });
 

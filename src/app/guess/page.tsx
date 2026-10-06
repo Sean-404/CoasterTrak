@@ -263,6 +263,32 @@ export default function GuessPage() {
             >
               Next photo
             </button>
+            {!result.gaveUp ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  const text = `I scored ${result.score.toLocaleString("en-US")}/5000 on CoasterGuessr (${result.distanceLabel}). Can you beat me? https://coastertrak.com/guess`;
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({ title: "CoasterGuessr", text, url: "https://coastertrak.com/guess" });
+                    } else {
+                      await navigator.clipboard.writeText(text);
+                      window.alert("Challenge copied — paste it anywhere.");
+                    }
+                  } catch {
+                    try {
+                      await navigator.clipboard.writeText(text);
+                      window.alert("Challenge copied — paste it anywhere.");
+                    } catch {
+                      // ignore
+                    }
+                  }
+                }}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800"
+              >
+                Challenge a friend
+              </button>
+            ) : null}
           </div>
         ) : (
           <button

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SiteHeader } from "@/components/site-header";
 import { AppPageHeading } from "@/components/app-page-heading";
+import { AddToHomeScreenTip } from "@/components/add-to-home-screen-tip";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { AVATAR_OPTIONS, DEFAULT_AVATAR_KEY, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
@@ -509,6 +510,7 @@ export default function AccountPage() {
           <p className="text-slate-500">Loading&hellip;</p>
         ) : (
           <div className="space-y-4">
+            <AddToHomeScreenTip />
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start gap-4">
                 <ProfileAvatar
@@ -852,7 +854,7 @@ export default function AccountPage() {
                   </legend>
                   <p className="mt-1 text-xs text-slate-500">
                     Choose who can see your ride stats, ratings, and ride photos. New accounts default to Friends only.
-                    Search engines cannot index this.
+                    Public unlocks a shareable profile at /u/your-display-name.
                   </p>
                   <div className="mt-3 grid gap-2 sm:grid-cols-3">
                     <label
@@ -927,10 +929,23 @@ export default function AccountPage() {
                       />
                       <span className="block text-sm font-semibold text-slate-900">Public</span>
                       <span className="mt-1 block text-xs text-slate-500">
-                        Signed-in users can find you under Friends → Browse public profiles and open your stats and photos.
+                        Anyone can open your /u/profile page. Signed-in users can also browse you under Friends and see full stats.
                       </span>
                     </label>
                   </div>
+                  {statsVisibility === "public" && displayName.trim() ? (
+                    <p className="mt-3 text-xs text-slate-600">
+                      Your public profile:{" "}
+                      <a
+                        href={`/u/${encodeURIComponent(displayName.trim())}`}
+                        className="font-semibold text-amber-800 underline-offset-2 hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        /u/{displayName.trim()}
+                      </a>
+                    </p>
+                  ) : null}
                 </fieldset>
                 <fieldset className="pt-2">
                   <legend className="text-xs font-semibold uppercase tracking-wide text-slate-500">

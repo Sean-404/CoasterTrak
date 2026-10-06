@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { listCoastersForSitemap, listParksForSitemap } from "@/lib/catalog-server";
+import { GUIDES, guidePath } from "@/lib/guides";
+import { listPublicProfilesForSitemap, publicProfilePath } from "@/lib/public-profile";
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
 import { coasterSlug, parkSlug } from "@/lib/slug";
 
@@ -21,6 +23,7 @@ function staticRoutes(catalogStamp: Date): MetadataRoute.Sitemap {
     { path: "/", priority: 1, changeFrequency: "weekly" as const },
     { path: "/coaster-tracker", priority: 0.95, changeFrequency: "weekly" as const },
     { path: "/coaster-credits", priority: 0.95, changeFrequency: "weekly" as const },
+    { path: "/guides", priority: 0.95, changeFrequency: "weekly" as const },
     { path: "/catalog", priority: 0.9, changeFrequency: "weekly" as const },
     { path: "/map", priority: 0.9, changeFrequency: "weekly" as const },
     { path: "/parks", priority: 0.85, changeFrequency: "weekly" as const },
@@ -39,12 +42,25 @@ function staticRoutes(catalogStamp: Date): MetadataRoute.Sitemap {
   }));
 }
 
+function guideRoutes(): MetadataRoute.Sitemap {
+  return GUIDES.map((guide) => ({
+    url: `${BASE_URL}${guidePath(guide.slug)}`,
+    lastModified: new Date(guide.published + "T12:00:00Z"),
+    changeFrequency: "monthly" as const,
+    priority: 0.92,
+  }));
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalogStamp = weekStartUtc();
-  const core = staticRoutes(catalogStamp);
+  const core = [...staticRoutes(catalogStamp), ...guideRoutes()];
 
   try {
-    const [parks, coasters] = await Promise.all([listParksForSitemap(), listCoastersForSitemap()]);
+    const [parks, coasters, publicProfiles] = await Promise.all([
+      listParksForSitemap(),
+      listCoastersForSitemap(),
+      listPublicProfilesForSitemap(80),
+    ]);
 
     const parkRoutes: MetadataRoute.Sitemap = parks.map((park) => ({
       url: `${BASE_URL}/parks/${parkSlug(park.name, park.id)}`,
@@ -60,7 +76,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    return [...core, ...parkRoutes, ...coasterRoutes];
+    const profileRoutes: MetadataRoute.Sitemap = publicProfiles.map((profile) => ({
+      url: `${BASE_URL}${publicProfilePath(profile.displayName)}`,
+      lastModified: profile.updatedAt ? new Date(profile.updatedAt) : catalogStamp,
+      changeFrequency: "weekly" as const,
+      priority: 0.55,
+    }));
+
+    return [...core, ...parkRoutes, ...coasterRoutes, ...profileRoutes];
   } catch {
     // Catalog fetch can time out; still advertise the pages Google should crawl first.
     return core;

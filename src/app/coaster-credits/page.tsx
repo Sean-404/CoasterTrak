@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AdsenseAd } from "@/components/adsense-ad";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
@@ -171,6 +172,12 @@ export default function CoasterCreditsLandingPage() {
             Browse parks &amp; coasters
           </Link>
           <Link
+            href="/guides"
+            className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
+          >
+            Credit guides
+          </Link>
+          <Link
             href="/coaster-tracker"
             className="rounded-lg border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-white/35"
           >
@@ -246,7 +253,21 @@ export default function CoasterCreditsLandingPage() {
             a bigger number,&quot; but &quot;which of these have I still not done?&quot; Filter to a park, open the
             only-them list, and you have a ride order for the day.
           </p>
+          <p>
+            Prefer long-form reading? The{" "}
+            <Link href="/guides" className="font-semibold text-amber-400 hover:text-amber-300">
+              coaster credit guides
+            </Link>{" "}
+            cover definitions, park-day workflows, leftovers, and CoasterGuessr in more depth.
+          </p>
         </section>
+
+        <AdsenseAd
+          slot={process.env.NEXT_PUBLIC_ADSENSE_GUIDE_SLOT}
+          className="mt-10"
+          format="horizontal"
+          fullWidthResponsive
+        />
 
         <section className="mt-12 rounded-2xl border border-white/10 bg-slate-900/70 p-6">
           <h2 className="text-2xl font-semibold text-white">Start your coaster credit log</h2>

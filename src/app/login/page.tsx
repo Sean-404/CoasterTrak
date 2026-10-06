@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/site-header";
 import { validateDisplayName } from "@/lib/display-name";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { AUTH_ORIGIN, PASSWORD_RESET_HREF, siteHref } from "@/lib/site-url";
+import { consumePendingInvite } from "@/lib/pending-invite";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -40,6 +41,11 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const expiredLink = searchParams.get("expired") === "1";
+  const nextPath = (() => {
+    const raw = searchParams.get("next");
+    if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/stats";
+    return raw;
+  })();
   const [mode, setMode] = useState<Mode>(expiredLink ? "forgot" : "signin");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -56,9 +62,9 @@ function LoginForm() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     void getSupabaseUserSafe().then((user) => {
-      if (user) router.replace("/stats");
+      if (user) router.replace(nextPath);
     });
-  }, [router]);
+  }, [router, nextPath]);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -151,7 +157,10 @@ function LoginForm() {
         }
         setLoading(false);
         if (signUpData.session) {
-          router.push("/stats");
+          if (signUpData.user?.id) {
+            await consumePendingInvite(supabase, signUpData.user.id);
+          }
+          router.push(nextPath);
           router.refresh();
         } else {
           setInfo("Account created! Check your email to confirm, then sign in.");
@@ -160,10 +169,13 @@ function LoginForm() {
           setDisplayName("");
         }
       } else {
-        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error: err } = await supabase.auth.signInWithPassword({ email, password });
         setLoading(false);
         if (err) { setError(friendlyAuthError(err)); return; }
-        router.push("/stats");
+        if (signInData.user?.id) {
+          await consumePendingInvite(supabase, signInData.user.id);
+        }
+        router.push(nextPath);
         router.refresh();
       }
     } catch {

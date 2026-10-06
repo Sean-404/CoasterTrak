@@ -186,6 +186,35 @@ export default async function CoasterDetailPage({ params }: PageProps) {
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>
       <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
+
+      <section className="mt-6 max-w-3xl rounded-2xl border border-amber-200/80 bg-amber-50/60 p-5">
+        <h2 className="text-base font-semibold text-slate-900">How to log {name} on CoasterTrak</h2>
+        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
+          <li>Create a free account if you have not already.</li>
+          <li>Mark this coaster ridden after you sit the ride — add a date if you want history.</li>
+          <li>Re-rides increase total rides, not your unique credit count.</li>
+          {park ? (
+            <li>
+              Open the {park.name} park page afterward to spot leftover credits you have not logged yet.
+            </li>
+          ) : null}
+        </ol>
+        <p className="mt-3 text-sm text-slate-600">
+          New to credits? Read{" "}
+          <Link
+            href="/guides/what-is-a-coaster-credit"
+            className="font-semibold text-amber-800 underline-offset-2 hover:underline"
+          >
+            what is a coaster credit
+          </Link>{" "}
+          or the{" "}
+          <Link href="/guides" className="font-semibold text-amber-800 underline-offset-2 hover:underline">
+            full guides hub
+          </Link>
+          .
+        </p>
+      </section>
+
       {wikiSummary?.extract ? (
         <WikipediaBackground
           extract={wikiSummary.extract}
@@ -233,6 +262,12 @@ export default async function CoasterDetailPage({ params }: PageProps) {
             View on RCDB
           </a>
         ) : null}
+        <Link
+          href="/guides"
+          className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
+        >
+          Credit guides
+        </Link>
         <Link
           href="/coaster-tracker"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"

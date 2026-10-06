@@ -19,6 +19,8 @@ type Props = {
   isOwnStats: boolean;
   /** True when the user has any credits (dated or not) — empty calendar periods can point here. */
   hasAnyCredits?: boolean;
+  displayName?: string | null;
+  profileUrl?: string | null;
 };
 
 export function MonthWrappedCard({
@@ -29,6 +31,8 @@ export function MonthWrappedCard({
   error,
   isOwnStats,
   hasAnyCredits = false,
+  displayName = null,
+  profileUrl = null,
 }: Props) {
   const periodOptions = useMemo(() => listWrappedPeriodOptions(18, 4), []);
   const scope =
@@ -139,6 +143,43 @@ export function MonthWrappedCard({
               <StatChip label="Active days" value={String(summary.activeDays)} />
             ) : null}
           </div>
+
+          {isOwnStats ? (
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:border-slate-400"
+              onClick={async () => {
+                const who = displayName?.trim() || "My";
+                const link = profileUrl?.trim() || "https://coastertrak.com";
+                const text = [
+                  `${who === "My" ? "My" : `${who}'s`} CoasterTrak Wrapped · ${label}`,
+                  `${summary.uniqueCredits} credits · ${summary.totalRides} rides · ${summary.uniqueParks} parks`,
+                  summary.topRide ? `Top ride: ${summary.topRide.name}` : null,
+                  "",
+                  `Track yours: ${link}`,
+                ]
+                  .filter((line) => line !== null)
+                  .join("\n");
+                try {
+                  if (navigator.share) {
+                    await navigator.share({ title: "CoasterTrak Wrapped", text });
+                  } else {
+                    await navigator.clipboard.writeText(text);
+                    window.alert("Wrapped summary copied.");
+                  }
+                } catch {
+                  try {
+                    await navigator.clipboard.writeText(text);
+                    window.alert("Wrapped summary copied.");
+                  } catch {
+                    window.alert("Could not share Wrapped.");
+                  }
+                }
+              }}
+            >
+              Share Wrapped
+            </button>
+          ) : null}
 
           <HighlightCard
             eyebrow="Top ride"
