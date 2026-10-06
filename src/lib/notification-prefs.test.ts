@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_NOTIFICATION_PREFS, prefsFromProfileRow } from "@/lib/notification-prefs";
 
 describe("prefsFromProfileRow", () => {
-  it("defaults friend emails on and digest off when row is missing", () => {
+  it("defaults friend emails and digest on when row is missing", () => {
     expect(prefsFromProfileRow(null)).toEqual(DEFAULT_NOTIFICATION_PREFS);
-    expect(DEFAULT_NOTIFICATION_PREFS.notifyWeeklyDigest).toBe(false);
+    expect(DEFAULT_NOTIFICATION_PREFS.notifyWeeklyDigest).toBe(true);
   });
 
-  it("treats null friend columns as enabled and digest as off", () => {
+  it("treats null columns as enabled", () => {
     expect(
       prefsFromProfileRow({
         notify_friend_requests: null,
@@ -17,17 +17,17 @@ describe("prefsFromProfileRow", () => {
     ).toEqual(DEFAULT_NOTIFICATION_PREFS);
   });
 
-  it("respects explicit opt-outs and digest opt-in", () => {
+  it("respects explicit opt-outs", () => {
     expect(
       prefsFromProfileRow({
         notify_friend_requests: false,
         notify_friend_accepted: true,
-        notify_weekly_digest: true,
+        notify_weekly_digest: false,
       }),
     ).toEqual({
       notifyFriendRequests: false,
       notifyFriendAccepted: true,
-      notifyWeeklyDigest: true,
+      notifyWeeklyDigest: false,
     });
   });
 });

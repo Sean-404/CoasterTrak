@@ -1,7 +1,7 @@
 -- Weekly digest opt-in (default OFF — digests are quieter than friend alerts).
 
 alter table public.profiles
-  add column if not exists notify_weekly_digest boolean not null default false;
+  add column if not exists notify_weekly_digest boolean not null default true;
 
 comment on column public.profiles.notify_weekly_digest is
-  'Sunday weekly credit summary email. Default false; user must opt in from Account.';
+  'Sunday weekly credit summary email. Default true; user can opt out at signup or in Account.';

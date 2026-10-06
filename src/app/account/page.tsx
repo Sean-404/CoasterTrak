@@ -953,8 +953,7 @@ export default function AccountPage() {
                     Email notifications
                   </legend>
                   <p className="mt-1 text-xs text-slate-500">
-                    Friend alerts are on by default. The weekly digest is opt-in — a Sunday summary of your credits
-                    when you logged something.
+                    Friend alerts and the Sunday credit digest are on by default. Turn either off anytime.
                   </p>
                   <div className="mt-3 space-y-2">
                     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 hover:border-slate-300">
@@ -1017,7 +1016,7 @@ export default function AccountPage() {
                         <span className="block text-sm font-semibold text-slate-900">Weekly credit digest</span>
                         <span className="mt-0.5 block text-xs text-slate-500">
                           Sunday email with your new credits, rides, and a light community note — only when you (or a
-                          friend) logged something that week.
+                          friend) logged something that week. On by default.
                         </span>
                       </span>
                     </label>

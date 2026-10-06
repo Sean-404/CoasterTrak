@@ -57,6 +57,7 @@ function LoginForm() {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [notifyFriendEmails, setNotifyFriendEmails] = useState(true);
+  const [notifyWeeklyDigest, setNotifyWeeklyDigest] = useState(true);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -144,6 +145,7 @@ function LoginForm() {
                 display_name: normalizedDisplayName,
                 notify_friend_requests: notifyFriendEmails,
                 notify_friend_accepted: notifyFriendEmails,
+                notify_weekly_digest: notifyWeeklyDigest,
               },
               { onConflict: "user_id" },
             );
@@ -255,17 +257,30 @@ function LoginForm() {
               />
             )}
             {mode === "signup" && (
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={notifyFriendEmails}
-                  onChange={(e) => setNotifyFriendEmails(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
-                />
-                <span className="text-xs text-slate-600">
-                  Email me about friend requests (you can change this later in Account).
-                </span>
-              </label>
+              <>
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={notifyFriendEmails}
+                    onChange={(e) => setNotifyFriendEmails(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                  />
+                  <span className="text-xs text-slate-600">
+                    Email me about friend requests (you can change this later in Account).
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <input
+                    type="checkbox"
+                    checked={notifyWeeklyDigest}
+                    onChange={(e) => setNotifyWeeklyDigest(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-amber-400"
+                  />
+                  <span className="text-xs text-slate-600">
+                    Send me a weekly credit digest on Sundays when I&apos;ve logged rides (change anytime in Account).
+                  </span>
+                </label>
+              </>
             )}
 
             {mode === "signin" && (

@@ -57,7 +57,7 @@ Ads are mounted on guides and selected content pages only — never on thin stub
 ### Weekly digest cron
 
 Vercel Cron hits `GET /api/cron/weekly-digest` Sundays 18:00 UTC (`Authorization: Bearer <SYNC_CRON_SECRET>`).
-Users must opt in under Account → Weekly credit digest. Apply migration `20261006180000_notify_weekly_digest.sql` first.
+Users get digests by default (`notify_weekly_digest`). They can uncheck at signup or under Account → Weekly credit digest. Apply migrations `20261006180000_notify_weekly_digest.sql` and `20261006183000_weekly_digest_default_on.sql`.
 
 ## Deploy (Vercel free tier)
 

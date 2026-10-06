@@ -7,7 +7,7 @@ export type NotificationPrefs = {
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   notifyFriendRequests: true,
   notifyFriendAccepted: true,
-  notifyWeeklyDigest: false,
+  notifyWeeklyDigest: true,
 };
 
 export function prefsFromProfileRow(row: {
@@ -18,7 +18,6 @@ export function prefsFromProfileRow(row: {
   return {
     notifyFriendRequests: row?.notify_friend_requests !== false,
     notifyFriendAccepted: row?.notify_friend_accepted !== false,
-    // Digests are opt-in (default off).
-    notifyWeeklyDigest: row?.notify_weekly_digest === true,
+    notifyWeeklyDigest: row?.notify_weekly_digest !== false,
   };
 }
