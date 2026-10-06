@@ -114,7 +114,8 @@ export function AddToHomeScreenTip({ className = "" }: { className?: string }) {
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Add CoasterTrak to your home screen</h2>
           <p className="mt-1 text-sm leading-relaxed text-slate-600">
-            Opens like an app for park days — full screen, one tap from your phone.
+            Opens like an app from your home screen — starts on the CoasterTrak home page, then jump to Discover,
+            Stats, or Friends from the menu.
           </p>
           {iosChrome ? (
             <p className="mt-3 text-sm text-slate-700">
