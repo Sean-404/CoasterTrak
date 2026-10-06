@@ -8,7 +8,7 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import { requestFriendNotification } from "@/lib/friend-notify-client";
-import { inviteHref } from "@/lib/public-profile";
+import { inviteHref, profileOrStatsPath } from "@/lib/public-profile";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { canViewOtherUserStats } from "@/lib/ride-photos";
 import { signAvatarUrls } from "@/lib/profile-photos";
@@ -516,10 +516,14 @@ export default function FriendsPage() {
                           <div className="flex shrink-0 gap-2">
                             {canViewStats ? (
                               <Link
-                                href={`/stats?user=${encodeURIComponent(profile.user_id)}`}
+                                href={profileOrStatsPath(
+                                  profile.display_name,
+                                  profile.user_id,
+                                  profile.stats_visibility,
+                                )}
                                 className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
                               >
-                                Stats
+                                {profile.stats_visibility === "public" ? "Profile" : "Stats"}
                               </Link>
                             ) : null}
                             <button
@@ -655,7 +659,11 @@ export default function FriendsPage() {
                               <div className="min-w-0">
                                 {canViewStats ? (
                                   <Link
-                                    href={`/stats?user=${encodeURIComponent(otherId)}`}
+                                    href={profileOrStatsPath(
+                                      other?.display_name,
+                                      otherId,
+                                      other?.stats_visibility,
+                                    )}
                                     className="font-medium text-slate-900 underline decoration-slate-300 underline-offset-2 hover:text-amber-700"
                                   >
                                     {nameContent}

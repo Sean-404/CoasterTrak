@@ -28,6 +28,22 @@ export function invitePath(userId: string): string {
   return `/invite/${encodeURIComponent(userId)}`;
 }
 
+/**
+ * Canonical in-app link to someone else's profile:
+ * Public + display name → /u/Name; otherwise full Stats by user id.
+ */
+export function profileOrStatsPath(
+  displayName: string | null | undefined,
+  userId: string,
+  statsVisibility?: string | null,
+): string {
+  const name = displayName?.trim();
+  if (statsVisibility === "public" && name) {
+    return publicProfilePath(name);
+  }
+  return `/stats?user=${encodeURIComponent(userId)}`;
+}
+
 export function inviteHref(userId: string, origin: string = SITE_URL): string {
   return siteHref(invitePath(userId), origin);
 }

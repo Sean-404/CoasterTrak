@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { PublicProfileActions } from "@/components/public-profile-actions";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import {
   getPublicProfileByDisplayName,
-  invitePath,
   publicProfileHref,
   publicProfilePath,
 } from "@/lib/public-profile";
@@ -126,36 +125,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
           </div>
         )}
 
-        <section className="mt-10 rounded-2xl border border-amber-200 bg-amber-50/70 p-6">
-          <h2 className="text-xl font-semibold text-slate-900">Track your own credits</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            CoasterTrak is a free browser coaster credit tracker. Sign up to log unique rides, plan park leftovers,
-            and compare tallies with {profile.displayName}.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            <Link
-              href={`/login?next=${encodeURIComponent(invitePath(profile.userId))}`}
-              className="rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
-            >
-              Sign up free
-            </Link>
-            <Link
-              href={invitePath(profile.userId)}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Accept invite / add friend
-            </Link>
-            <Link
-              href="/guides/what-is-a-coaster-credit"
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              What is a credit?
-            </Link>
-          </div>
-        </section>
+        <PublicProfileActions userId={profile.userId} displayName={profile.displayName} />
 
         <p className="mt-8 text-xs text-slate-500">
-          Full ride lists and photos are available when you are signed in and this profile stays public. Share URL:{" "}
+          Share URL:{" "}
           <span className="font-mono text-slate-600">
             {SITE_URL}
             {publicProfilePath(profile.displayName)}

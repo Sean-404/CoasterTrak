@@ -8,6 +8,7 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
 import { requestFriendNotification } from "@/lib/friend-notify-client";
+import { profileOrStatsPath } from "@/lib/public-profile";
 import { signAvatarUrls } from "@/lib/profile-photos";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 
@@ -450,10 +451,10 @@ export default function UsersPage() {
 
                         <div className="mt-3 grid grid-cols-3 gap-2 sm:flex sm:justify-end">
                           <Link
-                            href={`/stats?user=${encodeURIComponent(profile.user_id)}`}
+                            href={profileOrStatsPath(profile.display_name, profile.user_id, "public")}
                             className="rounded-lg border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-700 hover:bg-slate-50 sm:px-3 sm:py-1.5"
                           >
-                            Stats
+                            Profile
                           </Link>
                           <Link
                             href={`/stats?user=${encodeURIComponent(profile.user_id)}&compare=1`}
