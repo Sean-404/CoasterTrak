@@ -10,6 +10,9 @@ import { countRegisteredProfiles } from "@/lib/public-profile";
 import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 import { parkSlug } from "@/lib/slug";
 
+// Without this, Next freezes the Supabase user count into the build output until the next deploy.
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: {
     absolute: "Free Coaster Credit Tracker | CoasterTrak",
