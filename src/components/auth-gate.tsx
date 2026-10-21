@@ -2,19 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe, isSupabaseConfigured } from "@/lib/supabase";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(true);
+  // Without Supabase there is nothing to wait for: show the sign-in prompt straight away.
+  const [loading, setLoading] = useState(isSupabaseConfigured);
   const [isAuthed, setIsAuthed] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     async function syncAuth() {
       const user = await getSupabaseUserSafe();

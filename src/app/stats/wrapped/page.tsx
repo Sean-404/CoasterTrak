@@ -19,7 +19,7 @@ import {
 } from "@/lib/month-wrapped";
 import { canViewOtherUserStats } from "@/lib/ride-photos";
 import { loadDatedRideEventsInRange, loadRideCreditSummaries } from "@/lib/ride-log";
-import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe, isSupabaseConfigured } from "@/lib/supabase";
 import { inviteHref, publicProfileHref } from "@/lib/public-profile";
 
 type RideMetaRow = {
@@ -56,17 +56,25 @@ function StatsWrappedInner() {
     ? `/stats?user=${encodeURIComponent(requestedUserId)}`
     : "/stats";
 
+  // Switching to another user's Wrapped clears the previous data during render. The initial
+  // state already matches these values, so the first load needs no reset.
+  const [wrappedUserKey, setWrappedUserKey] = useState(requestedUserId);
+  if (wrappedUserKey !== requestedUserId) {
+    setWrappedUserKey(requestedUserId);
+    if (isSupabaseConfigured()) {
+      setLoading(true);
+      setFriendAccessDenied(false);
+      setViewingPublicProfile(false);
+      setRideMeta([]);
+      setShareDisplayName(null);
+      setWrappedSummary(null);
+      setWrappedError(null);
+    }
+  }
+
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
-
-    setLoading(true);
-    setFriendAccessDenied(false);
-    setViewingPublicProfile(false);
-    setRideMeta([]);
-    setShareDisplayName(null);
-    setWrappedSummary(null);
-    setWrappedError(null);
 
     void getSupabaseUserSafe().then(async (user) => {
       if (!user) {
@@ -146,11 +154,26 @@ function StatsWrappedInner() {
     });
   }, [requestedUserId]);
 
-  useEffect(() => {
-    if (loading || friendAccessDenied || !activeStatsUserId) {
+  // `loading` only clears once Supabase has answered, so a ready summary always has a client.
+  const summaryReady = !loading && !friendAccessDenied && !!activeStatsUserId;
+
+  // When the summary inputs change, reset it during render; the effect below only does the fetching.
+  const summaryInputs = [loading, friendAccessDenied, activeStatsUserId, wrappedPeriod, rideMeta] as const;
+  const [prevSummaryInputs, setPrevSummaryInputs] = useState(summaryInputs);
+  if (summaryInputs.some((value, i) => value !== prevSummaryInputs[i])) {
+    setPrevSummaryInputs(summaryInputs);
+    if (!summaryReady) {
       setWrappedSummary(null);
-      return;
+    } else if (isAllTimePeriod(wrappedPeriod) || periodDateRange(wrappedPeriod)) {
+      setWrappedLoading(true);
+      setWrappedError(null);
     }
+  }
+
+  useEffect(() => {
+    if (!summaryReady || !activeStatsUserId) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
 
     const metaByCoasterId = new Map<number, MonthWrappedRideMeta>();
     for (const ride of rideMeta) {
@@ -169,20 +192,6 @@ function StatsWrappedInner() {
 
     if (isAllTimePeriod(wrappedPeriod)) {
       let cancelled = false;
-      setWrappedLoading(true);
-      setWrappedError(null);
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) {
-        setWrappedSummary(
-          buildAllTimeWrappedSummary(
-            rideMeta.map((r) => r.coaster_id),
-            metaByCoasterId,
-          ),
-        );
-        setWrappedLoading(false);
-        return;
-      }
-
       void loadRideCreditSummaries(supabase, activeStatsUserId).then(({ summaries, error }) => {
         if (cancelled) return;
         if (error) {
@@ -212,14 +221,10 @@ function StatsWrappedInner() {
       };
     }
 
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
     const range = periodDateRange(wrappedPeriod);
     if (!range) return;
 
     let cancelled = false;
-    setWrappedLoading(true);
-    setWrappedError(null);
 
     void loadDatedRideEventsInRange(supabase, activeStatsUserId, range.start, range.end).then(
       ({ events, error }) => {
@@ -238,7 +243,7 @@ function StatsWrappedInner() {
     return () => {
       cancelled = true;
     };
-  }, [loading, friendAccessDenied, activeStatsUserId, wrappedPeriod, rideMeta]);
+  }, [summaryReady, activeStatsUserId, wrappedPeriod, rideMeta]);
 
   return (
     <div className="min-h-screen">

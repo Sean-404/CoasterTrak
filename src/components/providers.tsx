@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import { UNITS_CYCLE, type Units } from "@/lib/units";
 
 const STORAGE_KEY = "coastertrak-units";
@@ -15,18 +15,35 @@ const UnitsContext = createContext<UnitsContextValue>({
   setUnits: () => {},
 });
 
+// The saved preference lives in localStorage; the server render and hydration use imperial.
+let chosenUnits: Units | null = null;
+const unitsListeners = new Set<() => void>();
+
+function subscribeUnits(listener: () => void) {
+  unitsListeners.add(listener);
+  return () => {
+    unitsListeners.delete(listener);
+  };
+}
+
+function getUnitsSnapshot(): Units {
+  if (chosenUnits) return chosenUnits;
+  const stored = localStorage.getItem(STORAGE_KEY) as Units | null;
+  return stored && UNITS_CYCLE.includes(stored) ? stored : "imperial";
+}
+
+function getServerUnitsSnapshot(): Units {
+  return "imperial";
+}
+
+function setUnits(next: Units) {
+  chosenUnits = next;
+  unitsListeners.forEach((listener) => listener());
+  localStorage.setItem(STORAGE_KEY, next);
+}
+
 export function UnitsProvider({ children }: { children: React.ReactNode }) {
-  const [units, setUnitsState] = useState<Units>("imperial");
-
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Units | null;
-    if (stored && UNITS_CYCLE.includes(stored)) setUnitsState(stored);
-  }, []);
-
-  function setUnits(next: Units) {
-    setUnitsState(next);
-    localStorage.setItem(STORAGE_KEY, next);
-  }
+  const units = useSyncExternalStore(subscribeUnits, getUnitsSnapshot, getServerUnitsSnapshot);
 
   return (
     <UnitsContext.Provider value={{ units, setUnits }}>

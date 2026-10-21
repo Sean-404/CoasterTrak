@@ -52,6 +52,7 @@
     "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "braces": "file:vendor/braces",
     "eslint": "^9",
     "eslint-config-next": "^16.3.8",
     "postcss": "^8.5.25",
@@ -63,7 +64,7 @@
   "overrides": {
     "@babel/core": "^8.0.1",
     "brace-expansion": "^5.0.12",
-    "braces": "file:vendor/braces",
+    "braces": "$braces",
     "esbuild": "^0.28.1",
     "js-yaml": "^4.3.2",
     "minimatch": "^10.2.6",

@@ -20,14 +20,13 @@ export default function InvitePage() {
   const inviterId = typeof params.userId === "string" ? decodeURIComponent(params.userId) : "";
 
   const [inviter, setInviter] = useState<InviterInfo | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "sent" | "error" | "missing">("loading");
+  const validInviterId = /^[0-9a-f-]{36}$/i.test(inviterId);
+  const [inviteStatus, setStatus] = useState<"loading" | "ready" | "sent" | "error">("loading");
+  const status = validInviterId ? inviteStatus : "missing";
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    if (!inviterId || !/^[0-9a-f-]{36}$/i.test(inviterId)) {
-      setStatus("missing");
-      return;
-    }
+    if (!validInviterId) return;
 
     storePendingInvite(inviterId);
 
@@ -134,7 +133,7 @@ export default function InvitePage() {
       setStatus("sent");
       router.prefetch("/friends");
     })();
-  }, [inviterId, router]);
+  }, [inviterId, validInviterId, router]);
 
   const name = inviter?.displayName ?? "a friend";
 

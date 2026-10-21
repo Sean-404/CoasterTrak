@@ -47,12 +47,15 @@ export function MapParkRideSheet({
   onClose,
 }: Props) {
   const [filter, setFilter] = useState("");
+  const [filterParkId, setFilterParkId] = useState(park.id);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const canPortal = typeof window !== "undefined";
 
-  useEffect(() => {
+  // Clear the filter when another park opens (adjusting state during render, not in an effect).
+  if (filterParkId !== park.id) {
+    setFilterParkId(park.id);
     setFilter("");
-  }, [park.id]);
+  }
 
   useEffect(() => {
     if (!onClose) return;

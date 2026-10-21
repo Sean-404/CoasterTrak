@@ -42,15 +42,8 @@ export default function GuessPage() {
   const loadSeq = useRef(0);
   const submitSeq = useRef(0);
 
-  const loadRound = useCallback(async (excludeToken?: string) => {
-    const seq = ++loadSeq.current;
-    submitSeq.current += 1;
-    if (excludeToken) setMapRound((n) => n + 1);
-    setStatus("loading");
-    setError(null);
-    setGuess(null);
-    setResult(null);
-
+  // Only sets state after the request resolves, so the mount effect can call it directly.
+  const fetchRound = useCallback(async (seq: number, excludeToken?: string) => {
     try {
       const query = excludeToken ? `?exclude=${encodeURIComponent(excludeToken)}` : "";
       const response = await fetch(`/api/guess/round${query}`, { cache: "no-store" });
@@ -71,6 +64,17 @@ export default function GuessPage() {
     }
   }, []);
 
+  async function loadRound(excludeToken?: string) {
+    const seq = ++loadSeq.current;
+    submitSeq.current += 1;
+    if (excludeToken) setMapRound((n) => n + 1);
+    setStatus("loading");
+    setError(null);
+    setGuess(null);
+    setResult(null);
+    await fetchRound(seq, excludeToken);
+  }
+
   function skipBrokenPhoto(token: string, seq: number) {
     if (seq !== loadSeq.current) return;
     brokenStreak.current += 1;
@@ -82,9 +86,10 @@ export default function GuessPage() {
     void loadRound(token);
   }
 
+  // The first round starts from the initial (loading) state, so there is nothing to reset.
   useEffect(() => {
-    void loadRound();
-  }, [loadRound]);
+    void fetchRound(++loadSeq.current);
+  }, [fetchRound]);
 
   async function submitRound(giveUp: boolean) {
     if (!round || status !== "playing") return;

@@ -142,8 +142,12 @@ function MapViewPersistence({
   const parkIdRef = useRef(parkId);
   const coasterIdRef = useRef(coasterId);
   const didMountPersist = useRef(false);
-  parkIdRef.current = parkId;
-  coasterIdRef.current = coasterId;
+
+  // Declared before the persist effect below so it sees the latest ids.
+  useEffect(() => {
+    parkIdRef.current = parkId;
+    coasterIdRef.current = coasterId;
+  }, [parkId, coasterId]);
 
   const persist = (leafletMap: L.Map) => {
     const center = leafletMap.getCenter();

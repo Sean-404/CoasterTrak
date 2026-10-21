@@ -31,7 +31,7 @@ import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { compactImageUrl } from "@/lib/image-url";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
-import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { getSupabaseBrowserClient, getSupabaseUserSafe, isSupabaseConfigured } from "@/lib/supabase";
 import { loadRideCreditSummaries, logRideEvents, summariesByCoasterId } from "@/lib/ride-log";
 import {
   canViewOtherUserStats,
@@ -382,21 +382,30 @@ function StatsPageContent() {
   const viewingOther = Boolean(userId && requestedUserId && requestedUserId !== userId);
   const compareMode = viewingOther && compareRequested && !friendAccessDenied;
 
+  // Switching to another user's stats clears the previous data during render. The initial
+  // state already matches these values, so the first load needs no reset.
+  const [statsUserKey, setStatsUserKey] = useState(requestedUserId);
+  if (statsUserKey !== requestedUserId) {
+    setStatsUserKey(requestedUserId);
+    if (isSupabaseConfigured()) {
+      setLoading(true);
+      setFetchError(false);
+      setFriendAccessDenied(false);
+      setViewingPublicProfile(false);
+      setRides([]);
+      setShareDisplayName(null);
+      setOwnStatsVisibility(null);
+      setProfileAvatarKey(null);
+      setProfileAvatarUrl(null);
+      setFavoriteRideLabel("Not set");
+      setFavoriteParkLabel("Not set");
+      setFriendCount(0);
+    }
+  }
+
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
-    setLoading(true);
-    setFetchError(false);
-    setFriendAccessDenied(false);
-    setViewingPublicProfile(false);
-    setRides([]);
-    setShareDisplayName(null);
-    setOwnStatsVisibility(null);
-    setProfileAvatarKey(null);
-    setProfileAvatarUrl(null);
-    setFavoriteRideLabel("Not set");
-    setFavoriteParkLabel("Not set");
-    setFriendCount(0);
 
     void getSupabaseUserSafe().then(async (user) => {
       if (!user) { setLoading(false); return; }
