@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogSourcesPanel } from "@/components/catalog-sources-panel";
 import { CatalogStatPills, type CatalogStatPill } from "@/components/catalog-stat-pills";
+import { ParkCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterList } from "@/components/park-coaster-list";
 import { ParkStatusBadge } from "@/components/park-status-badge";
 import { WikipediaBackground } from "@/components/wikipedia-background";
@@ -21,6 +22,7 @@ import {
   resolveCatalogParkId,
 } from "@/lib/catalog-server";
 import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
+import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { correctionMailto, parkDataCoverage } from "@/lib/catalog-sources";
 import { cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
@@ -98,6 +100,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
   const coasters = await getCoastersForPark(park.id);
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
   const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
+  const communityStats = await getCommunityStatsById();
   const intro = buildParkEditorialIntro(park.name, countryLabel, coasters);
   const trackerNote = buildParkTrackerNote(park.name, coasters);
   const highlights = computeParkHighlights(coasters);
@@ -194,32 +197,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{intro}</p>
       <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
 
-      <section className="mt-6 max-w-3xl rounded-2xl border border-amber-200/80 bg-amber-50/60 p-5">
-        <h2 className="text-base font-semibold text-slate-900">Plan leftovers at {park.name}</h2>
-        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
-          <li>Log operating rides you already have so the remaining list is honest.</li>
-          <li>Wishlist anything you will skip this trip but want later.</li>
-          <li>On park day, work leftovers first, then re-rides — log in the queue when you can.</li>
-          <li>Riding with a friend? Compare tallies first to see credits only they still need.</li>
-        </ol>
-        <p className="mt-3 text-sm text-slate-600">
-          Step-by-step:{" "}
-          <Link
-            href="/guides/planning-park-leftovers"
-            className="font-semibold text-amber-800 underline-offset-2 hover:underline"
-          >
-            how to plan park leftovers
-          </Link>{" "}
-          ·{" "}
-          <Link
-            href="/guides/first-park-day-credit-log"
-            className="font-semibold text-amber-800 underline-offset-2 hover:underline"
-          >
-            first park day logging
-          </Link>
-          .
-        </p>
-      </section>
+      <ParkCommunityStats parkName={park.name} coasters={coasters} statsById={communityStats} />
 
       {wikiSummary?.extract ? (
         <WikipediaBackground

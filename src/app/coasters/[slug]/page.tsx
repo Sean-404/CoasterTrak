@@ -6,6 +6,7 @@ import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogSourcesPanel } from "@/components/catalog-sources-panel";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { CoasterDetailActions } from "@/components/coaster-detail-actions";
+import { CoasterCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
 import { WikipediaBackground } from "@/components/wikipedia-background";
 import {
@@ -19,6 +20,7 @@ import {
   buildCoasterMetaPills,
 } from "@/lib/catalog-coaster-pills";
 import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/lib/catalog-server";
+import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
 import { SITE_URL } from "@/lib/site-url";
@@ -120,6 +122,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
     storedEnwikiTitle: coaster.enwiki_title,
   });
   const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
+  const communityStats = await getCommunityStatsById();
 
   const siteUrl = SITE_URL;
   const bodyIntro = buildCoasterEditorialIntro(coaster, parkLabel || null);
@@ -187,33 +190,10 @@ export default async function CoasterDetailPage({ params }: PageProps) {
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>
       <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
 
-      <section className="mt-6 max-w-3xl rounded-2xl border border-amber-200/80 bg-amber-50/60 p-5">
-        <h2 className="text-base font-semibold text-slate-900">How to log {name} on CoasterTrak</h2>
-        <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700">
-          <li>Create a free account if you have not already.</li>
-          <li>Mark this coaster ridden after you sit the ride — add a date if you want history.</li>
-          <li>Re-rides increase total rides, not your unique credit count.</li>
-          {park ? (
-            <li>
-              Open the {park.name} park page afterward to spot leftover credits you have not logged yet.
-            </li>
-          ) : null}
-        </ol>
-        <p className="mt-3 text-sm text-slate-600">
-          New to credits? Read{" "}
-          <Link
-            href="/guides/what-is-a-coaster-credit"
-            className="font-semibold text-amber-800 underline-offset-2 hover:underline"
-          >
-            what is a coaster credit
-          </Link>{" "}
-          or the{" "}
-          <Link href="/guides" className="font-semibold text-amber-800 underline-offset-2 hover:underline">
-            full guides hub
-          </Link>
-          .
-        </p>
-      </section>
+      <CoasterCommunityStats
+        coasterName={name}
+        stats={communityStats ? communityStats.get(coaster.id) : null}
+      />
 
       {wikiSummary?.extract ? (
         <WikipediaBackground
