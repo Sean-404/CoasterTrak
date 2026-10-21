@@ -81,15 +81,21 @@ function MapController({
   const prevContinent = useRef(continent);
   const prevResetKey = useRef(viewResetKey);
   const skippedInitialFly = useRef(false);
+  // Depend on the park's identity and position, not the object: re-renders can rebuild the
+  // same park as a new object, and restarting a flight mid-frame makes Leaflet compute NaN.
+  const hasPark = selectedPark != null;
+  const parkLat = selectedPark?.latitude;
+  const parkLng = selectedPark?.longitude;
+  const parkKey = selectedPark?.id;
 
   useEffect(() => {
-    if (!selectedPark) return;
+    if (parkKey == null || parkLat == null || parkLng == null) return;
     if (skipInitialParkFly && !skippedInitialFly.current && focusRequestKey === 0) {
       skippedInitialFly.current = true;
       return;
     }
     const targetZoom = tightFocus ? Math.max(map.getZoom(), 12) : Math.max(map.getZoom(), 6);
-    map.flyTo([selectedPark.latitude, selectedPark.longitude], targetZoom, {
+    map.flyTo([parkLat, parkLng], targetZoom, {
       duration: 1,
     });
     return () => {
@@ -99,7 +105,7 @@ function MapController({
         /* map not yet ready */
       }
     };
-  }, [selectedPark, map, tightFocus, skipInitialParkFly, focusRequestKey]);
+  }, [parkKey, parkLat, parkLng, map, tightFocus, skipInitialParkFly, focusRequestKey]);
 
   useEffect(() => {
     const continentChanged = prevContinent.current !== continent;
@@ -108,7 +114,7 @@ function MapController({
     prevResetKey.current = viewResetKey;
 
     // Stay put when the park panel closes — only reframe for continent filter or Reset map.
-    if (selectedPark) return;
+    if (hasPark) return;
     if (!continentChanged && !resetRequested) return;
 
     if (resetRequested) clearSavedMapView();
@@ -126,7 +132,7 @@ function MapController({
         /* map not yet ready */
       }
     };
-  }, [continent, map, selectedPark, viewResetKey]);
+  }, [continent, map, hasPark, viewResetKey]);
   return null;
 }
 
