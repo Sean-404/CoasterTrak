@@ -7,33 +7,16 @@ import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Free Coaster Credit Tracker | CoasterTrak",
+    absolute: "Coaster Credits Explained: Unique Rides vs Re-rides | CoasterTrak",
   },
   description:
     "Free coaster credit tracker for unique rides. Log each credit once, keep repeats as extra rides, see park leftovers, and compare tallies with friends — no app store required.",
-  keywords: [
-    "coaster credit tracker",
-    "free coaster credit tracker",
-    "coaster credit",
-    "coaster credits",
-    "coaster credit app",
-    "coaster credit logger",
-    "roller coaster credits",
-    "roller coaster credit tracker",
-    "unique coaster credits",
-    "coaster log",
-    "coaster logger",
-    "coaster tally",
-    "theme park credit tracker",
-    "credit hunter",
-    "credit logger",
-    "CoasterTrak",
-  ],
+  keywords: ["coaster credits", "coaster credit tracker", "unique coaster credits", "CoasterTrak"],
   alternates: {
     canonical: "/coaster-credits",
   },
   openGraph: {
-    title: "Free Coaster Credit Tracker | CoasterTrak",
+    title: "Coaster Credits Explained | CoasterTrak",
     description:
       "Free coaster credit tracker to log unique rides, plan leftover credits at a park, and compare tallies with friends.",
     url: `${SITE_URL}/coaster-credits`,
@@ -151,11 +134,10 @@ export default function CoasterCreditsLandingPage() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">Coaster credit tracker</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">
-          Free coaster credit tracker
+          Coaster credits, explained
         </h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
-          CoasterTrak is a free coaster credit tracker for people who count unique rides — or who just searched for a
-          place to start. Log each credit once, keep repeats as extra rides, and use park pages plus friend compare to
+          CoasterTrak is a free coaster credit tracker for people who count unique rides. Log each credit once, keep repeats as extra rides, and use park pages plus friend compare to
           see what is still left before the next trip. Works in your browser on phone or desktop.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">

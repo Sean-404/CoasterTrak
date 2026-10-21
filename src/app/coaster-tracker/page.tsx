@@ -6,29 +6,16 @@ import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: {
-    absolute: "Free Coaster Tracker | CoasterTrak",
+    absolute: "How the Free Coaster Tracker Works | CoasterTrak",
   },
   description:
     "Free coaster tracker in your browser. Log roller coaster credits, explore parks on a world map, build a wishlist, and compare stats with friends — no app store required.",
-  keywords: [
-    "coaster tracker",
-    "free coaster tracker",
-    "roller coaster tracker",
-    "coaster trak",
-    "coaster track",
-    "CoasterTrak",
-    "coaster credits",
-    "coaster credit tracker",
-    "theme park tracker",
-    "roller coaster credit log",
-    "roller coaster log",
-    "coaster log",
-  ],
+  keywords: ["coaster tracker", "roller coaster tracker", "coaster credits", "CoasterTrak"],
   alternates: {
     canonical: "/coaster-tracker",
   },
   openGraph: {
-    title: "Free Coaster Tracker | CoasterTrak",
+    title: "How the Free Coaster Tracker Works | CoasterTrak",
     description:
       "Free coaster tracker to log ride credits, discover parks worldwide, and compare stats with friends.",
     url: `${SITE_URL}/coaster-tracker`,
@@ -51,11 +38,6 @@ const faqs = [
     question: "Do I need an account to browse?",
     answer:
       "No. Anyone can use Discover to explore the map and catalog. An account is required to save ride history, wishlists, and friend connections.",
-  },
-  {
-    question: "What is the difference between CoasterTrak and coaster trak?",
-    answer:
-      "They are the same product. CoasterTrak is the brand name; people often search for coaster trak or coaster tracker when looking for a free roller coaster credit log.",
   },
   {
     question: "Where does the park data come from?",
@@ -142,12 +124,12 @@ export default function CoasterTrackerLandingPage() {
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-400">Free coaster tracker</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight sm:text-5xl">
-          Free coaster tracker
+          How the coaster tracker works
         </h1>
         <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-300">
           CoasterTrak is a free coaster tracker for enthusiasts who want to log rides, discover parks on a map, and
-          watch coaster credits grow over time — in the browser, with no app download. If you searched for coaster
-          tracker or coaster trak, you are in the right place.
+          watch coaster credits grow over time — in the browser, with no app download. This page walks through each part:
+          Discover, wishlists, stats, friends and achievements.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link

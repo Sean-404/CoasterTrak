@@ -12,7 +12,7 @@ export type GuideMeta = {
 };
 
 /**
- * Original long-form guides for SEO / AdSense substance.
+ * Original long-form guides for credit hunters.
  * Keep in sync with pages under /guides/[slug].
  */
 export const GUIDES: GuideMeta[] = [

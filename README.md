@@ -37,7 +37,7 @@ CoasterTrak is an MVP rollercoaster tracking app with:
 ## Key routes
 
 - `/` - landing page
-- `/guides` - original coaster credit guides (AdSense / SEO substance)
+- `/guides` - original coaster credit guides
 - `/map` - interactive map with country and name filter
 - `/login` - sign up / sign in
 - `/wishlist` - user wishlist

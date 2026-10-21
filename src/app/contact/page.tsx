@@ -102,7 +102,6 @@ export default function ContactPage() {
           <h2 className="pt-2 text-xl font-semibold text-slate-900">What we do not handle here</h2>
           <ul className="list-disc space-y-2 pl-5">
             <li>Park tickets, FastPass-style reservations, or ride closures — contact the park.</li>
-            <li>Please do not email to ask us to click ads or inflate traffic. That violates ad programme rules.</li>
           </ul>
         </div>
       </main>
