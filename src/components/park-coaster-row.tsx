@@ -5,10 +5,16 @@ import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterStatPills } from "@/components/coaster-stat-pills";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { cleanCoasterName, formatManufacturerLabel } from "@/lib/display";
-import { normalizeLifecycleStatus } from "@/lib/coaster-status";
+import { coasterStatusDisplay } from "@/lib/coaster-status";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug } from "@/lib/slug";
 import type { Coaster } from "@/types/domain";
+
+const STATUS_PILL_CLASS = {
+  green: "bg-green-50 text-green-700",
+  red: "bg-red-100 text-red-700",
+  slate: "bg-slate-100 text-slate-500",
+} as const;
 
 export function ParkCoasterRow({
   coaster,
@@ -22,11 +28,8 @@ export function ParkCoasterRow({
   nofollow?: boolean;
 }) {
   const cName = cleanCoasterName(coaster.name);
-  const isDefunct =
-    normalizeLifecycleStatus(coaster.status, {
-      closingYear: coaster.closing_year,
-      openingYear: coaster.opening_year,
-    }) === "Defunct";
+  const status = coasterStatusDisplay(coaster);
+  const isDefunct = status.lifecycle === "Defunct";
   const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
   const manufacturer = formatManufacturerLabel(coaster.manufacturer, {
     parkName,
@@ -61,15 +64,9 @@ export function ParkCoasterRow({
                 {manufacturer}
               </span>
             ) : null}
-            {isDefunct ? (
-              <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">
-                Defunct{coaster.closing_year ? ` · ${coaster.closing_year}` : ""}
-              </span>
-            ) : coaster.status ? (
-              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
-                {coaster.status}
-              </span>
-            ) : null}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_PILL_CLASS[status.tone]}`}>
+              {status.label}
+            </span>
           </div>
           <CoasterStatPills coaster={coaster} className="mt-2" />
           <div className="mt-3 flex flex-wrap items-center gap-1.5">

@@ -1,9 +1,14 @@
 import type { Coaster } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
-import { isCoasterDefunct, isParkDefunct } from "@/lib/coaster-status";
+import { coasterLifecycle, isCoasterDefunct, isParkDefunct } from "@/lib/coaster-status";
 import { fmtHeight, fmtSpeed } from "@/lib/units";
 
 const IMPERIAL = "imperial" as const;
+
+function joinWithAnd(items: string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
 
 export function coasterStatCount(coaster: Coaster): number {
   let n = 0;
@@ -37,6 +42,8 @@ export const CATALOG_THIN_ROBOTS = { index: false, follow: false } as const;
 export type ParkHighlightStats = {
   operatingCount: number;
   defunctCount: number;
+  /** Rows with no confirmed lifecycle status — neither operating nor defunct. */
+  unconfirmedCount: number;
   isDefunctPark: boolean;
   tallest: { name: string; height: string } | null;
   fastest: { name: string; speed: string } | null;
@@ -44,13 +51,18 @@ export type ParkHighlightStats = {
 };
 
 export function computeParkHighlights(coasters: Coaster[]): ParkHighlightStats {
-  const defunctCount = coasters.filter(isCoasterDefunct).length;
-  const operatingCount = coasters.length - defunctCount;
+  const lifecycles = coasters.map(coasterLifecycle);
+  const defunctCount = lifecycles.filter((s) => s === "Defunct").length;
+  const operatingCount = lifecycles.filter((s) => s === "Operating").length;
+  const unconfirmedCount = coasters.length - defunctCount - operatingCount;
+  const isDefunctPark = isParkDefunct(coasters);
 
   let tallest: { name: string; height: string; raw: number } | null = null;
   let fastest: { name: string; speed: string; raw: number } | null = null;
 
-  for (const c of coasters) {
+  // "Notable rides" should be rides you can still ride, unless the whole park is history.
+  const notableCandidates = isDefunctPark ? coasters : coasters.filter((c) => !isCoasterDefunct(c));
+  for (const c of notableCandidates) {
     if (c.height_ft != null && (!tallest || c.height_ft > tallest.raw)) {
       tallest = {
         name: cleanCoasterName(c.name),
@@ -70,6 +82,7 @@ export function computeParkHighlights(coasters: Coaster[]): ParkHighlightStats {
   const typeCounts = new Map<string, number>();
   for (const c of coasters) {
     const t = (c.coaster_type || "Unknown").trim();
+    if (t === "Unknown" || t === "Other") continue;
     typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
   }
   const typeBreakdown = [...typeCounts.entries()]
@@ -80,7 +93,8 @@ export function computeParkHighlights(coasters: Coaster[]): ParkHighlightStats {
   return {
     operatingCount,
     defunctCount,
-    isDefunctPark: isParkDefunct(coasters),
+    unconfirmedCount,
+    isDefunctPark,
     tallest: tallest ? { name: tallest.name, height: tallest.height } : null,
     fastest: fastest ? { name: fastest.name, speed: fastest.speed } : null,
     typeBreakdown,
@@ -108,10 +122,16 @@ export function buildParkEditorialIntro(
     );
   }
 
-  if (!highlights.isDefunctPark && highlights.operatingCount > 0 && highlights.defunctCount > 0) {
-    parts.push(
-      `It currently lists ${highlights.operatingCount} as operating and ${highlights.defunctCount} as defunct or historical`,
-    );
+  if (!highlights.isDefunctPark) {
+    const statusBits: string[] = [];
+    if (highlights.operatingCount > 0) statusBits.push(`${highlights.operatingCount} as operating`);
+    if (highlights.defunctCount > 0) statusBits.push(`${highlights.defunctCount} as defunct or historical`);
+    if (highlights.unconfirmedCount > 0) {
+      statusBits.push(`${highlights.unconfirmedCount} without a confirmed status yet`);
+    }
+    if (statusBits.length > 1) {
+      parts.push(`It lists ${joinWithAnd(statusBits)}`);
+    }
   }
 
   const featureBits: string[] = [];
@@ -185,15 +205,14 @@ export function buildCoasterEditorialIntro(
   if (facts.length > 0) parts.push(`Catalog stats list it as ${facts.join(", ")}`);
 
   if (coaster.status?.trim()) {
-    const status = coaster.status.trim();
     if (isCoasterDefunct(coaster)) {
       parts.push(
         coaster.closing_year
           ? `It is listed as defunct (closed around ${coaster.closing_year})`
           : "It is listed as defunct or historical in the catalog",
       );
-    } else if (status !== "Unknown") {
-      parts.push(`Current catalog status: ${status}`);
+    } else if (coasterLifecycle(coaster) === "Operating") {
+      parts.push("It is listed as operating");
     }
   }
 

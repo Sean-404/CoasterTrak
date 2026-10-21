@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  coasterStatusDisplay,
   effectiveClosingYear,
   hasPastClosingYear,
   inferParkLifecycleStatus,
@@ -86,5 +87,23 @@ describe("effectiveClosingYear", () => {
   it("keeps valid closing years", () => {
     expect(effectiveClosingYear(2007, 2012)).toBe(2012);
     expect(effectiveClosingYear(null, 2012)).toBe(2012);
+  });
+});
+
+describe("coasterStatusDisplay", () => {
+  it("labels unknown status as not confirmed instead of operating", () => {
+    expect(coasterStatusDisplay({ status: "Unknown" })).toEqual({
+      lifecycle: "Unknown",
+      label: "Status not confirmed",
+      tone: "slate",
+    });
+    expect(coasterStatusDisplay({ status: "" }).label).toBe("Status not confirmed");
+  });
+
+  it("labels operating and defunct rows", () => {
+    expect(coasterStatusDisplay({ status: "Operating" }).label).toBe("Operating");
+    expect(
+      coasterStatusDisplay({ status: "Removed", closing_year: 2012, opening_year: 1985 }).label,
+    ).toBe("Defunct · 2012");
   });
 });

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
+import { CatalogSourcesPanel } from "@/components/catalog-sources-panel";
 import { CatalogStatPills, type CatalogStatPill } from "@/components/catalog-stat-pills";
 import { ParkCoasterList } from "@/components/park-coaster-list";
 import { ParkStatusBadge } from "@/components/park-status-badge";
@@ -20,6 +21,7 @@ import {
   resolveCatalogParkId,
 } from "@/lib/catalog-server";
 import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
+import { correctionMailto, parkDataCoverage } from "@/lib/catalog-sources";
 import { cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
@@ -121,6 +123,13 @@ export default async function ParkDetailPage({ params }: PageProps) {
       tone: "red",
     });
   }
+  if (highlights.unconfirmedCount > 0) {
+    highlightStats.push({
+      label: "Status not confirmed",
+      value: String(highlights.unconfirmedCount),
+      tone: "slate",
+    });
+  }
   if (highlights.tallest) {
     highlightStats.push({
       label: "Tallest",
@@ -136,6 +145,16 @@ export default async function ParkDetailPage({ params }: PageProps) {
   for (const { type, count } of highlights.typeBreakdown) {
     highlightStats.push({ label: type, value: String(count), tone: "slate" });
   }
+
+  const coverage = parkDataCoverage(coasters);
+  const coverageLines =
+    coverage.total > 0
+      ? [
+          `${coverage.linkedToWikidata} of ${coverage.total} rides are linked to a Wikidata item.`,
+          `Operating status is confirmed for ${coverage.statusConfirmed} of ${coverage.total}.`,
+          `Height is listed for ${coverage.withHeight} of ${coverage.total}; ${coverage.withPhoto} have a photo.`,
+        ]
+      : [];
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -252,6 +271,11 @@ export default async function ParkDetailPage({ params }: PageProps) {
           />
         </div>
       )}
+
+      <CatalogSourcesPanel
+        coverage={coverageLines}
+        reportHref={correctionMailto(park.name, `${SITE_URL}/parks/${canonicalSlug}`)}
+      />
 
       <p className="mt-8 text-xs leading-relaxed text-slate-500">
         {parkIsDefunct

@@ -1,5 +1,5 @@
 import type { Coaster } from "@/types/domain";
-import { normalizeLifecycleStatus } from "@/lib/coaster-status";
+import { coasterStatusDisplay } from "@/lib/coaster-status";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import type { CatalogStatPill } from "@/components/catalog-stat-pills";
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed, type Units } from "@/lib/units";
@@ -12,11 +12,7 @@ export function buildCoasterMetaPills(
 ): CatalogStatPill[] {
   const pills: CatalogStatPill[] = [];
   const rideType = effectiveCoasterType(coaster.coaster_type, coaster.manufacturer ?? null);
-  const isDefunct =
-    normalizeLifecycleStatus(coaster.status, {
-      closingYear: coaster.closing_year,
-      openingYear: coaster.opening_year,
-    }) === "Defunct";
+  const status = coasterStatusDisplay(coaster);
 
   if (rideType !== "Unknown") {
     pills.push({ label: "Type", value: rideType });
@@ -24,15 +20,7 @@ export function buildCoasterMetaPills(
   if (coaster.manufacturer) {
     pills.push({ label: "Manufacturer", value: coaster.manufacturer });
   }
-  if (isDefunct) {
-    pills.push({
-      label: "Status",
-      value: coaster.closing_year ? `Defunct · ${coaster.closing_year}` : "Defunct",
-      tone: "red",
-    });
-  } else if (coaster.status) {
-    pills.push({ label: "Status", value: coaster.status, tone: "green" });
-  }
+  pills.push({ label: "Status", value: status.label, tone: status.tone });
   if (coaster.opening_year) {
     pills.push({ label: "Opened", value: String(coaster.opening_year) });
   }

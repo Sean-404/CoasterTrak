@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
+import { CatalogSourcesPanel } from "@/components/catalog-sources-panel";
 import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { CoasterDetailActions } from "@/components/coaster-detail-actions";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
@@ -21,7 +22,7 @@ import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/li
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
 import { SITE_URL } from "@/lib/site-url";
-import { rcdbCoasterUrl } from "@/lib/rcdb";
+import { coasterMissingFields, coasterSourceLinks, correctionMailto } from "@/lib/catalog-sources";
 import {
   clampSummaryText,
   fetchWikipediaSummaryForCoaster,
@@ -119,7 +120,6 @@ export default async function CoasterDetailPage({ params }: PageProps) {
     storedEnwikiTitle: coaster.enwiki_title,
   });
   const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
-  const rcdbUrl = rcdbCoasterUrl(coaster.rcdb_id);
 
   const siteUrl = SITE_URL;
   const bodyIntro = buildCoasterEditorialIntro(coaster, parkLabel || null);
@@ -252,16 +252,6 @@ export default async function CoasterDetailPage({ params }: PageProps) {
             View park
           </Link>
         ) : null}
-        {rcdbUrl ? (
-          <a
-            href={rcdbUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-          >
-            View on RCDB
-          </a>
-        ) : null}
         <Link
           href="/guides"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
@@ -275,6 +265,15 @@ export default async function CoasterDetailPage({ params }: PageProps) {
           How tracking works
         </Link>
       </div>
+
+      <CatalogSourcesPanel
+        sources={coasterSourceLinks(coaster, wikiSummary?.url)}
+        missing={coasterMissingFields(coaster)}
+        reportHref={correctionMailto(
+          park ? `${name} at ${park.name}` : name,
+          `${siteUrl}/coasters/${canonicalSlug}`,
+        )}
+      />
 
       {siblings.length > 0 && park ? (
         <section className="mt-10">

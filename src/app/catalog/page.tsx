@@ -31,9 +31,14 @@ const faqs = [
       "Park and coaster records are compiled mainly from Wikidata, with photos and optional background text from Wikipedia. When Wikidata includes an RCDB identifier we may link out to that entry. We do not scrape park websites or import RCDB stats.",
   },
   {
-    question: "Do catalog pages copy Wikipedia as the article?",
+    question: "Why do some pages show a Wikipedia summary?",
     answer:
-      "No. Park and coaster pages lead with CoasterTrak lineup facts and how to log leftover credits. Wikipedia extracts, when present, sit in a labeled background box so they are not the unique content of the page.",
+      "For context. The summary sits in a labelled box with a link to the article, and it can be out of step with our ride list — for example, a park article may count rides differently. Each ride page lists which sources its record came from.",
+  },
+  {
+    question: "What does “status not confirmed” mean?",
+    answer:
+      "Our sources do not say whether that ride is operating or closed, so we do not guess. Most are still running, but check with the park, and tell us if you know the answer.",
   },
   {
     question: "Why can two parks have a ride with the same name?",
@@ -97,9 +102,11 @@ export default async function CatalogGuidePage() {
             label="Operating / defunct"
             value={`${formatCount(snapshot.operatingCount)} / ${formatCount(snapshot.defunctCount)}`}
           />
+          <SnapshotStat label="Status not confirmed" value={formatCount(snapshot.unconfirmedCount)} />
         </dl>
         <p className="mt-3 text-xs text-slate-500">
-          Counts are from the public CoasterTrak catalog, refreshed at least hourly.
+          Counts are from the public CoasterTrak catalog and update when the catalog syncs. Rides with no
+          confirmed status are counted separately rather than assumed open.
         </p>
 
         <div className="mt-10 space-y-6 text-base leading-relaxed text-slate-700">

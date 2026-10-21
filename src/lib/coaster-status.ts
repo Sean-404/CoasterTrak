@@ -122,3 +122,30 @@ export function inferParkLifecycleStatus(coasters: CoasterLifecycleFields[]): Li
   }
   return "Unknown";
 }
+
+export function coasterLifecycle(coaster: CoasterLifecycleFields): LifecycleStatus {
+  return normalizeLifecycleStatus(coaster.status, {
+    closingYear: coaster.closing_year,
+    openingYear: coaster.opening_year,
+  });
+}
+
+export type CoasterStatusDisplay = {
+  lifecycle: LifecycleStatus;
+  label: string;
+  tone: "green" | "red" | "slate";
+};
+
+/**
+ * One status label for every catalog surface. Rows with no confirmed status say so
+ * plainly instead of showing a green "Unknown" pill that reads like "open".
+ */
+export function coasterStatusDisplay(coaster: CoasterLifecycleFields): CoasterStatusDisplay {
+  const lifecycle = coasterLifecycle(coaster);
+  if (lifecycle === "Defunct") {
+    const closing = effectiveClosingYear(coaster.opening_year, coaster.closing_year);
+    return { lifecycle, label: closing ? `Defunct · ${closing}` : "Defunct", tone: "red" };
+  }
+  if (lifecycle === "Operating") return { lifecycle, label: "Operating", tone: "green" };
+  return { lifecycle, label: "Status not confirmed", tone: "slate" };
+}

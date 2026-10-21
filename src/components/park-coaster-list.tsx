@@ -25,11 +25,12 @@ export function ParkCoasterList({ coasters, parkName, parkCountry, crawlFollowId
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
   const types = useMemo(() => uniqueCoasterTypes(coasters), [coasters]);
-  const operatingCount = useMemo(
+  // Includes rows without a confirmed status: this filter is "rides you may still ride".
+  const notDefunctCount = useMemo(
     () => coasters.filter((c) => !isCoasterDefunct(c)).length,
     [coasters],
   );
-  const defunctCount = coasters.length - operatingCount;
+  const defunctCount = coasters.length - notDefunctCount;
   const crawlFollowSet = useMemo(
     () => (crawlFollowIds ? new Set(crawlFollowIds) : null),
     [crawlFollowIds],
@@ -77,7 +78,7 @@ export function ParkCoasterList({ coasters, parkName, parkCountry, crawlFollowId
         >
           All ({coasters.length})
         </FilterPill>
-        {operatingCount > 0 ? (
+        {notDefunctCount > 0 ? (
           <FilterPill
             active={statusFilter === "operating" && typeFilter == null}
             onClick={() => {
@@ -85,7 +86,7 @@ export function ParkCoasterList({ coasters, parkName, parkCountry, crawlFollowId
               setTypeFilter(null);
             }}
           >
-            Operating ({operatingCount})
+            Not defunct ({notDefunctCount})
           </FilterPill>
         ) : null}
         {defunctCount > 0 ? (
