@@ -94,7 +94,7 @@ async function main() {
     const curated = CURATED[row.id];
     if (curated) {
       for (const [k, v] of Object.entries(curated)) {
-        if ((row as any)[k] == null) update[k] = v;
+        if ((row as Record<string, unknown>)[k] == null) update[k] = v;
       }
     }
 

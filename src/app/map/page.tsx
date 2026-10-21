@@ -16,7 +16,7 @@ import { SiteHeader } from "@/components/site-header";
 import { DiscoverNav } from "@/components/discover-nav";
 import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
-import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
 import { pickBestMapSearchHit } from "@/lib/map-search";
@@ -603,11 +603,11 @@ function MapPageContent() {
     const parsed = Number(raw);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [searchParams]);
-  const hasAppliedDeepLink = useRef(false);
-  const hasRestoredSessionView = useRef(false);
+  const [hasAppliedDeepLink, setHasAppliedDeepLink] = useState(false);
+  const [hasRestoredSessionView, setHasRestoredSessionView] = useState(false);
   const [parks, setParks] = useState<Park[]>([]);
   const [coasters, setCoasters] = useState<Coaster[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(isSupabaseConfigured);
   const [continent, setContinent] = useState<Continent>("All");
   const [countryFilter, setCountryFilter] = useState("All");
   const [parkFilter, setParkFilter] = useState<number | null>(null);
@@ -645,10 +645,7 @@ function MapPageContent() {
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setCatalogLoading(false);
-      return;
-    }
+    if (!supabase) return;
 
     let cancelled = false;
     void (async () => {
@@ -819,12 +816,10 @@ function MapPageContent() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [candidateParks, countryFilter, viewMode]);
 
-  useEffect(() => {
-    if (parkFilter == null) return;
-    if (!parkOptions.some((park) => park.id === parkFilter)) {
-      setParkFilter(null);
-    }
-  }, [parkFilter, parkOptions]);
+  // Adjusted during render rather than in an effect, so a stale filter is never committed.
+  if (parkFilter != null && !parkOptions.some((park) => park.id === parkFilter)) {
+    setParkFilter(null);
+  }
 
   const filteredParks = useMemo(() => {
     const activeParkFilter = viewMode === "list" ? parkFilter : null;
@@ -963,18 +958,19 @@ function MapPageContent() {
       .filter((group) => group.items.length > 0);
   }, [rideOptions, visibleRideOptions]);
 
-  useEffect(() => {
-    if (selectedCoasterId == null) return;
-    if (rideOptions.some((o) => o.coaster.id === selectedCoasterId)) return;
+  if (selectedCoasterId != null && !rideOptions.some((o) => o.coaster.id === selectedCoasterId)) {
     const missing = visibleCoasters.find((c) => c.id === selectedCoasterId);
-    if (!missing) return;
-    const missingKeys = new Set(dedupLookupKeysByCoasterId.get(missing.id) ?? coasterDedupLookupKeys(missing));
-    const replacement = rideOptions.find((o) => {
-      const keys = dedupLookupKeysByCoasterId.get(o.coaster.id) ?? coasterDedupLookupKeys(o.coaster);
-      return keys.some((k) => missingKeys.has(k));
-    });
+    const missingKeys = missing
+      ? new Set(dedupLookupKeysByCoasterId.get(missing.id) ?? coasterDedupLookupKeys(missing))
+      : null;
+    const replacement =
+      missingKeys &&
+      rideOptions.find((o) => {
+        const keys = dedupLookupKeysByCoasterId.get(o.coaster.id) ?? coasterDedupLookupKeys(o.coaster);
+        return keys.some((k) => missingKeys.has(k));
+      });
     if (replacement) setSelectedCoasterId(replacement.coaster.id);
-  }, [rideOptions, selectedCoasterId, visibleCoasters, dedupLookupKeysByCoasterId]);
+  }
 
   function applyListCountryFilter(countryLabel: string) {
     setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
@@ -1004,18 +1000,18 @@ function MapPageContent() {
     return null;
   }, [dedupedParkById, focusedParkId, selectedCoaster]);
 
-  useEffect(() => {
-    if (selectedCoasterId == null) return;
-    const stillVisible = visibleCoasters.some((coaster) => coaster.id === selectedCoasterId);
-    if (!stillVisible) setSelectedCoasterId(null);
-  }, [visibleCoasters, selectedCoasterId]);
+  if (selectedCoasterId != null && !visibleCoasters.some((coaster) => coaster.id === selectedCoasterId)) {
+    setSelectedCoasterId(null);
+  }
 
-  useEffect(() => {
-    if (hasAppliedDeepLink.current) return;
-    if (deepLinkedCoasterId == null && deepLinkedParkId == null) return;
-    if (coasters.length === 0 || deduplicatedParks.parks.length === 0) return;
-
-    hasAppliedDeepLink.current = true;
+  // Apply a deep link once the catalog is ready (during render, not in an effect).
+  if (
+    !hasAppliedDeepLink &&
+    (deepLinkedCoasterId != null || deepLinkedParkId != null) &&
+    coasters.length > 0 &&
+    deduplicatedParks.parks.length > 0
+  ) {
+    setHasAppliedDeepLink(true);
     setPreserveRestoredCamera(false);
     const canonicalParkId =
       deepLinkedParkId != null ? (deduplicatedParks.idRemap.get(deepLinkedParkId) ?? deepLinkedParkId) : null;
@@ -1028,45 +1024,41 @@ function MapPageContent() {
 
     if (deepLinkedCoasterId != null) {
       const matchedCoaster = coasters.find((coaster) => coaster.id === deepLinkedCoasterId);
-      if (!matchedCoaster) return;
-      const remappedParkId =
-        deduplicatedParks.idRemap.get(matchedCoaster.park_id) ?? matchedCoaster.park_id;
-      setSelectedCoasterId(matchedCoaster.id);
-      setFocusedParkId(remappedParkId);
-      return;
-    }
-
-    if (canonicalParkId != null) {
-      setSelectedCoasterId(null);
-      setFocusedParkId(canonicalParkId);
-      setParkFilter(canonicalParkId);
-      setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
-    }
-  }, [coasters, deduplicatedParks, deepLinkedCoasterId, deepLinkedParkId, deepLinkedView]);
-
-  // Remap session-restored ids once the catalog is ready (initial state used raw ids).
-  useEffect(() => {
-    if (hasAppliedDeepLink.current || hasRestoredSessionView.current) return;
-    if (deepLinkedCoasterId != null || deepLinkedParkId != null) return;
-    if (coasters.length === 0 || deduplicatedParks.parks.length === 0) return;
-
-    hasRestoredSessionView.current = true;
-    const saved = readSavedMapView();
-    if (!saved) return;
-
-    if (saved.coasterId != null) {
-      const matchedCoaster = coasters.find((coaster) => coaster.id === saved.coasterId);
       if (matchedCoaster) {
         const remappedParkId =
           deduplicatedParks.idRemap.get(matchedCoaster.park_id) ?? matchedCoaster.park_id;
         setSelectedCoasterId(matchedCoaster.id);
         setFocusedParkId(remappedParkId);
-        setPreserveRestoredCamera(true);
-        return;
       }
+    } else if (canonicalParkId != null) {
+      setSelectedCoasterId(null);
+      setFocusedParkId(canonicalParkId);
+      setParkFilter(canonicalParkId);
+      setListVisibleRideCount(INITIAL_LIST_VISIBLE_RIDES);
     }
+  }
 
-    if (saved.parkId != null) {
+  // Remap session-restored ids once the catalog is ready (initial state used raw ids).
+  if (
+    !hasAppliedDeepLink &&
+    !hasRestoredSessionView &&
+    deepLinkedCoasterId == null &&
+    deepLinkedParkId == null &&
+    coasters.length > 0 &&
+    deduplicatedParks.parks.length > 0
+  ) {
+    setHasRestoredSessionView(true);
+    const saved = readSavedMapView();
+    const matchedCoaster =
+      saved?.coasterId != null ? coasters.find((coaster) => coaster.id === saved.coasterId) : undefined;
+
+    if (matchedCoaster) {
+      const remappedParkId =
+        deduplicatedParks.idRemap.get(matchedCoaster.park_id) ?? matchedCoaster.park_id;
+      setSelectedCoasterId(matchedCoaster.id);
+      setFocusedParkId(remappedParkId);
+      setPreserveRestoredCamera(true);
+    } else if (saved?.parkId != null) {
       const remappedParkId = deduplicatedParks.idRemap.get(saved.parkId) ?? saved.parkId;
       if (deduplicatedParks.parks.some((park) => park.id === remappedParkId)) {
         setSelectedCoasterId(null);
@@ -1076,7 +1068,7 @@ function MapPageContent() {
         setFocusedParkId(null);
       }
     }
-  }, [coasters, deduplicatedParks, deepLinkedCoasterId, deepLinkedParkId]);
+  }
 
   const clearCoasterSelection = useCallback(() => {
     setSelectedCoasterId(null);

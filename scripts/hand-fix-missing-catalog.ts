@@ -121,6 +121,17 @@ const CURATED_BY_DB_ID: Record<number, Patch> = {
 /** Image URL overrides when Wikidata P18 is missing (Wikimedia Commons / known CDNs). */
 const CURATED_IMAGES: Record<number, string> = {};
 
+/** The parts of a wbgetentities entity these helpers read; values are checked at runtime. */
+type WikidataClaim = { mainsnak?: { datavalue?: { value?: unknown } } };
+type WikidataEntity = {
+  claims?: Record<string, WikidataClaim[] | undefined>;
+  sitelinks?: { enwiki?: { title?: unknown } };
+};
+
+function claimValue(entity: WikidataEntity, prop: string): unknown {
+  return entity?.claims?.[prop]?.[0]?.mainsnak?.datavalue?.value;
+}
+
 function mToFt(m: number): number {
   return Math.round(m * 3.28084);
 }
@@ -131,12 +142,12 @@ function kmhToMph(kmh: number): number {
   return Math.round(kmh * 0.621371);
 }
 
-function claimNums(entity: any, prop: string): number[] {
+function claimNums(entity: WikidataEntity, prop: string): number[] {
   const claims = entity?.claims?.[prop];
   if (!Array.isArray(claims)) return [];
   const out: number[] = [];
   for (const c of claims) {
-    const amount = c?.mainsnak?.datavalue?.value?.amount;
+    const amount = (c?.mainsnak?.datavalue?.value as { amount?: unknown } | undefined)?.amount;
     if (typeof amount === "string") {
       const n = Number(amount);
       if (Number.isFinite(n)) out.push(n);
@@ -145,10 +156,10 @@ function claimNums(entity: any, prop: string): number[] {
   return out;
 }
 
-function claimYear(entity: any, prop: string): number | null {
+function claimYear(entity: WikidataEntity, prop: string): number | null {
   const claims = entity?.claims?.[prop];
   if (!Array.isArray(claims) || !claims[0]) return null;
-  const time = claims[0]?.mainsnak?.datavalue?.value?.time as string | undefined;
+  const time = (claimValue(entity, prop) as { time?: string } | undefined)?.time;
   if (!time) return null;
   const m = time.match(/^([+-]?\d{4})/);
   if (!m) return null;
@@ -156,29 +167,29 @@ function claimYear(entity: any, prop: string): number | null {
   return Number.isFinite(y) ? y : null;
 }
 
-function claimManufacturerLabel(entity: any, labels: Record<string, string>): string | null {
+function claimManufacturerLabel(entity: WikidataEntity, labels: Record<string, string>): string | null {
   const claims = entity?.claims?.P176;
   if (!Array.isArray(claims) || !claims[0]) return null;
-  const id = claims[0]?.mainsnak?.datavalue?.value?.id as string | undefined;
+  const id = (claimValue(entity, "P176") as { id?: string } | undefined)?.id;
   if (!id) return null;
   return labels[id] ?? null;
 }
 
-function claimCommonsImage(entity: any): string | null {
+function claimCommonsImage(entity: WikidataEntity): string | null {
   const claims = entity?.claims?.P18;
   if (!Array.isArray(claims) || !claims[0]) return null;
-  const file = claims[0]?.mainsnak?.datavalue?.value as string | undefined;
+  const file = claimValue(entity, "P18") as string | undefined;
   if (!file?.trim()) return null;
   return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file.trim())}`;
 }
 
-function claimEnwikiTitle(entity: any): string | null {
+function claimEnwikiTitle(entity: WikidataEntity): string | null {
   const title = entity?.sitelinks?.enwiki?.title;
   return typeof title === "string" && title.trim() ? title.trim() : null;
 }
 
-async function fetchWikidataEntities(qids: string[]): Promise<Map<string, any>> {
-  const out = new Map<string, any>();
+async function fetchWikidataEntities(qids: string[]): Promise<Map<string, WikidataEntity>> {
+  const out = new Map<string, WikidataEntity>();
   const unique = [...new Set(qids.map((q) => q.toUpperCase()))];
   for (let i = 0; i < unique.length; i += 40) {
     const batch = unique.slice(i, i + 40);
@@ -187,7 +198,7 @@ async function fetchWikidataEntities(qids: string[]): Promise<Map<string, any>> 
       `&props=claims|sitelinks|labels&languages=en&format=json&origin=*`;
     const res = await fetch(url, { headers: { "User-Agent": UA, Accept: "application/json" } });
     if (!res.ok) throw new Error(`Wikidata ${res.status}`);
-    const json = (await res.json()) as { entities?: Record<string, any> };
+    const json = (await res.json()) as { entities?: Record<string, WikidataEntity> };
     for (const [id, ent] of Object.entries(json.entities ?? {})) {
       out.set(id.toUpperCase(), ent);
     }
@@ -195,7 +206,7 @@ async function fetchWikidataEntities(qids: string[]): Promise<Map<string, any>> 
   return out;
 }
 
-function patchFromWikidata(row: CoasterRow, entity: any, labelByQid: Record<string, string>): Patch {
+function patchFromWikidata(row: CoasterRow, entity: WikidataEntity, labelByQid: Record<string, string>): Patch {
   const patch: Patch = {};
   if (row.height_ft == null) {
     const h = claimNums(entity, "P2048")[0];
@@ -233,14 +244,14 @@ function patchFromWikidata(row: CoasterRow, entity: any, labelByQid: Record<stri
 }
 
 function mergePatches(...parts: Patch[]): Patch {
-  const out: Patch = {};
+  const out: Record<string, unknown> = {};
   for (const p of parts) {
     for (const [k, v] of Object.entries(p)) {
       if (v == null || v === "") continue;
-      if ((out as any)[k] == null) (out as any)[k] = v;
+      if (out[k] == null) out[k] = v;
     }
   }
-  return out;
+  return out as Patch;
 }
 
 function nullFillPatch(row: CoasterRow, candidate: Patch): Patch {
