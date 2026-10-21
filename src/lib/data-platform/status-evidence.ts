@@ -335,12 +335,15 @@ export function osmElementPoint(el: OsmElement): LatLon | null {
   return lat != null && lon != null ? { latitude: lat, longitude: lon } : null;
 }
 
-function dice(a: string, b: string): number {
+/** Bigram similarity; one name containing the other ("Knoebels" / "Knoebels Amusement Resort") scores 0.9. */
+export function parkNameScore(a: string, b: string): number {
   const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^a-z0-9]/g, "");
   const x = norm(a);
   const y = norm(b);
   if (!x || !y) return 0;
   if (x === y) return 1;
+  const shorter = x.length <= y.length ? x : y;
+  if (shorter.length >= 6 && (x.includes(y) || y.includes(x))) return 0.9;
   if (x.length < 2 || y.length < 2) return 0;
   const grams = new Map<string, number>();
   for (let i = 0; i < x.length - 1; i++) grams.set(x.slice(i, i + 2), (grams.get(x.slice(i, i + 2)) ?? 0) + 1);
@@ -363,7 +366,9 @@ const OSM_PARK_MAX_KM = 3;
 
 /**
  * Pick the OSM polygon that is this catalog park: best name match among nearby polygons,
- * else the nearest one (flagged not confident — parks next to each other share radii).
+ * else the nearest one, flagged not confident. Neighbouring parks share radii (Adventure City
+ * sits next to Disney California Adventure), so callers must not use a non-confident polygon
+ * as evidence.
  */
 export function chooseOsmParkGroup(groups: OsmParkGroup[], park: EvidencePark): OsmParkChoice | null {
   if (park.latitude == null || park.longitude == null) return null;
@@ -377,7 +382,7 @@ export function chooseOsmParkGroup(groups: OsmParkGroup[], park: EvidencePark): 
       const names = [tags.name, tags["name:en"], tags.alt_name, tags.official_name].filter(
         (n): n is string => Boolean(n),
       );
-      const nameScore = Math.max(0, ...names.map((n) => dice(n, park.name)));
+      const nameScore = Math.max(0, ...names.map((n) => parkNameScore(n, park.name)));
       return { group, nameScore, distanceKm };
     })
     .filter((c) => c.distanceKm <= OSM_PARK_MAX_KM);

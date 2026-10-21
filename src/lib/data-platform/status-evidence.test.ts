@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildAliasLookup } from "@/lib/data-platform/coaster-aliases";
 import {
   assessThemeParksPark,
+  chooseOsmParkGroup,
   decideStatusVerdict,
   downgradeLeakedEntities,
   parseApprovalList,
@@ -131,6 +132,30 @@ describe("parseOverpassParkGroups", () => {
       { type: "relation", id: 2, tags: { tourism: "theme_park", name: "Cedar Point Shores" } },
     ]);
     expect(groups.map((g) => [g.active.length, g.lifecycle.length])).toEqual([[1, 1], [0, 0]]);
+  });
+});
+
+describe("chooseOsmParkGroup", () => {
+  const group = (id: number, name: string, lat: number, lon: number) => ({
+    park: { type: "relation" as const, id, tags: { tourism: "theme_park", name }, center: { lat, lon } },
+    active: [],
+    lifecycle: [],
+  });
+
+  it("prefers the polygon named like the park, including longer official names", () => {
+    const choice = chooseOsmParkGroup(
+      [group(1, "Cedar Point Shores", 41.481, -82.681), group(2, "Knoebels Amusement Resort", 41.48, -82.68)],
+      { ...park, name: "Knoebels" },
+    );
+    expect(choice).toMatchObject({ confident: true, group: { park: { id: 2 } } });
+  });
+
+  it("marks a differently named neighbour as not confident", () => {
+    const choice = chooseOsmParkGroup([group(1, "Disney California Adventure", 41.481, -82.681)], {
+      ...park,
+      name: "Adventure City",
+    });
+    expect(choice?.confident).toBe(false);
   });
 });
 
