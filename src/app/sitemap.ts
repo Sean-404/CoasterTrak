@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { listCoastersForSitemap, listParksForSitemap } from "@/lib/catalog-server";
 import { GUIDES, guidePath } from "@/lib/guides";
-import { listPublicProfilesForSitemap, publicProfilePath } from "@/lib/public-profile";
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
 import { coasterSlug, parkSlug } from "@/lib/slug";
 
@@ -56,11 +55,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const core = [...staticRoutes(catalogStamp), ...guideRoutes()];
 
   try {
-    const [parks, coasters, publicProfiles] = await Promise.all([
-      listParksForSitemap(),
-      listCoastersForSitemap(),
-      listPublicProfilesForSitemap(80),
-    ]);
+    // Public profiles are deliberately absent: the privacy policy says stats pages are not offered
+    // to search engines, and /u/ pages carry noindex.
+    const [parks, coasters] = await Promise.all([listParksForSitemap(), listCoastersForSitemap()]);
 
     const parkRoutes: MetadataRoute.Sitemap = parks.map((park) => ({
       url: `${BASE_URL}/parks/${parkSlug(park.name, park.id)}`,
@@ -76,14 +73,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     }));
 
-    const profileRoutes: MetadataRoute.Sitemap = publicProfiles.map((profile) => ({
-      url: `${BASE_URL}${publicProfilePath(profile.displayName)}`,
-      lastModified: profile.updatedAt ? new Date(profile.updatedAt) : catalogStamp,
-      changeFrequency: "weekly" as const,
-      priority: 0.55,
-    }));
-
-    return [...core, ...parkRoutes, ...coasterRoutes, ...profileRoutes];
+    return [...core, ...parkRoutes, ...coasterRoutes];
   } catch {
     // Catalog fetch can time out; still advertise the pages Google should crawl first.
     return core;

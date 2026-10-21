@@ -42,6 +42,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical },
+    // Privacy policy promises stats pages are not offered to search engines; shared links still work.
+    robots: { index: false, follow: true },
     openGraph: {
       title,
       description,

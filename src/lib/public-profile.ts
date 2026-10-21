@@ -158,30 +158,7 @@ export async function getPublicProfileByUserId(
   };
 }
 
-/** Lightweight public profile count for sitemap (cap to keep crawl small). */
-export async function listPublicProfilesForSitemap(limit = 100): Promise<
-  Array<{ displayName: string; updatedAt: string | null }>
-> {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) return [];
-
-  const { data } = await supabase
-    .from("profiles")
-    .select("display_name, updated_at")
-    .eq("stats_visibility", "public")
-    .is("banned_at", null)
-    .not("display_name", "is", null)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
-
-  return (data ?? [])
-    .map((row) => ({
-      displayName: (row.display_name as string | null)?.trim() ?? "",
-      updatedAt: (row.updated_at as string | null) ?? null,
-    }))
-    .filter((row) => row.displayName.length > 0);
-}
-
+/** Registered, non-banned profiles with a display name (home page social proof). */
 export async function countRegisteredProfiles(): Promise<number | null> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
