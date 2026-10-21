@@ -16,6 +16,7 @@
     "wikipedia:backfill-summaries": "tsx --env-file=.env.local scripts/backfill-wikipedia-summaries.ts",
     "status:normalize": "tsx scripts/normalize-coaster-statuses.ts",
     "data:match-themeparks": "tsx --env-file=.env.local scripts/match-themeparks-wiki.ts",
+    "data:status-evidence": "tsx --env-file=.env.local scripts/status-evidence.ts",
     "data:ingest-wikidata": "tsx scripts/data/ingest-wikidata.ts",
     "data:normalize-wikidata": "tsx scripts/data/normalize-wikidata.ts",
     "data:materialize-snapshot": "tsx scripts/data/materialize-snapshot.ts",
