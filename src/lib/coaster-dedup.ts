@@ -61,6 +61,17 @@ export function isOpsCounterOnlyName(raw: string): boolean {
   return false;
 }
 
+/** Attractions that feeds list as coasters but are dark rides (not a credit). */
+const KNOWN_NON_COASTER_ATTRACTIONS = new Set([
+  // Epic Universe AR dark ride; Dynamic Attractions vehicles, no coaster track.
+  "mario kart bowser s challenge",
+]);
+
+export function isKnownNonCoasterAttractionName(raw: string): boolean {
+  const n = cleanCoasterName(raw).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return KNOWN_NON_COASTER_ATTRACTIONS.has(n);
+}
+
 /**
  * ThemeParks / ops feed ghosts that are not real park installs
  * (e.g. "Launch Pad" queue entity that Wikipedia matched to the type article).
@@ -179,6 +190,7 @@ export function isLikelyCoasterEntry(c: Coaster, parkName?: string | null): bool
   if (isPlaceholderCoasterName(c.name)) return false;
   if (isLikelyNonRideEventName(c.name)) return false;
   if (isThemeParksGhostCoasterName(c.name)) return false;
+  if (isKnownNonCoasterAttractionName(c.name)) return false;
   if (isOpsCounterOnlyName(c.name)) return false;
   if (c.inversions != null || c.speed_mph != null || c.height_ft != null || c.length_ft != null) return true;
   if (isLikelySmallFamilyCoaster(c, parkName)) return true;

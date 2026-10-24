@@ -284,6 +284,10 @@ const SKIP_WIKIDATA_COASTER_IDS = new Set<string>([
   "Q18378567",
   // Battersea Park funfair disaster (1972) — event article, not a catalog ride
   "Q22000267",
+  // Woody Woodpecker's Nuthouse Coaster was rethemed in place as Trolls Trollercoaster (2024):
+  // same track and credit, so list it once under the current name.
+  // https://wdwnt.com/2023/11/dreamworks-land-making-progress-at-universal-studios-florida-with-more-painting-at-the-trollercoaster
+  "Q3569870",
 ]);
 
 export function shouldSkipWikidataCoasterId(wikidataId: string | null | undefined): boolean {
@@ -309,6 +313,14 @@ const COASTER_FIXES_BY_NAME_KEY: Record<
     >
   >
 > = {
+  // Retheme of Woody Woodpecker's Nuthouse Coaster (Vekoma junior, 1999) on the same track.
+  trollstrollercoaster: {
+    coaster_type: "Steel",
+    status: "Operating",
+    manufacturer: "Vekoma",
+    height_ft: 28,
+    speed_mph: 22,
+  },
   // Alton Towers install closed 1996; hardware later ran as Katapul (Hopi Hari).
   thunderlooper: { name: "Thunderlooper", status: "Defunct" },
   // Epic Universe — RCDB / Universal published figures (height/length often still unpublished)

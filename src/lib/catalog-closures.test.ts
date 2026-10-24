@@ -71,3 +71,21 @@ describe("normalizeCatalog applies park-scoped fixes", () => {
     expect(byId.get(12)?.status).toBe("Defunct");
   });
 });
+
+describe("Orlando catalog corrections", () => {
+  const parks: Park[] = [
+    { id: 177, name: "Universal Studios Florida", country: "United States", latitude: 28.47, longitude: -81.47 },
+    { id: 332, name: "Epic Universe", country: "United States", latitude: 28.47, longitude: -81.44 },
+  ];
+
+  it("drops the Mario Kart dark ride and lists the Woody/Trolls credit once", () => {
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 9846, park_id: 332, name: "Mario Kart: Bowser's Challenge", coaster_type: "Unknown" }),
+      coaster({ id: 9727, park_id: 332, name: "Stardust Racers", wikidata_id: "Q124540460" }),
+      coaster({ id: 522, park_id: 177, name: "Woody Woodpecker's Nuthouse Coaster", wikidata_id: "Q3569870" }),
+      coaster({ id: 9797, park_id: 177, name: "Trolls Trollercoaster" }),
+    ]);
+    expect(coasters.map((c) => c.id).sort()).toEqual([9727, 9797]);
+    expect(coasters.find((c) => c.id === 9797)).toMatchObject({ manufacturer: "Vekoma", height_ft: 28 });
+  });
+});
