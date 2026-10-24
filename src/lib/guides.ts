@@ -50,6 +50,23 @@ export function guideUpdated(guide: Pick<GuideMeta, "published" | "updated">): s
  */
 export const GUIDES: GuideMeta[] = [
   {
+    slug: "orlando-two-weeks-may-2026",
+    title: "Two weeks in Orlando: 17 coaster credits across Disney and Universal",
+    description:
+      "A first-hand trip report from May 2026: a week at Walt Disney World and six days at Universal including Epic Universe, the coasters I rode park by park, my top three, and what I would tell anyone planning the same trip.",
+    summary: "My May 2026 Orlando trip: 17 credits, a top three, and the land not to miss.",
+    published: "2026-10-24",
+    readingMinutes: 5,
+    author: "founder",
+    keywords: [
+      "Orlando coaster trip",
+      "Orlando coaster credits",
+      "Epic Universe coasters",
+      "Walt Disney World coasters",
+      "Universal Orlando coasters",
+    ],
+  },
+  {
     slug: "what-is-a-coaster-credit",
     title: "What is a coaster credit?",
     description:

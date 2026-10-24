@@ -8,6 +8,10 @@ import {
   GuideP,
   GuideUl,
 } from "@/components/guide-article";
+import { coasterSlug, parkSlug } from "@/lib/slug";
+
+const ride = (name: string, id: number) => `/coasters/${coasterSlug(name, id)}`;
+const park = (name: string, id: number) => `/parks/${parkSlug(name, id)}`;
 
 export const GUIDE_BODIES: Record<string, ReactNode> = {
   "what-is-a-coaster-credit": (
@@ -405,6 +409,140 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         Open <GuideLink href="/guess">CoasterGuessr</GuideLink> in your browser, then browse the{" "}
         <GuideLink href="/coasters">coasters list</GuideLink> or{" "}
         <GuideLink href="/map">map</GuideLink> when you want the full catalog context behind a photo.
+      </GuideP>
+    </>
+  ),
+  "orlando-two-weeks-may-2026": (
+    <>
+      <GuideP>
+        In May 2026 I spent two weeks in Orlando: a week at Walt Disney World, then six days on the Universal side,
+        including Epic Universe — with a day out at Kennedy Space Center in there too. It came to 17 coaster credits.
+        Here is what I rode, my top three, and what I&apos;d tell anyone planning the same trip.
+      </GuideP>
+
+      <GuideH2>The trip at a glance</GuideH2>
+      <GuideUl>
+        <GuideLi>
+          <strong>When:</strong> May 2026, two weeks.
+        </GuideLi>
+        <GuideLi>
+          <strong>Disney (one week):</strong> Magic Kingdom, EPCOT, Hollywood Studios and Animal Kingdom.
+        </GuideLi>
+        <GuideLi>
+          <strong>Universal (six days):</strong> Universal Studios Florida, Islands of Adventure and Epic Universe.
+        </GuideLi>
+        <GuideLi>
+          <strong>Credits:</strong> 17 — seven at Disney, ten at Universal.
+        </GuideLi>
+        <GuideLi>
+          <strong>Paid queue skipping:</strong> Lightning Lane at Animal Kingdom only.
+        </GuideLi>
+      </GuideUl>
+
+      <GuideH2>My top three</GuideH2>
+      <GuideOl>
+        <GuideLi>
+          <GuideLink href={ride("VelociCoaster", 1416)}>VelociCoaster</GuideLink> — Islands of Adventure. Intamin,
+          opened 2021. It&apos;s also the ride I&apos;ve set as my favourite on CoasterTrak.
+        </GuideLi>
+        <GuideLi>
+          <GuideLink href={ride("Guardians of the Galaxy: Cosmic Rewind", 1434)}>
+            Guardians of the Galaxy: Cosmic Rewind
+          </GuideLink>{" "}
+          — EPCOT. Vekoma, opened 2022.
+        </GuideLi>
+        <GuideLi>
+          <GuideLink href={ride("Hagrid's Magical Creatures Motorbike Adventure", 1341)}>
+            Hagrid&apos;s Magical Creatures Motorbike Adventure
+          </GuideLink>{" "}
+          — Islands of Adventure. Intamin, opened 2019.
+        </GuideLi>
+      </GuideOl>
+      <GuideP>
+        Two of the three are at Islands of Adventure, so if you only have time for one Universal park, that is the
+        one I&apos;d pick for coasters.
+      </GuideP>
+
+      <GuideH2>The Disney week</GuideH2>
+      <GuideH3>Magic Kingdom — 4 credits</GuideH3>
+      <GuideP>
+        Space Mountain, Big Thunder Mountain Railroad, Seven Dwarfs Mine Train and{" "}
+        <GuideLink href={ride("Tron Lightcycle Power Run", 10474)}>Tron Lightcycle Run</GuideLink>. The Barnstormer
+        is the one{" "}
+        <GuideLink href={park("Disney's Magic Kingdom", 151)}>Magic Kingdom</GuideLink> credit I didn&apos;t get.
+      </GuideP>
+      <GuideH3>EPCOT — 1 credit</GuideH3>
+      <GuideP>Cosmic Rewind, and it made my top three.</GuideP>
+      <GuideH3>Hollywood Studios — 1 credit</GuideH3>
+      <GuideP>
+        <GuideLink href={ride("Slinky Dog Dash", 1306)}>Slinky Dog Dash</GuideLink>. Rock &apos;n&apos; Roller
+        Coaster was closed when I went: Disney shut the Aerosmith version on 2 March 2026 for its Muppets retheme and
+        set the reopening for 26 May, after my visit. It should be running now, but check before you plan a day
+        around it.
+      </GuideP>
+      <GuideP>
+        I spent May the Fourth in Star Wars: Galaxy&apos;s Edge. It isn&apos;t a coaster, but it&apos;s my biggest
+        tip for the whole trip: don&apos;t miss it.
+      </GuideP>
+      <GuideH3>Animal Kingdom — 1 credit</GuideH3>
+      <GuideP>
+        <GuideLink href={ride("Expedition Everest - Legend of the Forbidden Mountain", 739)}>
+          Expedition Everest
+        </GuideLink>
+        . We only had one day at{" "}
+        <GuideLink href={park("Disney's Animal Kingdom", 191)}>Animal Kingdom</GuideLink>, so it was the one park
+        where we paid for Lightning Lane.
+      </GuideP>
+
+      <GuideH2>Six days at Universal</GuideH2>
+      <GuideH3>Universal Studios Florida — 2 credits</GuideH3>
+      <GuideP>
+        Harry Potter and the Escape from Gringotts and Revenge of the Mummy. I skipped Trolls Trollercoaster — it&apos;s
+        the old Woody Woodpecker&apos;s Nuthouse Coaster rethemed on the same track, so if you rode Woody years ago,
+        it&apos;s the same credit.
+      </GuideP>
+      <GuideH3>Islands of Adventure — 4 credits</GuideH3>
+      <GuideP>
+        VelociCoaster, Hagrid&apos;s, The Incredible Hulk and Flight of the Hippogriff. I didn&apos;t ride Pteranodon
+        Flyers; whether it even counts as a credit is a debate of its own.
+      </GuideP>
+      <GuideH3>Epic Universe — 4 credits</GuideH3>
+      <GuideP>
+        <GuideLink href={ride("Stardust Racers", 9727)}>Stardust Racers</GuideLink>, Mine-Cart Madness, Curse of the
+        Werewolf and Hiccup&apos;s Wing Gliders.{" "}
+        <GuideLink href={park("Epic Universe", 332)}>Epic Universe</GuideLink> is the park I&apos;ve set as my
+        favourite on CoasterTrak. I rode Mario Kart: Bowser&apos;s Challenge too, but it&apos;s a dark ride rather
+        than a coaster, so it isn&apos;t in my count.
+      </GuideP>
+
+      <GuideH2>If you want every credit</GuideH2>
+      <GuideP>The ones I left behind, for anyone more thorough than me:</GuideP>
+      <GuideUl>
+        <GuideLi>The Barnstormer (Magic Kingdom)</GuideLi>
+        <GuideLi>Rock &apos;n&apos; Roller Coaster Starring The Muppets (Hollywood Studios)</GuideLi>
+        <GuideLi>Trolls Trollercoaster (Universal Studios Florida)</GuideLi>
+        <GuideLi>Pteranodon Flyers (Islands of Adventure), if you count it</GuideLi>
+      </GuideUl>
+
+      <GuideH2>What I&apos;d tell a friend going next</GuideH2>
+      <GuideUl>
+        <GuideLi>Don&apos;t miss Galaxy&apos;s Edge.</GuideLi>
+        <GuideLi>
+          Check closures before you fix your park days — a headline coaster can be shut for a retheme, as Rock
+          &apos;n&apos; Roller Coaster was for me.
+        </GuideLi>
+        <GuideLi>
+          If a park only gets one day, that&apos;s where paid queue skipping earns its keep; it&apos;s the only place
+          we used it.
+        </GuideLi>
+      </GuideUl>
+      <GuideP>
+        Every park above has a full ride list on CoasterTrak:{" "}
+        <GuideLink href={park("Universal's Islands of Adventure", 169)}>Islands of Adventure</GuideLink>,{" "}
+        <GuideLink href={park("Universal Studios Florida", 177)}>Universal Studios Florida</GuideLink>,{" "}
+        <GuideLink href={park("Disney's Hollywood Studios", 273)}>Hollywood Studios</GuideLink> and the rest are on the{" "}
+        <GuideLink href="/map">map</GuideLink>. Log what you&apos;ve already ridden and the leftovers are what&apos;s
+        left on the list — see <GuideLink href="/guides/planning-park-leftovers">planning park leftovers</GuideLink>.
       </GuideP>
     </>
   ),
