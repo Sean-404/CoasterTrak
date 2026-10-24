@@ -8,6 +8,7 @@ import {
 } from "@/lib/catalog-overrides";
 import type { Coaster, Park } from "@/types/domain";
 import { isLikelyNonRideEventName, isPlaceholderCoasterName, isThemeParksGhostCoasterName } from "@/lib/coaster-dedup";
+import { applyParkScopedFixes } from "@/lib/catalog-closures";
 import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
@@ -275,6 +276,7 @@ export function normalizeCatalog(parks: Park[], coasters: Coaster[]): Normalized
   const rawParkById = new Map(parks.map((p) => [p.id, p]));
 
   const combinedRemap = buildCombinedParkIdRemap(geoAbsorb.idRemap, deduplicated.idRemap);
+  const displayParkNameById = new Map(deduplicated.parks.map((p) => [p.id, p.name]));
 
   const remappedCoasters = snapOrphanCoastersToDisplayParks(
     coasters.map((c) => {
@@ -287,7 +289,9 @@ export function normalizeCatalog(parks: Park[], coasters: Coaster[]): Normalized
     }),
     deduplicated.parks,
     rawParkById,
-  ).map(applyCoasterKnownFixes)
+  )
+    .map(applyCoasterKnownFixes)
+    .map((c) => applyParkScopedFixes(c, displayParkNameById.get(c.park_id)))
     .filter(
       (c) =>
         !shouldSkipWikidataCoasterId(c.wikidata_id) &&

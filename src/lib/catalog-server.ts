@@ -7,6 +7,7 @@ import { parkBrandPriorityBonus, selectSitemapCoasters, selectSitemapParks } fro
 import { dedupeCoastersForCatalog } from "@/lib/coaster-dedup";
 import { buildGuessCandidates, type GuessCandidate } from "@/lib/guess-round";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { applyParkScopedFixes } from "@/lib/catalog-closures";
 import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
 import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
 import { matchesSearchQuery } from "@/lib/display";
@@ -143,7 +144,8 @@ export async function getCoasterById(id: number): Promise<CoasterDetail | null> 
 
   if (!park || isCatalogHiddenParkName(park.name)) return null;
 
-  const fixed = applyCoasterKnownFixes(coaster);
+  // The live fallback skips normalizeCatalog, so apply the park-aware corrections here too.
+  const fixed = applyParkScopedFixes(applyCoasterKnownFixes(coaster), park.name);
   return {
     ...fixed,
     parks: {
