@@ -519,7 +519,10 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>The ones I left behind, for anyone more thorough than me:</GuideP>
       <GuideUl>
         <GuideLi>The Barnstormer (Magic Kingdom)</GuideLi>
-        <GuideLi>Rock &apos;n&apos; Roller Coaster Starring The Muppets (Hollywood Studios)</GuideLi>
+        <GuideLi>
+          Rock &apos;n&apos; Roller Coaster Starring The Muppets (Hollywood Studios) — not by choice: it was shut
+          when I went
+        </GuideLi>
         <GuideLi>Trolls Trollercoaster (Universal Studios Florida)</GuideLi>
         <GuideLi>Pteranodon Flyers (Islands of Adventure), if you count it</GuideLi>
       </GuideUl>
