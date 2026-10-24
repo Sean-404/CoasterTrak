@@ -11,7 +11,6 @@ import { ParkCoasterRow } from "@/components/park-coaster-row";
 import { WikipediaBackground } from "@/components/wikipedia-background";
 import {
   buildCoasterEditorialIntro,
-  buildCoasterTrackerNote,
   CATALOG_THIN_ROBOTS,
   isCoasterCatalogSubstantial,
 } from "@/lib/catalog-content";
@@ -126,7 +125,6 @@ export default async function CoasterDetailPage({ params }: PageProps) {
 
   const siteUrl = SITE_URL;
   const bodyIntro = buildCoasterEditorialIntro(coaster, parkLabel || null);
-  const trackerNote = buildCoasterTrackerNote(coaster, park?.name ?? null);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -188,7 +186,6 @@ export default async function CoasterDetailPage({ params }: PageProps) {
       ) : null}
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>
-      <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
 
       <CoasterCommunityStats
         coasterName={name}

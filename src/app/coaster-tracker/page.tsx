@@ -275,9 +275,9 @@ export default function CoasterTrackerLandingPage() {
         <section className="mt-12 max-w-3xl space-y-4 text-base leading-relaxed text-slate-300">
           <h2 className="text-2xl font-semibold text-white">Privacy, photos, and friends</h2>
           <p>
-            New accounts keep stats friends-only. You can switch to private (only you) or public to signed-in
-            CoasterTrak users. Public profiles appear under Friends → Browse public profiles; that list is not
-            offered to search engines. Friends comparisons hide another rider&apos;s numbers when they have chosen
+            New accounts keep stats friends-only. You can switch to private (only you) or public: anyone with your
+            /u/ profile link sees a summary of your totals, and signed-in users can browse you under Friends → Browse
+            public profiles and see full stats. Neither is offered to search engines. Friends comparisons hide another rider&apos;s numbers when they have chosen
             private.
           </p>
           <p>

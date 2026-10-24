@@ -19,7 +19,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 18 August 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 24 October 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -64,11 +64,20 @@ export default function PrivacyPage() {
           <h2 className="text-xl font-semibold text-slate-900">Sharing with other users</h2>
           <p>
             Ride stats, ratings, and ride photos are visible to you and, by default, to people you have accepted as
-            friends. You can set your account to public in Account settings so any signed-in CoasterTrak user with
-            your profile link can see those stats and photos. Stats pages are not offered to search engines. Ride
-            photos are stored privately and shown only to people who are allowed to view your stats. Profile photos
-            are treated like your display name: signed-in users can see them in social features such as Friends.
-            Location metadata is stripped from photos before they are saved.
+            friends. If you set your account to public in Account settings, anyone with your profile link
+            (coastertrak.com/u/your-name) can see a summary: your display name, profile photo, country, credit and
+            ride totals, parks visited, and favourite ride and park. Signed-in CoasterTrak users can also find you
+            under Friends and see your full stats and ride photos. Profile and stats pages are not offered to search
+            engines. Ride photos are stored privately and shown only to people who are allowed to view your stats.
+            Profile photos are treated like your display name: signed-in users can see them in social features such
+            as Friends. Location metadata is stripped from photos before they are saved.
+          </p>
+          <p>
+            <strong>Anonymous community totals.</strong> Public coaster and park pages may show combined figures
+            drawn from members&apos; ride logs, ratings and wishlists — for example how many members have logged a
+            coaster, its average star rating, or how many wishlists it is on. These totals never name or link to
+            anyone, and a figure is shown only when at least five members contribute to it. If your stats are set to
+            Private, your rides, ratings and wishlist are not included in these totals.
           </p>
 
           <h2 className="text-xl font-semibold text-slate-900">Service providers</h2>
@@ -109,7 +118,7 @@ export default function PrivacyPage() {
 
           <h2 className="text-xl font-semibold text-slate-900">Your choices</h2>
           <ul className="list-disc space-y-2 pl-5">
-            <li>Update profile details from your account settings when signed in, including whether your stats and ride photos are private, friends-only, or public to signed-in users. New accounts default to friends-only.</li>
+            <li>Update profile details from your account settings when signed in, including whether your stats and ride photos are private, friends-only, or public (a summary anyone with your profile link can see, with full stats for signed-in users). New accounts default to friends-only.</li>
             <li>Sign out at any time from the site header.</li>
             <li>
               Contact us to request access to or deletion of personal data we hold about you, subject to applicable

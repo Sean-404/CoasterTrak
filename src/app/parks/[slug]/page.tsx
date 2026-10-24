@@ -10,7 +10,6 @@ import { ParkStatusBadge } from "@/components/park-status-badge";
 import { WikipediaBackground } from "@/components/wikipedia-background";
 import {
   buildParkEditorialIntro,
-  buildParkTrackerNote,
   CATALOG_THIN_ROBOTS,
   computeParkHighlights,
   isParkCatalogSubstantial,
@@ -102,7 +101,6 @@ export default async function ParkDetailPage({ params }: PageProps) {
   const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
   const communityStats = await getCommunityStatsById();
   const intro = buildParkEditorialIntro(park.name, countryLabel, coasters);
-  const trackerNote = buildParkTrackerNote(park.name, coasters);
   const highlights = computeParkHighlights(coasters);
   const parkIsDefunct = highlights.isDefunctPark;
 
@@ -195,7 +193,6 @@ export default async function ParkDetailPage({ params }: PageProps) {
       {countryLabel ? <p className="mt-3 text-base text-slate-600">{countryLabel}</p> : null}
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{intro}</p>
-      <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-700">{trackerNote}</p>
 
       <ParkCommunityStats parkName={park.name} coasters={coasters} statsById={communityStats} />
 
