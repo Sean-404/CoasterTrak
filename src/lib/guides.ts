@@ -6,10 +6,43 @@ export type GuideMeta = {
   summary: string;
   /** ISO date YYYY-MM-DD */
   published: string;
+  /** ISO date YYYY-MM-DD of the last real content change; defaults to `published`. */
+  updated?: string;
   /** Minutes, approximate. */
   readingMinutes: number;
   keywords: string[];
+  /**
+   * Key into GUIDE_AUTHORS for first-hand guides written by a named person.
+   * Leave unset for house guides, which are credited to CoasterTrak.
+   */
+  author?: string;
 };
+
+export type GuideAuthor = {
+  name: string;
+  /** One or two sentences: who they are and why they are worth reading on this topic. */
+  bio: string;
+  /** Optional public profile (e.g. /u/name or Instagram). */
+  url?: string;
+};
+
+/** Named authors. Only list real people, and only on guides they actually wrote. */
+export const GUIDE_AUTHORS: Record<string, GuideAuthor> = {
+  // The site's founder writes under the brand rather than a personal name.
+  founder: {
+    name: "CoasterTrak's founder",
+    bio: "I built CoasterTrak to keep track of my own coaster credits. I'm based in the UK, and trip reports marked with this byline come from my own park days.",
+    url: "/u/CoasterTrak",
+  },
+};
+
+export function guideAuthor(guide: Pick<GuideMeta, "author">): GuideAuthor | null {
+  return guide.author ? (GUIDE_AUTHORS[guide.author] ?? null) : null;
+}
+
+export function guideUpdated(guide: Pick<GuideMeta, "published" | "updated">): string {
+  return guide.updated ?? guide.published;
+}
 
 /**
  * Original long-form guides for credit hunters.
@@ -89,4 +122,15 @@ export function getGuide(slug: string): GuideMeta | undefined {
 
 export function guidePath(slug: string): string {
   return `/guides/${slug}`;
+}
+
+/** Most recently updated first; named-author guides win ties so first-hand pieces lead. */
+export function latestGuides(limit: number, guides: GuideMeta[] = GUIDES): GuideMeta[] {
+  return [...guides]
+    .sort((a, b) => {
+      const byDate = guideUpdated(b).localeCompare(guideUpdated(a));
+      if (byDate !== 0) return byDate;
+      return Number(Boolean(b.author)) - Number(Boolean(a.author));
+    })
+    .slice(0, limit);
 }

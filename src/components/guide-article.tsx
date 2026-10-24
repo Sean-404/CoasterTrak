@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { AdsenseAd } from "@/components/adsense-ad";
-import { GUIDES, type GuideMeta, guidePath } from "@/lib/guides";
+import { GUIDES, type GuideMeta, guideAuthor, guidePath, guideUpdated } from "@/lib/guides";
 import { SITE_URL } from "@/lib/site-url";
 
 type GuideArticleShellProps = {
@@ -13,8 +13,18 @@ type GuideArticleShellProps = {
   adSlot?: string;
 };
 
+function formatGuideDate(isoDate: string): string {
+  return new Date(isoDate + "T12:00:00Z").toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 export function GuideArticleShell({ guide, children, adSlot }: GuideArticleShellProps) {
   const related = GUIDES.filter((g) => g.slug !== guide.slug).slice(0, 3);
+  const author = guideAuthor(guide);
+  const updated = guideUpdated(guide);
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -37,8 +47,15 @@ export function GuideArticleShell({ guide, children, adSlot }: GuideArticleShell
     headline: guide.title,
     description: guide.description,
     datePublished: guide.published,
-    dateModified: guide.published,
-    author: { "@type": "Organization", name: "CoasterTrak", url: SITE_URL },
+    dateModified: updated,
+    author: author
+      ? {
+          "@type": "Person",
+          name: author.name,
+          description: author.bio,
+          ...(author.url ? { url: author.url.startsWith("/") ? `${SITE_URL}${author.url}` : author.url } : {}),
+        }
+      : { "@type": "Organization", name: "CoasterTrak", url: SITE_URL },
     publisher: { "@type": "Organization", name: "CoasterTrak", url: SITE_URL },
     mainEntityOfPage: `${SITE_URL}${guidePath(guide.slug)}`,
   };
@@ -72,18 +89,35 @@ export function GuideArticleShell({ guide, children, adSlot }: GuideArticleShell
           {guide.title}
         </h1>
         <p className="mt-3 text-sm text-slate-500">
-          {guide.readingMinutes} min read · Updated{" "}
-          {new Date(guide.published + "T12:00:00Z").toLocaleDateString("en-GB", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })}
+          {author ? (
+            <>
+              By <span className="font-semibold text-slate-700">{author.name}</span> ·{" "}
+            </>
+          ) : null}
+          {guide.readingMinutes} min read · {updated !== guide.published ? "Updated" : "Published"}{" "}
+          {formatGuideDate(updated)}
         </p>
         <p className="mt-4 text-base leading-relaxed text-slate-700">{guide.description}</p>
 
         <div className="prose-guide mt-10 space-y-5 text-base leading-relaxed text-slate-700">
           {children}
         </div>
+
+        {author ? (
+          <aside className="mt-12 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-700">About the author</p>
+            <p className="mt-2 font-semibold text-slate-900">
+              {author.url ? (
+                <a href={author.url} className="text-amber-800 underline-offset-2 hover:underline">
+                  {author.name}
+                </a>
+              ) : (
+                author.name
+              )}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-700">{author.bio}</p>
+          </aside>
+        ) : null}
 
         {adSlot ? (
           <AdsenseAd slot={adSlot} className="mt-10" format="horizontal" fullWidthResponsive />

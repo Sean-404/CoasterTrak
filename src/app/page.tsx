@@ -6,6 +6,7 @@ import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { listFeaturedParks } from "@/lib/catalog-server";
+import { guideAuthor, guidePath, latestGuides } from "@/lib/guides";
 import { countRegisteredProfiles } from "@/lib/public-profile";
 import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
 import { parkSlug } from "@/lib/slug";
@@ -196,6 +197,35 @@ export default async function Home() {
             </p>
           </section>
         ) : null}
+
+        <section className="mt-12">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Latest guides</h2>
+            <Link href="/guides" className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline">
+              All guides →
+            </Link>
+          </div>
+          <ul className="mt-6 grid gap-3 sm:grid-cols-3">
+            {latestGuides(3).map((guide) => {
+              const author = guideAuthor(guide);
+              return (
+                <li key={guide.slug}>
+                  <Link
+                    href={guidePath(guide.slug)}
+                    className="block h-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-amber-300 hover:shadow-md"
+                  >
+                    <p className="font-semibold text-slate-900">{guide.title}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{guide.summary}</p>
+                    <p className="mt-3 text-xs text-slate-400">
+                      {author ? `By ${author.name} · ` : ""}
+                      {guide.readingMinutes} min read
+                    </p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
 
         <section className="mt-12">
           <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A coaster credit tracker built for real trips</h2>

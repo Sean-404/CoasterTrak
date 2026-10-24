@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { GUIDES, guidePath } from "@/lib/guides";
+import { GUIDES, guideAuthor, guidePath, latestGuides } from "@/lib/guides";
 import { SITE_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
@@ -58,13 +58,12 @@ export default function GuidesHubPage() {
           Coaster credit guides
         </h1>
         <p className="mt-4 text-base leading-relaxed text-slate-700">
-          Original articles from CoasterTrak on how enthusiasts count unique rides, plan park leftovers, and keep a
-          tally without a spreadsheet. These pages are written for humans and search engines — not generated from
-          Wikipedia dumps.
+          How enthusiasts count unique rides, plan park leftovers, and keep a tally without a spreadsheet — plus trip
+          reports from CoasterTrak&apos;s founder, written from real park days.
         </p>
 
         <ul className="mt-10 space-y-4">
-          {GUIDES.map((guide) => (
+          {latestGuides(GUIDES.length).map((guide) => (
             <li key={guide.slug}>
               <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="text-lg font-semibold text-slate-900">
@@ -76,7 +75,10 @@ export default function GuidesHubPage() {
                   </Link>
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{guide.summary}</p>
-                <p className="mt-3 text-xs text-slate-400">{guide.readingMinutes} min read</p>
+                <p className="mt-3 text-xs text-slate-400">
+                  {guideAuthor(guide) ? `By ${guideAuthor(guide)!.name} · ` : ""}
+                  {guide.readingMinutes} min read
+                </p>
               </article>
             </li>
           ))}
