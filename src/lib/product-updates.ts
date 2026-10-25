@@ -14,6 +14,45 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-10-25a-community-stats",
+    date: "2026-10-25",
+    title: "Community stats on park and coaster pages",
+    summary:
+      "Coaster pages now show how many CoasterTrak riders have logged a ride, with its average rating and wishlist count. Park pages list their most-logged and highest-rated coasters.",
+    highlights: [
+      "Anonymous totals only: no names or profiles are shown",
+      "A figure appears once at least five members contribute to it",
+      "Accounts with Private stats are never counted (see the Privacy Policy)",
+    ],
+  },
+  {
+    id: "2026-10-24b-orlando-trip-report",
+    date: "2026-10-24",
+    title: "First trip report: two weeks in Orlando",
+    summary:
+      "The founder's May 2026 trip across Walt Disney World, Universal and Epic Universe: 17 credits park by park, a top three, and what to know before you go.",
+    highlights: [
+      "Read it in Guides",
+      "The latest guides now appear on the home page",
+      "First-hand guides carry an author byline",
+    ],
+  },
+  {
+    id: "2026-10-24a-catalog-accuracy",
+    date: "2026-10-24",
+    title: "Catalog accuracy pass",
+    summary:
+      "We checked rides with no confirmed status against current park lineups, and fixed rides that were listed as operating at a park they left years ago.",
+    highlights: [
+      "100 rides confirmed operating, each with a source",
+      "Six Flags America (closed November 2025) and its coasters now marked defunct",
+      "Former installations fixed, like the 1970 Wildcat that was still showing at Cedar Point",
+      "Rides with no known status now say \"Status not confirmed\" instead of looking open",
+      "Every park and coaster page has a Sources & corrections section with a report link",
+      "Mario Kart: Bowser's Challenge removed (a dark ride, not a coaster), and Trolls Trollercoaster now counts as one credit with Woody Woodpecker's Nuthouse Coaster",
+    ],
+  },
+  {
     id: "2026-10-06d-weekly-digest",
     date: "2026-10-06",
     title: "Weekly credit digest",
