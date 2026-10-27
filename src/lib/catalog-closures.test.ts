@@ -72,6 +72,19 @@ describe("normalizeCatalog applies park-scoped fixes", () => {
   });
 });
 
+describe("misattributed rows", () => {
+  it("hides Jumbo Jet from Rye Playland, a park it never ran at", () => {
+    const parks: Park[] = [
+      { id: 40, name: "Playland", country: "United States", latitude: 40.97, longitude: -73.67 },
+    ];
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 15817, park_id: 40, name: "Jumbo Jet (Chelyuskintsev Park)" }),
+      coaster({ id: 1, park_id: 40, name: "Dragon Coaster" }),
+    ]);
+    expect(coasters.map((c) => c.id)).toEqual([1]);
+  });
+});
+
 describe("Orlando catalog corrections", () => {
   const parks: Park[] = [
     { id: 177, name: "Universal Studios Florida", country: "United States", latitude: 28.47, longitude: -81.47 },

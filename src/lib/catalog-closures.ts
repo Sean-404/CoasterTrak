@@ -52,6 +52,21 @@ export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = 
   },
 };
 
+/**
+ * Rows attached to a park the ride never ran at, usually because a park name in a
+ * Wikipedia infobox matched a different park with a similar name. Hidden from that park.
+ */
+export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
+  Playland: {
+    // Jumbo Jet ran at Palace Playland (Maine), not Rye Playland (New York).
+    "Jumbo Jet (Chelyuskintsev Park)": "https://en.wikipedia.org/wiki/Jumbo_Jet_(Chelyuskintsev_Park)",
+  },
+};
+
+export function isMisattributedRow(coasterName: string, parkName: string | null | undefined): boolean {
+  return Boolean(parkName && MISATTRIBUTED_ROWS[parkName]?.[coasterName]);
+}
+
 /** Apply closed-park and former-installation corrections for a row at a known park. */
 export function applyParkScopedFixes<
   T extends Pick<Coaster, "name" | "status"> & Partial<Pick<Coaster, "opening_year" | "closing_year">>,

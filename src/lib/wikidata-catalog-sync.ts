@@ -35,6 +35,8 @@ import {
   upsertCoastersByExternalKeys,
   type UpsertedCoasterRef,
 } from "@/lib/coasters-external-upsert";
+import type { Coaster } from "@/types/domain";
+import { applyParkScopedFixes } from "@/lib/catalog-closures";
 import { effectiveClosingYear, normalizeLifecycleStatus } from "@/lib/coaster-status";
 import { normalizeRcdbId } from "@/lib/rcdb";
 import { fetchAllPages, SUPABASE_PAGE_SIZE } from "@/lib/supabase-fetch-all";
@@ -185,7 +187,7 @@ function resolveParkDisplayName(rows: WikidataCoasterRow[]): string | null {
   return null;
 }
 
-function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
+function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number, parkName?: string | null) {
   if (!hasUsableWikidataCoasterName(wd)) return null;
   const name = wikidataInsertName(wd);
   const inferred = inferCoasterType(wd.coasterTypeLabel, wd.manufacturerLabel) ?? "Unknown";
@@ -214,21 +216,31 @@ function coasterUpsertPayload(wd: WikidataCoasterRow, parkId: number) {
   });
 
   const rcdbId = normalizeRcdbId(wd.rcdbId);
-  const finalOpeningYear = fixed.opening_year ?? openingYear;
-  const finalClosingYear =
-    fixed.closing_year !== undefined
-      ? effectiveClosingYear(finalOpeningYear, fixed.closing_year)
-      : closingYear;
+  // Park-aware corrections (closed parks, former installations) — same as public pages.
+  const scoped = applyParkScopedFixes(
+    {
+      name: fixed.name,
+      status: fixed.status ?? lifecycleStatus,
+      opening_year: fixed.opening_year ?? openingYear,
+      closing_year:
+        fixed.closing_year !== undefined
+          ? effectiveClosingYear(fixed.opening_year ?? openingYear, fixed.closing_year)
+          : closingYear,
+    },
+    parkName,
+  );
+  const finalOpeningYear = scoped.opening_year ?? null;
+  const finalClosingYear = scoped.closing_year ?? null;
 
   return {
     park_id: parkId,
-    name: fixed.name,
+    name: scoped.name,
     wikidata_id: wd.wikidataId,
     ...(rcdbId ? { rcdb_id: rcdbId } : {}),
     coaster_type: fixed.coaster_type ?? inferred,
     manufacturer: fixed.manufacturer ?? null,
     image_url: sanitizeCoasterImageUrl(fixed.image_url ?? null),
-    status: fixed.status ?? lifecycleStatus,
+    status: scoped.status,
     ...(fixed.length_ft != null ? { length_ft: Math.round(fixed.length_ft) } : {}),
     ...(fixed.speed_mph != null ? { speed_mph: Math.round(fixed.speed_mph) } : {}),
     ...(fixed.height_ft != null ? { height_ft: Math.round(fixed.height_ft) } : {}),
@@ -410,7 +422,7 @@ export async function syncCatalogFromWikidata(): Promise<CatalogSyncResult> {
     }
 
     function queueCoaster(wd: WikidataCoasterRow, parkId: number) {
-      const payload = coasterUpsertPayload(wd, parkId);
+      const payload = coasterUpsertPayload(wd, parkId, parkRows.find((p) => p.id === parkId)?.name);
       if (!payload) return;
       coasterBatch.push(payload);
     }
@@ -634,9 +646,10 @@ export async function syncCatalogFromWikidata(): Promise<CatalogSyncResult> {
       for (const plan of extraPlans) {
         const parkName = parkRows.find((p) => p.id === plan.parkId)?.name ?? plan.spec.parkName;
         if (plan.action === "insert") {
+          const spec = { ...plan.spec, ...applyParkScopedFixes(plan.spec, parkName) };
           const { data, error } = await supabase
             .from("coasters")
-            .insert(extraInstallInsertRow(plan.parkId, plan.spec, new Date().toISOString()))
+            .insert(extraInstallInsertRow(plan.parkId, spec, new Date().toISOString()))
             .select("id, name")
             .single();
           if (error) throw error;
@@ -647,9 +660,16 @@ export async function syncCatalogFromWikidata(): Promise<CatalogSyncResult> {
             parkId: plan.parkId,
           });
         } else {
+          const existingRow = (extraExisting ?? []).find((row) => row.id === plan.coasterId);
+          const merged = { ...existingRow, ...plan.patch } as Coaster;
+          const scoped = applyParkScopedFixes(merged, parkName);
+          const patch = { ...plan.patch };
+          for (const key of ["name", "status", "opening_year", "closing_year"] as const) {
+            if (scoped[key] !== merged[key]) Object.assign(patch, { [key]: scoped[key] });
+          }
           const { error } = await supabase
             .from("coasters")
-            .update({ ...plan.patch, last_synced_at: new Date().toISOString() })
+            .update({ ...patch, last_synced_at: new Date().toISOString() })
             .eq("id", plan.coasterId);
           if (error) throw error;
           coasterUpdates += 1;
