@@ -87,16 +87,11 @@ describe("planEnsureCoasterInstalls", () => {
     expect(patch).toMatchObject({ name: "Ride of Steel", status: "Operating", closing_year: null });
   });
 
-  it("matches Mid America Adventure to Six Flags St. Louis", () => {
-    expect(
-      findParkIdForInstall(parks, {
-        parkName: "Six Flags St. Louis",
-        parkNameAliases: ["Mid America Adventure"],
-        name: "Mr. Freeze",
-        coaster_type: "Steel",
-        status: "Operating",
-      }),
-    ).toBe(65);
+  it("finds Mid America Adventure under its new and former names", () => {
+    const spec = ENSURE_COASTER_INSTALLS.find((s) => s.name === "Mr. Freeze")!;
+    expect(spec.parkName).toBe("Mid America Adventure");
+    expect(findParkIdForInstall(parks, spec)).toBe(65);
+    expect(findParkIdForInstall([{ ...parks[2]!, name: "Mid America Adventure" }], spec)).toBe(65);
   });
 
   it("treats Superman Ride of Steel as the same Darien Lake credit", () => {

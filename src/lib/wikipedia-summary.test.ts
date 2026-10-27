@@ -119,6 +119,31 @@ describe("coaster Wikipedia helpers", () => {
       ),
     ).toBe(true);
   });
+
+  it("rejects a namesake ride's article for Euclid Beach's historical coasters", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    const summary = {
+      title: "Switchback Railway",
+      extract:
+        "The original Switchback Railway was the first roller coaster at Coney Island in Brooklyn, New York City.",
+      url: "https://en.wikipedia.org/wiki/Switchback_Railway",
+      imageUrl: null,
+    };
+    expect(isLikelyCoasterSummary("Switchback Railway", summary, "Euclid Beach Park")).toBe(false);
+    expect(isLikelyCoasterSummary("Switchback Railway", summary, "Coney Island")).toBe(true);
+  });
+
+  it("keeps articles that still use a rebranded park's former Six Flags name", async () => {
+    const { isLikelyCoasterSummary } = await import("@/lib/wikipedia-summary");
+    const summary = {
+      title: "The Boss (roller coaster)",
+      extract: "The Boss is a wooden roller coaster located at Six Flags St. Louis in Eureka, Missouri.",
+      url: "https://en.wikipedia.org/wiki/The_Boss_(roller_coaster)",
+      imageUrl: null,
+    };
+    expect(isLikelyCoasterSummary("The Boss", summary, "Mid America Adventure")).toBe(true);
+    expect(isLikelyCoasterSummary("The Boss", summary, "Kings Island")).toBe(false);
+  });
 });
 
 describe("fetchWikipediaSummary image fallback", () => {

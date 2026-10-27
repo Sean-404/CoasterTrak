@@ -48,6 +48,10 @@ export const PARK_DISPLAY_NAME_BY_WIKIDATA_ID: Record<string, string> = {
 /** Exact catalog name → preferred display label (legacy rows without a Wikidata id). */
 export const PARK_DISPLAY_NAME_BY_EXACT_NAME: Record<string, string> = {
   "Magic Kingdom": "Disney's Magic Kingdom",
+  // Rebranded on 27 Aug 2026 after Enchanted Parks bought the park.
+  // https://www.ky3.com/2026/08/27/six-flags-st-louis-officially-rebrands-mid-america-adventure/
+  "Six Flags St. Louis": "Mid America Adventure",
+  "Mid-America Adventure": "Mid America Adventure",
 };
 
 /** Parks that may be missing from Wikidata ingest — ensure they exist before relinking coasters. */
@@ -65,8 +69,8 @@ export type EnsureParkSpec = {
  * (rebrand, missing apostrophe, etc.).
  */
 export const PARK_NAME_ALIASES: Record<string, string> = {
-  "Mid America Adventure": "Six Flags St. Louis",
-  "Mid-America Adventure": "Six Flags St. Louis",
+  "Six Flags St. Louis": "Mid America Adventure",
+  "Mid-America Adventure": "Mid America Adventure",
   "Universal Islands of Adventure": "Universal's Islands of Adventure",
 };
 
@@ -145,8 +149,8 @@ export const ENSURE_COASTER_INSTALLS: EnsureCoasterInstallSpec[] = [
     enwiki_title: "Superman: Ultimate Flight",
   },
   {
-    parkName: "Six Flags St. Louis",
-    parkNameAliases: ["Mid America Adventure", "Mid-America Adventure"],
+    parkName: "Mid America Adventure",
+    parkNameAliases: ["Six Flags St. Louis", "Mid-America Adventure"],
     name: "Mr. Freeze",
     nameAliases: ["Mr. Freeze Reverse Blast", "Mr Freeze Reverse Blast"],
     coaster_type: "Steel",

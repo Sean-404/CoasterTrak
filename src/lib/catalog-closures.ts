@@ -28,8 +28,51 @@ export const CLOSED_PARKS: Record<string, { closedYear: number; source: string }
 };
 
 type InstallFix = {
-  fix: Partial<Pick<Coaster, "name" | "status" | "opening_year" | "closing_year">>;
+  fix: Partial<
+    Pick<
+      Coaster,
+      | "name"
+      | "status"
+      | "opening_year"
+      | "closing_year"
+      | "manufacturer"
+      | "wikidata_id"
+      | "height_ft"
+      | "speed_mph"
+      | "length_ft"
+      | "duration_s"
+      | "image_url"
+      | "enwiki_title"
+      | "summary_text"
+    >
+  >;
   source: string;
+};
+
+/** Clears stats, photo and article a row borrowed from a namesake ride at another park. */
+const NO_BORROWED_DETAILS = {
+  height_ft: null,
+  speed_mph: null,
+  length_ft: null,
+  duration_s: null,
+  image_url: null,
+  enwiki_title: null,
+  summary_text: null,
+} as const;
+
+// Bartlett's Flying Turns ran 1930 – 28 Sep 1969. The row carries Knoebels' 2013
+// Flying Turns (Q1434625), so drop that ride's item, maker, stats and article.
+const EUCLID_BEACH_FLYING_TURNS: InstallFix = {
+  fix: {
+    name: "Flying Turns",
+    status: "Defunct",
+    opening_year: 1930,
+    closing_year: 1969,
+    manufacturer: "John Norman Bartlett",
+    wikidata_id: null,
+    ...NO_BORROWED_DETAILS,
+  },
+  source: "https://en.wikipedia.org/wiki/Flying_Turns",
 };
 
 /** Former installations keyed by park name, then by the catalog row's name. */
@@ -49,11 +92,41 @@ export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = 
     },
   },
   "Euclid Beach Park": {
-    // The park's first coaster, a Switchback Railway, ran 1896–1904 (the row inherited
-    // Coney Island's 1884 opening from the Switchback Railway article).
+    // The park's first coaster, a Switchback Railway, ran 1896–1904. The row had Coney
+    // Island's 1884 ride: its opening, stats, photo and article.
     "Switchback Railway (Euclid Beach Park)": {
-      fix: { name: "Switchback Railway", status: "Defunct", opening_year: 1896, closing_year: 1904 },
+      fix: {
+        name: "Switchback Railway",
+        status: "Defunct",
+        opening_year: 1896,
+        closing_year: 1904,
+        ...NO_BORROWED_DETAILS,
+      },
       source: "https://en.wikipedia.org/wiki/Euclid_Beach_Park",
+    },
+    "Flying Turns (Euclid Beach Park)": EUCLID_BEACH_FLYING_TURNS,
+    // The sync writes the fixed name back, so match the row under that name too.
+    "Flying Turns": EUCLID_BEACH_FLYING_TURNS,
+  },
+  "Six Flags Great America": {
+    // Iron Wolf ran here 1990 – 5 Sep 2011, then moved to Six Flags America (later Firebird).
+    "Firebird (roller coaster)": {
+      fix: { name: "Iron Wolf", status: "Defunct", opening_year: 1990, closing_year: 2011 },
+      source: "https://en.wikipedia.org/wiki/Firebird_(roller_coaster)",
+    },
+  },
+  // Batman The Escape ran as Shockwave at Magic Mountain (1986–1988) and Great Adventure
+  // (1990–1992) before AstroWorld renamed it in 1993.
+  "Six Flags Magic Mountain": {
+    "Batman The Escape": {
+      fix: { name: "Shockwave", status: "Defunct", opening_year: 1986, closing_year: 1988 },
+      source: "https://en.wikipedia.org/wiki/Batman_The_Escape",
+    },
+  },
+  "Six Flags Great Adventure": {
+    "Batman The Escape": {
+      fix: { name: "Shockwave", status: "Defunct", opening_year: 1990, closing_year: 1992 },
+      source: "https://en.wikipedia.org/wiki/Batman_The_Escape",
     },
   },
   "Geauga Lake": {
@@ -90,6 +163,11 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   // Firebird ran at Six Flags Great America (as Iron Wolf) and Six Flags America only.
   "Six Flags Magic Mountain": {
     Firebird: "https://en.wikipedia.org/wiki/Firebird_(roller_coaster)",
+  },
+  // Tony Hawk's Big Spin left Discovery Kingdom in 2012 and reopened as The Joker at
+  // Six Flags México in 2013; it never ran in Maryland.
+  "Six Flags America": {
+    "The Joker (Six Flags México)": "https://en.wikipedia.org/wiki/The_Joker_(Six_Flags_M%C3%A9xico)",
   },
 };
 

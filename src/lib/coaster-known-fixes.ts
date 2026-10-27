@@ -158,6 +158,11 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     image_url:
       "https://commons.wikimedia.org/wiki/Special:FilePath/Alton%20Towers%20-%20Nemesis%20Reborn%205-9-2025.jpg",
   },
+  // Mid America Adventure (ex-Six Flags St. Louis) — Wikipedia titles carry the park name.
+  // https://en.wikipedia.org/wiki/Ninja_(Mid_America_Adventure)
+  Q1432350: { name: "Ninja", status: "Operating" },
+  // https://en.wikipedia.org/wiki/Boomerang_(Mid_America_Adventure)
+  Q7887822: { name: "Boomerang", status: "Operating" },
   // Dreamland Margate Scenic Railway — opened 3 Jul 1920; shut after a derailment in Aug 2024
   // and never reopened; Dreamland retired it on 27 Jan 2026.
   // https://en.wikipedia.org/wiki/Scenic_Railway_(Dreamland_Margate)

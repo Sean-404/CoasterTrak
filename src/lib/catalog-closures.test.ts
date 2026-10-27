@@ -108,9 +108,16 @@ describe("misattributed rows", () => {
     });
   });
 
-  it("keeps Euclid Beach's own Switchback Railway with its years there", () => {
+  it("keeps Euclid Beach's own Switchback Railway without Coney Island's details", () => {
     const fixed = applyParkScopedFixes(
-      coaster({ name: "Switchback Railway (Euclid Beach Park)", status: "Defunct", opening_year: 1884 }),
+      coaster({
+        name: "Switchback Railway (Euclid Beach Park)",
+        status: "Defunct",
+        opening_year: 1884,
+        height_ft: 50,
+        enwiki_title: "Switchback Railway",
+        summary_text: "The original Switchback Railway was the first roller coaster at Coney Island…",
+      }),
       "Euclid Beach Park",
     );
     expect(fixed).toMatchObject({
@@ -118,7 +125,54 @@ describe("misattributed rows", () => {
       status: "Defunct",
       opening_year: 1896,
       closing_year: 1904,
+      height_ft: null,
+      enwiki_title: null,
+      summary_text: null,
     });
+  });
+
+  it("turns Knoebels' Flying Turns at Euclid Beach into the park's own 1930 ride", () => {
+    for (const name of ["Flying Turns (Euclid Beach Park)", "Flying Turns"]) {
+      const fixed = applyParkScopedFixes(
+        coaster({ name, wikidata_id: "Q1434625", opening_year: 2013, manufacturer: "Knoebels Amusement Resort" }),
+        "Euclid Beach Park",
+      );
+      expect(fixed).toMatchObject({
+        name: "Flying Turns",
+        status: "Defunct",
+        opening_year: 1930,
+        closing_year: 1969,
+        manufacturer: "John Norman Bartlett",
+        wikidata_id: null,
+      });
+    }
+  });
+
+  it("names Batman The Escape and Iron Wolf as they ran at their earlier parks", () => {
+    expect(applyParkScopedFixes(coaster({ name: "Batman The Escape" }), "Six Flags Magic Mountain")).toMatchObject({
+      name: "Shockwave",
+      opening_year: 1986,
+      closing_year: 1988,
+    });
+    expect(applyParkScopedFixes(coaster({ name: "Batman The Escape" }), "Six Flags Great Adventure")).toMatchObject({
+      name: "Shockwave",
+      opening_year: 1990,
+      closing_year: 1992,
+    });
+    expect(
+      applyParkScopedFixes(coaster({ name: "Firebird (roller coaster)" }), "Six Flags Great America"),
+    ).toMatchObject({ name: "Iron Wolf", status: "Defunct", opening_year: 1990, closing_year: 2011 });
+  });
+
+  it("shows Six Flags St. Louis as Mid America Adventure with plain ride names", () => {
+    const parks: Park[] = [
+      { id: 65, name: "Six Flags St. Louis", country: "United States", latitude: 38.51, longitude: -90.68 },
+    ];
+    const { parks: out, coasters } = normalizeCatalog(parks, [
+      coaster({ id: 286, park_id: 65, name: "Ninja (Mid America Adventure)", wikidata_id: "Q1432350" }),
+    ]);
+    expect(out[0]?.name).toBe("Mid America Adventure");
+    expect(coasters[0]?.name).toBe("Ninja");
   });
 });
 

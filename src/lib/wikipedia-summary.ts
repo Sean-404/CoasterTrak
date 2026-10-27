@@ -3,6 +3,7 @@
  */
 
 import { cleanCoasterName } from "@/lib/display";
+import { PARK_NAME_ALIASES } from "@/lib/catalog-overrides";
 import { sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import { isWikidataQidLabel } from "@/lib/wikidata-qid";
 
@@ -194,6 +195,27 @@ const COMPETING_PARK_BRANDS = [
   "canada's wonderland",
 ] as const;
 
+/**
+ * Articles about a namesake ride at another park that title search lands on for a
+ * historical ride with no article of its own. Keyed by catalog park name.
+ */
+const WIKIPEDIA_TITLES_NOT_AT_PARK: Record<string, string[]> = {
+  // Euclid Beach's Switchback Railway, Scenic Railway and Flying Turns have no articles;
+  // these describe the Coney Island, Margate, Melbourne and Knoebels rides.
+  // https://en.wikipedia.org/wiki/Euclid_Beach_Park
+  "Euclid Beach Park": [
+    "Switchback Railway",
+    "Scenic Railway (Dreamland Margate)",
+    "The Great Scenic Railway",
+    "Flying Turns (Knoebels)",
+  ],
+};
+
+function isNamesakeArticleForPark(title: string, parkName: string): boolean {
+  const want = title.trim().toLowerCase();
+  return (WIKIPEDIA_TITLES_NOT_AT_PARK[parkName] ?? []).some((t) => t.toLowerCase() === want);
+}
+
 function parkContextTokens(parkName: string): string[] {
   const cleaned = parkName
     .toLowerCase()
@@ -205,22 +227,30 @@ function parkContextTokens(parkName: string): string[] {
     .filter((t) => t.length >= 4 && !["park", "theme", "world", "resort", "land"].includes(t));
 }
 
+/** The park's name plus former names, since articles of a rebranded park lag (Six Flags St. Louis). */
+function parkNameVariants(parkName: string): string[] {
+  const park = parkName.trim();
+  return [park, ...Object.keys(PARK_NAME_ALIASES).filter((alias) => PARK_NAME_ALIASES[alias] === park)];
+}
+
 function extractMentionsPark(extract: string, title: string, parkName: string): boolean {
   const haystack = `${title} ${extract}`.toLowerCase();
-  const parkLower = parkName.trim().toLowerCase();
-  if (parkLower && haystack.includes(parkLower)) return true;
-  const tokens = parkContextTokens(parkName);
-  if (tokens.length === 0) return false;
-  return tokens.every((t) => haystack.includes(t));
+  return parkNameVariants(parkName).some((name) => {
+    const parkLower = name.toLowerCase();
+    if (parkLower && haystack.includes(parkLower)) return true;
+    const tokens = parkContextTokens(name);
+    if (tokens.length === 0) return false;
+    return tokens.every((t) => haystack.includes(t));
+  });
 }
 
 function extractMentionsCompetingPark(extract: string, title: string, parkName: string): boolean {
   const haystack = `${title} ${extract}`.toLowerCase();
-  const parkLower = parkName.trim().toLowerCase();
+  const parkNames = parkNameVariants(parkName).map((n) => n.toLowerCase());
   return COMPETING_PARK_BRANDS.some((brand) => {
     if (!haystack.includes(brand)) return false;
-    // Expected park itself uses this brand (e.g. Energylandia / Legoland).
-    if (parkLower.includes(brand)) return false;
+    // Expected park itself uses (or used) this brand (e.g. Energylandia / Legoland).
+    if (parkNames.some((n) => n.includes(brand))) return false;
     return true;
   });
 }
@@ -265,6 +295,9 @@ export function isLikelyCoasterSummary(
       return false;
     }
     if (extractMentionsCompetingPark(summary.extract, summary.title, park)) {
+      return false;
+    }
+    if (isNamesakeArticleForPark(summary.title, park)) {
       return false;
     }
   }
