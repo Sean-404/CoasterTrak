@@ -298,6 +298,31 @@ function yearFromInfoboxDate(raw: string): number | null {
   return y >= 1880 && y <= 2100 ? y : null;
 }
 
+/** Every plausible year in an infobox date cell (e.g. "1996 (original)<br>2012 (relaunch)"). */
+export function infoboxYears(raw: string): number[] {
+  const t = `${raw} ${cleanInfoboxWikiValue(raw)}`;
+  const years = [...t.matchAll(/\b(18\d{2}|19\d{2}|20\d{2})\b/g)]
+    .map((m) => Number(m[1]))
+    .filter((y) => y >= 1880 && y <= 2100);
+  return [...new Set(years)];
+}
+
+/**
+ * Closing year for an install, or null when a later (re)opening supersedes it — e.g.
+ * The Barnstormer: closed "2011 (original)", opened "1996 (original) / 2012 (relaunch)",
+ * or Incredicoaster: closed Jan 2018 "(as California Screamin')", reopened June 2018.
+ */
+export function effectiveInfoboxClosingYear(openedRaw: string | undefined, closedRaw: string): number | null {
+  const closings = infoboxYears(closedRaw);
+  if (closings.length === 0) return null;
+  const lastClosing = Math.max(...closings);
+  const openings = openedRaw ? infoboxYears(openedRaw) : [];
+  if (openings.some((y) => y > lastClosing)) return null;
+  // Several opening dates with the latest in the closing year: a same-year retheme or relaunch.
+  if (openings.length > 1 && Math.max(...openings) >= lastClosing) return null;
+  return lastClosing;
+}
+
 /** Extract a plausible opening year from Wikipedia infobox date text / templates. */
 export function parseOpeningYear(raw: string): number | null {
   return yearFromInfoboxDate(raw);
@@ -358,7 +383,7 @@ function locationFromBlock(block: string): InfoboxCoasterLocation | null {
     if (y != null) out.opening_year = y;
   }
   if (closedRaw) {
-    const y = parseClosingYear(closedRaw);
+    const y = effectiveInfoboxClosingYear(openedRaw, closedRaw);
     if (y != null) out.closing_year = y;
   }
   if (rcdbRaw) {

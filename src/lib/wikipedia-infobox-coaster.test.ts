@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cleanInfoboxParkName,
   cleanInfoboxWikiValue,
+  effectiveInfoboxClosingYear,
   extractInfoboxRollerCoasterBlock,
   isCountryOnlyInfoboxLocation,
   parseInfoboxCoasterLocationsFromWikitext,
@@ -142,5 +143,39 @@ describe("wikipedia-infobox-coaster", () => {
     expect(cleanInfoboxParkName("Geauga Lake (amusement park)|Geauga Lake")).toBe("Geauga Lake");
     expect(isCountryOnlyInfoboxLocation("Germany")).toBe(true);
     expect(isCountryOnlyInfoboxLocation("Six Flags America")).toBe(false);
+  });
+  it("ignores an original closing year when the ride later relaunched (The Barnstormer)", () => {
+    const wt = `
+{{Infobox roller coaster
+|name=The Barnstormer
+|location=Magic Kingdom
+|opened={{Start date|1996|10|01}} (original)<br>{{Start date|2012|03|12}} (relaunch)
+|closed={{End date|2011|02|12}} (original)
+|status=Operating
+|extend={{Infobox roller coaster/extend
+|location=Disneyland Paris
+|opened={{Start date|1992|04|12}}
+|status=Operating
+}}
+}}
+`;
+    const [magicKingdom] = parseInfoboxCoasterLocationsFromWikitext(wt);
+    expect(magicKingdom).toMatchObject({ parkName: "Magic Kingdom", status: "Operating", opening_year: 1996 });
+    expect(magicKingdom?.closing_year).toBeUndefined();
+  });
+
+  it("keeps the latest closing year when nothing reopened after it", () => {
+    expect(effectiveInfoboxClosingYear("1990<br>2005 (relocated)", "2001<br>2019")).toBe(2019);
+    expect(effectiveInfoboxClosingYear("1996 (original)<br>2012 (relaunch)", "2011 (original)")).toBeNull();
+    expect(effectiveInfoboxClosingYear(undefined, "{{End date|2008|9|1}}")).toBe(2008);
+    // Same-year retheme: California Screamin' closed Jan 2018, reopened as Incredicoaster June 2018.
+    expect(
+      effectiveInfoboxClosingYear(
+        "{{Start date|2001|2|8}} (as California Screamin')<br>{{Start date|2018|6|23}} (as Incredicoaster)",
+        "{{End date|2018|1|7}} (as California Screamin')",
+      ),
+    ).toBeNull();
+    // A ride that opened and closed in the same single season stays closed.
+    expect(effectiveInfoboxClosingYear("{{Start date|2018|5|1}}", "{{End date|2018|9|1}}")).toBe(2018);
   });
 });

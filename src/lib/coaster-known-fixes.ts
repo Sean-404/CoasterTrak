@@ -133,7 +133,9 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q14475699: { name: "Arthur", status: "Operating" },
   Q443680: { name: "WODAN - Timburcoaster", status: "Operating" },
   Q63196746: { name: "Eurosat - CanCan Coaster", status: "Operating" },
-  Q323953: { name: "Alpine Express 'Enzian'", status: "Operating" },
+  // Closed June 2023, rebuilt in place and reopened 2024; the infobox lists only the 2023
+  // closing, so clear it. https://en.wikipedia.org/wiki/Alpenexpress_Enzian
+  Q323953: { name: "Alpine Express 'Enzian'", status: "Operating", closing_year: null },
   Q121359119: { name: "Voltron Nevera powered by Rimac", status: "Operating" },
   // Phantasialand
   Q319747: { name: "Crazy Bats", status: "Operating" },
