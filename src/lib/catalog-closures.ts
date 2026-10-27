@@ -15,6 +15,11 @@ export const CLOSED_PARKS: Record<string, { closedYear: number; source: string }
     closedYear: 2025,
     source: "https://www.foxla.com/news/six-flags-america-closes-after-50-years",
   },
+  // Cleveland lakeside park; closed for good on 28 Sep 1969.
+  "Euclid Beach Park": {
+    closedYear: 1969,
+    source: "https://en.wikipedia.org/wiki/Euclid_Beach_Park",
+  },
   // Amusement park side closed after the 2007 season; rides were sold off in 2008.
   "Geauga Lake": {
     closedYear: 2007,
