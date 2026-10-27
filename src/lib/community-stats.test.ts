@@ -7,6 +7,7 @@ import {
   hasCommunityStats,
   parseCommunityStatsRow,
   rankParkCommunityCoasters,
+  rideSheetCommunityLine,
   thresholdCount,
   type CommunityCoasterStats,
 } from "./community-stats";
@@ -149,5 +150,21 @@ describe("rankParkCommunityCoasters", () => {
     );
     const { mostLogged } = rankParkCommunityCoasters(coasters, byId, 3);
     expect(mostLogged.map((entry) => entry.coaster.id)).toEqual([1, 2, 3]);
+  });
+});
+
+describe("rideSheetCommunityLine", () => {
+  const base = { coasterId: 1, riderCount: null, ratingCount: null, averageRating: null, wishlistCount: null };
+
+  it("shows the member count, and the rating once it clears the threshold", () => {
+    expect(rideSheetCommunityLine({ ...base, riderCount: 29 })).toBe("Logged by 29 CoasterTrak members");
+    expect(rideSheetCommunityLine({ ...base, riderCount: 1200, ratingCount: 7, averageRating: 4.6 })).toBe(
+      "Logged by 1,200 CoasterTrak members · avg ★4.6 from 7 ratings",
+    );
+  });
+
+  it("never reveals a count below the threshold", () => {
+    expect(rideSheetCommunityLine(undefined)).toBe("Fewer than 5 CoasterTrak members have logged this so far.");
+    expect(rideSheetCommunityLine({ ...base, wishlistCount: 9 })).toContain("Fewer than 5");
   });
 });

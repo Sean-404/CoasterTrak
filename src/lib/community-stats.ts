@@ -127,3 +127,19 @@ export function rankParkCommunityCoasters<C extends { id: number; name: string }
 
   return { mostLogged, highestRated };
 }
+
+/**
+ * One line for a rider's own ride sheet: how many members logged it, plus the average
+ * rating when that clears the threshold too. Below the threshold, say so plainly.
+ */
+export function rideSheetCommunityLine(stats: CommunityCoasterStats | null | undefined): string {
+  if (!stats?.riderCount) {
+    return `Fewer than ${COMMUNITY_MIN_CONTRIBUTORS} CoasterTrak members have logged this so far.`;
+  }
+  const members = `${formatCount(stats.riderCount)} CoasterTrak members`;
+  const rating =
+    stats.averageRating != null && stats.ratingCount != null
+      ? ` · avg ★${formatAverageRating(stats.averageRating)} from ${formatRatingCount(stats.ratingCount)}`
+      : "";
+  return `Logged by ${members}${rating}`;
+}

@@ -19,6 +19,9 @@ import {
 import { fmtDuration, fmtHeight, fmtLength, fmtSpeed } from "@/lib/units";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { rideSheetCommunityLine } from "@/lib/community-stats";
+import { loadCommunityStats, type CommunityStatsMap } from "@/lib/community-stats-client";
+import { coasterSlug } from "@/lib/slug";
 import {
   RIDE_PHOTO_ACCEPT,
   removeRidePhoto,
@@ -108,6 +111,8 @@ export function RiddenRideSheet({
   const [photoError, setPhotoError] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
   const [historyBusy, setHistoryBusy] = useState(false);
+  // undefined = still loading; null = unavailable (hide the line).
+  const [community, setCommunity] = useState<CommunityStatsMap | undefined>(undefined);
   const busy = savingRating || removing || loggingRide || historyBusy || photoBusy;
 
   useEffect(() => {
@@ -117,6 +122,17 @@ export function RiddenRideSheet({
     setLogError("");
     setPhotoError("");
   }, [open, ride?.coaster_id]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void loadCommunityStats().then((map) => {
+      if (!cancelled) setCommunity(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -242,6 +258,17 @@ export function RiddenRideSheet({
                 ) : null}
               </dl>
             )}
+            {community ? (
+              <p className="mt-2 border-t border-green-200/70 pt-2 text-xs text-green-900/80">
+                {rideSheetCommunityLine(community.get(ride.coaster_id))}{" "}
+                <Link
+                  href={`/coasters/${coasterSlug(ride.coasters?.name ?? `Coaster ${ride.coaster_id}`, ride.coaster_id)}`}
+                  className="font-semibold text-green-800 underline-offset-2 hover:underline"
+                >
+                  Ride page
+                </Link>
+              </p>
+            ) : null}
           </div>
 
           {(canEdit || ride.photoUrl) && (
