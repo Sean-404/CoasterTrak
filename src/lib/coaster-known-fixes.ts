@@ -103,7 +103,9 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   // Cedar Point rethemes
   Q1189847: { name: "Top Thrill 2", status: "Operating" },
   Q1476401: { name: "Rougarou", status: "Operating" },
-  Q112689934: { name: "Mantis", status: "Defunct" },
+  // Mantis ran 11 May 1996 – 19 Oct 2014, then reopened as Rougarou (Q1476401) in 2015.
+  // https://en.wikipedia.org/wiki/Rougarou_(roller_coaster)
+  Q112689934: { name: "Mantis", status: "Defunct", opening_year: 1996, closing_year: 2014 },
   Q1787446: { name: "Steel Vengeance", status: "Operating" },
   Q60845759: { name: "Mean Streak", status: "Defunct" },
   // Canada's Wonderland — ThemeParks feed used DareDeviler for The Fly
@@ -142,7 +144,9 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q1497026: { name: "Gebirgsbahn", status: "Defunct" },
   Q1542448: { name: "Grand-Canyon-Bahn", status: "Defunct" },
   // Six Flags Magic Mountain
-  Q677477: { name: "Colossus", status: "Defunct" },
+  // Colossus ran 29 Jun 1978 – 16 Aug 2014, then reopened as Twisted Colossus (Q75099048)
+  // in 2015; the row had inherited the 2015 opening. https://en.wikipedia.org/wiki/Twisted_Colossus
+  Q677477: { name: "Colossus", status: "Defunct", opening_year: 1978, closing_year: 2014 },
   Q75099048: { name: "Twisted Colossus", status: "Operating" },
   Q618766: { name: "Apocalypse", status: "Operating" },
   Q674382: { name: "Scream", status: "Operating" },
@@ -154,6 +158,11 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     image_url:
       "https://commons.wikimedia.org/wiki/Special:FilePath/Alton%20Towers%20-%20Nemesis%20Reborn%205-9-2025.jpg",
   },
+  // Dreamland Margate Scenic Railway — opened 3 Jul 1920; shut after a derailment in Aug 2024
+  // and never reopened; Dreamland retired it on 27 Jan 2026.
+  // https://en.wikipedia.org/wiki/Scenic_Railway_(Dreamland_Margate)
+  // https://theisleofthanetnews.com/2026/01/28/dreamland-heritage-trust-sadness-at-dreamland-decision-to-retire-scenic-railway-despite-funding-based-on-ride-operation-until-2037/
+  Q2229130: { name: "Scenic Railway", status: "Defunct", opening_year: 1920, closing_year: 2024 },
   // Magic Kingdom — Wikipedia multi-park manufacturer blob wrongly attached
   Q85474505: { manufacturer: "Arrow Development" },
   // Disneyland Space Mountain — current track work / rebuild attribution

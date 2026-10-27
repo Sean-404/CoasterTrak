@@ -83,6 +83,43 @@ describe("misattributed rows", () => {
     ]);
     expect(coasters.map((c) => c.id)).toEqual([1]);
   });
+
+  it("hides infobox mismatches but keeps the rides at their real parks", () => {
+    const parks: Park[] = [
+      { id: 14, name: "Luna Park Melbourne", country: "Australia", latitude: -37.87, longitude: 144.98 },
+      { id: 20, name: "Dreamland Margate", country: "United Kingdom", latitude: 51.39, longitude: 1.38 },
+      { id: 61, name: "Six Flags AstroWorld", country: "United States", latitude: 29.68, longitude: -95.41 },
+      { id: 64, name: "Six Flags Magic Mountain", country: "United States", latitude: 34.42, longitude: -118.6 },
+      { id: 88, name: "Six Flags Darien Lake", country: "United States", latitude: 42.93, longitude: -78.38 },
+    ];
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 22, park_id: 14, name: "The Great Scenic Railway" }),
+      coaster({ id: 31, park_id: 20, name: "The Great Scenic Railway" }),
+      coaster({ id: 15586, park_id: 20, name: "Scenic Railway", wikidata_id: "Q2229130", opening_year: 1912 }),
+      coaster({ id: 15769, park_id: 61, name: "Batman The Escape", status: "Defunct" }),
+      coaster({ id: 338, park_id: 88, name: "Batman The Escape", status: "Defunct" }),
+      coaster({ id: 9903, park_id: 64, name: "Firebird", status: "Defunct" }),
+    ]);
+    expect(coasters.map((c) => c.id).sort((a, b) => a - b)).toEqual([22, 15586, 15769]);
+    expect(coasters.find((c) => c.id === 15586)).toMatchObject({
+      status: "Defunct",
+      opening_year: 1920,
+      closing_year: 2024,
+    });
+  });
+
+  it("keeps Euclid Beach's own Switchback Railway with its years there", () => {
+    const fixed = applyParkScopedFixes(
+      coaster({ name: "Switchback Railway (Euclid Beach Park)", status: "Defunct", opening_year: 1884 }),
+      "Euclid Beach Park",
+    );
+    expect(fixed).toMatchObject({
+      name: "Switchback Railway",
+      status: "Defunct",
+      opening_year: 1896,
+      closing_year: 1904,
+    });
+  });
 });
 
 describe("Orlando catalog corrections", () => {

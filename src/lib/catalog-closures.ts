@@ -48,6 +48,14 @@ export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = 
       source: "https://en.wikipedia.org/wiki/Corkscrew_(Silverwood)",
     },
   },
+  "Euclid Beach Park": {
+    // The park's first coaster, a Switchback Railway, ran 1896–1904 (the row inherited
+    // Coney Island's 1884 opening from the Switchback Railway article).
+    "Switchback Railway (Euclid Beach Park)": {
+      fix: { name: "Switchback Railway", status: "Defunct", opening_year: 1896, closing_year: 1904 },
+      source: "https://en.wikipedia.org/wiki/Euclid_Beach_Park",
+    },
+  },
   "Geauga Lake": {
     // Road Runner Express (2000), renamed Beaver Land Mine Ride; moved to Papéa Parc in 2008.
     "Roller Coaster (Papéa Parc)": {
@@ -65,6 +73,23 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   Playland: {
     // Jumbo Jet ran at Palace Playland (Maine), not Rye Playland (New York).
     "Jumbo Jet (Chelyuskintsev Park)": "https://en.wikipedia.org/wiki/Jumbo_Jet_(Chelyuskintsev_Park)",
+  },
+  // The Great Scenic Railway has run only at Luna Park Melbourne (since 1912). Dreamland's
+  // own Scenic Railway is a separate row; Euclid Beach's Scenic Railway (1907–1937) was a
+  // different ride and this row carries the Melbourne ride's Wikidata item.
+  "Dreamland Margate": {
+    "The Great Scenic Railway": "https://en.wikipedia.org/wiki/The_Great_Scenic_Railway",
+  },
+  "Euclid Beach Park": {
+    "The Great Scenic Railway": "https://en.wikipedia.org/wiki/The_Great_Scenic_Railway",
+  },
+  // After AstroWorld closed the track was moved to Darien Lake, stored and never reassembled.
+  "Six Flags Darien Lake": {
+    "Batman The Escape": "https://en.wikipedia.org/wiki/Batman_The_Escape",
+  },
+  // Firebird ran at Six Flags Great America (as Iron Wolf) and Six Flags America only.
+  "Six Flags Magic Mountain": {
+    Firebird: "https://en.wikipedia.org/wiki/Firebird_(roller_coaster)",
   },
 };
 
