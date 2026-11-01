@@ -5,8 +5,12 @@
  *
  *   npx tsx --env-file=.env.local scripts/dismiss-catalog-quality.ts
  *   npx tsx --env-file=.env.local scripts/dismiss-catalog-quality.ts --apply
+ *
+ * Dismiss only the review items for some coaster rows (e.g. rows hidden from the catalog),
+ * leaving the rest of the report and queue published:
+ *   npx tsx --env-file=.env.local scripts/dismiss-catalog-quality.ts --coaster-ids 524,9487 --apply
  */
-import { hasFlag, runMain } from "./lib/cli";
+import { arg, hasFlag, runMain } from "./lib/cli";
 import { createServiceRoleClient } from "./lib/supabase-service";
 import {
   CATALOG_QUALITY_BUCKET,
@@ -16,6 +20,7 @@ import {
   catalogReviewDismissKey,
   type CatalogQualityDismissals,
   type CatalogQualityReport,
+  type CatalogReviewItem,
   type CatalogReviewQueue,
 } from "../src/lib/catalog-quality-storage";
 
@@ -38,6 +43,11 @@ async function uploadJson(path: string, payload: unknown): Promise<void> {
 async function main() {
   const apply = hasFlag("--apply");
   console.error(apply ? "Mode: APPLY" : "Mode: dry-run (pass --apply to write)");
+  const coasterIds = arg("--coaster-ids")
+    ?.split(",")
+    .map((id) => Number(id.trim()))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (coasterIds) return dismissCoasterItems(new Set(coasterIds), apply);
 
   const [report, reviewQueue, existing] = await Promise.all([
     downloadJson<CatalogQualityReport>(`${CATALOG_QUALITY_PREFIX}/report.json`),
@@ -90,6 +100,32 @@ async function main() {
   }
 
   console.error("Published report cleared. Same issues stay dismissed after the next quality publish.");
+}
+
+/** Dismiss and unpublish the review items for the given coaster ids only. */
+async function dismissCoasterItems(ids: Set<number>, apply: boolean) {
+  const [reviewQueue, existing] = await Promise.all([
+    downloadJson<CatalogReviewQueue>(`${CATALOG_QUALITY_PREFIX}/review-queue.json`),
+    downloadJson<CatalogQualityDismissals>(CATALOG_QUALITY_DISMISSALS_PATH),
+  ]);
+  if (!reviewQueue) throw new Error("No published review queue.");
+
+  const matches = (item: CatalogReviewItem) =>
+    item.entityType === "coaster" && item.dbId != null && ids.has(item.dbId);
+  const picked = reviewQueue.items.filter(matches);
+  for (const item of picked) console.error(`  ${item.type} ${item.field ?? ""} — ${item.entityName ?? item.entityId}`);
+  console.error(`Dismissing ${picked.length} review items for ${ids.size} coaster ids.`);
+  if (!apply || picked.length === 0) return;
+
+  const keys = new Set(existing?.keys ?? []);
+  for (const item of picked) keys.add(catalogReviewDismissKey(item));
+  const dismissedAt = new Date().toISOString();
+  await uploadJson(CATALOG_QUALITY_DISMISSALS_PATH, { version: 1, dismissedAt, keys: [...keys] });
+  await uploadJson(`${CATALOG_QUALITY_PREFIX}/review-queue.json`, {
+    ...reviewQueue,
+    generatedAt: dismissedAt,
+    items: reviewQueue.items.filter((item) => !matches(item)),
+  });
 }
 
 runMain(main);

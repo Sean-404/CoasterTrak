@@ -268,7 +268,7 @@ async function main() {
       continue;
     }
 
-    const stats = await fetchInfoboxStatsForEnwikiTitle(title);
+    const stats = await fetchInfoboxStatsForEnwikiTitle(title, parkName);
     await new Promise((r) => setTimeout(r, delayMs));
 
     if (!stats) {

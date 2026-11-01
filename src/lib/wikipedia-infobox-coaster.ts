@@ -5,6 +5,7 @@
  */
 
 import { normalizeManufacturerLabel } from "@/lib/display";
+import { parkNamesMatch } from "@/lib/park-match";
 import {
   parseDurationSecondsFromText,
   WIKIDATA_USER_AGENT,
@@ -283,14 +284,20 @@ export function parseInfoboxCoasterStatsFromWikitext(wikitext: string): InfoboxC
   return out;
 }
 
+/** {{Start date|…}}, {{Start date and age|…}}, {{End date|…}} — args may lead with df=yes. */
+const INFOBOX_DATE_TEMPLATE = /\{\{\s*(?:start|end)[ _]date(?:[ _]and[ _](?:age|years))?\s*\|([^{}]*)\}\}/i;
+
 function yearFromInfoboxDate(raw: string): number | null {
   const t = cleanInfoboxWikiValue(raw);
-  const tpl =
-    /\{\{\s*(?:[Ss]tart|[Ee]nd)\s*date\s*\|(\d{4})\b/.exec(raw) ??
-    /\{\{\s*(?:[Ss]tart|[Ee]nd)\s*date\s*\|(\d{4})\b/.exec(t);
+  const tpl = INFOBOX_DATE_TEMPLATE.exec(raw);
   if (tpl) {
-    const y = Number(tpl[1]);
-    if (y >= 1880 && y <= 2100) return y;
+    // Skip named args (df=yes, br=y); the first year among the rest is the date's year,
+    // whether written as 2006|5|13 or "May 13, 2006".
+    for (const part of tpl[1].split("|")) {
+      if (part.includes("=")) continue;
+      const m = /\b(18\d{2}|19\d{2}|20\d{2})\b/.exec(part);
+      if (m) return Number(m[1]);
+    }
   }
   const yearOnly = /\b(18\d{2}|19\d{2}|20\d{2})\b/.exec(t);
   if (!yearOnly) return null;
@@ -465,12 +472,37 @@ export async function fetchEnwikiWikitext(title: string): Promise<string | null>
   return revisionWikitext(json);
 }
 
+/**
+ * Infobox stats for the install at `parkName`. Clones share a layout, so the primary block's
+ * stats stand, but an article listing several installs (Hyperspace Mountain, Seven Dwarfs
+ * Mine Train) only gives an opening year from the block for that park.
+ */
+export function parseInfoboxCoasterStatsForPark(
+  wikitext: string,
+  parkName: string | null | undefined,
+): InfoboxCoasterStats {
+  const stats = parseInfoboxCoasterStatsFromWikitext(wikitext);
+  const locations = parseInfoboxCoasterLocationsFromWikitext(wikitext);
+  if (locations.length <= 1) return stats;
+  // Exact park first; a fuzzy match counts only when it is unambiguous ("Disneyland" alone
+  // matches both Paris and Hong Kong).
+  const want = parkName?.trim().toLowerCase();
+  const exact = want ? locations.filter((loc) => loc.parkName.trim().toLowerCase() === want) : [];
+  const fuzzy = parkName ? locations.filter((loc) => parkNamesMatch(loc.parkName, parkName)) : [];
+  const own = exact.length === 1 ? exact[0] : fuzzy.length === 1 ? fuzzy[0] : undefined;
+  const out = { ...stats };
+  delete out.opening_year;
+  if (own?.opening_year != null) out.opening_year = own.opening_year;
+  return out;
+}
+
 export async function fetchInfoboxStatsForEnwikiTitle(
   title: string,
+  parkName?: string | null,
 ): Promise<InfoboxCoasterStats | null> {
   const wt = await fetchEnwikiWikitext(title);
   if (!wt) return null;
-  const stats = parseInfoboxCoasterStatsFromWikitext(wt);
+  const stats = parseInfoboxCoasterStatsForPark(wt, parkName);
   return Object.keys(stats).length > 0 ? stats : null;
 }
 

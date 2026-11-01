@@ -61,10 +61,18 @@ export function isOpsCounterOnlyName(raw: string): boolean {
   return false;
 }
 
-/** Attractions that feeds list as coasters but are dark rides (not a credit). */
+/** Attractions that feeds list as coasters but are dark rides or flat rides (not a credit). */
 const KNOWN_NON_COASTER_ATTRACTIONS = new Set([
   // Epic Universe AR dark ride; Dynamic Attractions vehicles, no coaster track.
   "mario kart bowser s challenge",
+  // Planet Snoopy's Zamperla Kite Flyer at every Cedar Fair park that has one.
+  // https://en.wikipedia.org/wiki/Valleyfair https://coasterpedia.net/wiki/Linus_Launcher_(Worlds_of_Fun)
+  // https://www.sixflags.com/kingsdominion/attractions/linus-launcher
+  "linus launcher",
+  // Planet Snoopy flat / sky ride: teacups at Valleyfair and Dorney, helicopter sky tram at
+  // Kings Island, ex-Chopper Chase at Carowinds. https://en.wikipedia.org/wiki/Kings_Island
+  "woodstock whirlybirds",
+  "woodstocks whirlybirds",
 ]);
 
 export function isKnownNonCoasterAttractionName(raw: string): boolean {

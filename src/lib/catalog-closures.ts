@@ -709,10 +709,78 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   "Adventureland (Iowa)": {
     "Wind Chaser": "https://en.wikipedia.org/wiki/Wind_Chaser",
   },
+  // Apple Zapple (ex-Ricochet) is Kings Dominion's Mack wild mouse.
+  "Six Flags Great America": {
+    "Apple Zapple": "https://en.wikipedia.org/wiki/Apple_Zapple_(Kings_Dominion)",
+  },
+  // Flyvende Ørn runs at Legoland Billund, not Familypark in Austria.
+  Familypark: {
+    "Flyvende Ørn": "https://en.wikipedia.org/wiki/Flyvende_%C3%98rn",
+  },
+};
+
+/**
+ * Rows from the ThemeParks feed (or a namesake Wikidata item) for attractions that are not
+ * roller coasters at that park: flat rides, a drop tower, a show, a play area, a water slide.
+ */
+export const NON_COASTER_ROWS: Record<string, Record<string, string>> = {
+  // HUSS Top Spin.
+  "Parque Warner Madrid": {
+    "LEX LUTHOR INVERTATRON": "https://en.wikipedia.org/wiki/Parque_Warner_Madrid",
+  },
+  // Ferris wheel in Planet Snoopy.
+  "Dorney Park": {
+    "Woodstock's Wagon Wheel": "https://en.wikipedia.org/wiki/Dorney_Park_%26_Wildwater_Kingdom",
+  },
+  // Dark rides (Valhalla is an indoor log flume).
+  "Blackpool Pleasure Beach": {
+    "Ghost Train": "https://en.wikipedia.org/wiki/Ghost_Train_(Blackpool_Pleasure_Beach)",
+    Valhalla: "https://en.wikipedia.org/wiki/Valhalla_(Blackpool_Pleasure_Beach)",
+    "Wallace & Gromit's Thrill-o-Matic": "https://en.wikipedia.org/wiki/Wallace_%26_Gromit%27s_Thrill-O-Matic",
+  },
+  // Spinning flat ride in the former Hall of Justice building (2019).
+  "Six Flags New England": {
+    "CYBORG Hyper Drive": "https://en.wikipedia.org/wiki/Six_Flags_New_England",
+  },
+  // Zamperla mini swings.
+  "Six Flags Darien Lake": {
+    "Woody's Whirlers": "https://en.wikipedia.org/wiki/Six_Flags_Darien_Lake",
+  },
+  // Heritage steam railroad.
+  Dollywood: {
+    "Dollywood Express": "https://en.wikipedia.org/wiki/Dollywood_Express",
+  },
+  // Go-kart track (now Teen Titans Turbo, formerly Hollywood Speedtrack).
+  "Six Flags Mexico": {
+    "Hollywood Speedway Go Karts": "https://en.wikipedia.org/wiki/Six_Flags_M%C3%A9xico",
+  },
+  // Live interactive Frozen II show in World of Frozen.
+  "Hong Kong Disneyland": {
+    "Playhouse in the Woods": "https://en.wikipedia.org/wiki/Hong_Kong_Disneyland",
+  },
+  "Disney California Adventure": {
+    "Redwood Creek Challenge Trail": "https://en.wikipedia.org/wiki/Redwood_Creek_Challenge_Trail",
+  },
+  // S&S Turbo Drop / Space Shot tower.
+  "Great Escape": {
+    "Sasquatch Launch": "https://en.wikipedia.org/wiki/Great_Escape_(amusement_park)",
+  },
+  // Two-person tube halfpipe in the water park.
+  "Djurs Sommerland": {
+    "The Wave": "https://en.wikipedia.org/wiki/Djurs_Sommerland",
+  },
+  // La Ronde's Vertigo is a Zamperla Ranger; the row carried Walibi Belgium's Vertigo (Q1609030).
+  "La Ronde": {
+    "Vertigo (roller coaster)": "https://en.wikipedia.org/wiki/La_Ronde_(amusement_park)",
+  },
 };
 
 export function isMisattributedRow(coasterName: string, parkName: string | null | undefined): boolean {
   return Boolean(parkName && MISATTRIBUTED_ROWS[parkName]?.[coasterName]);
+}
+
+export function isNonCoasterRow(coasterName: string, parkName: string | null | undefined): boolean {
+  return Boolean(parkName && NON_COASTER_ROWS[parkName]?.[coasterName]);
 }
 
 /** Apply closed-park and former-installation corrections for a row at a known park. */

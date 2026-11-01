@@ -69,7 +69,8 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   >
 > = {
   // Blackpool — rebranded from Zipper Dipper; park signage & enwiki use "Blue Flyer"
-  Q885702: { name: "Blue Flyer", status: "Operating" },
+  // Speed / length: https://de.wikipedia.org/wiki/Blue_Flyer (40 km/h, 335 m)
+  Q885702: { name: "Blue Flyer", status: "Operating", speed_mph: 25, length_ft: 1099 },
   // Wikidata items that lacked an English label (sync used to store the bare Q-id).
   Q132174212: { name: "ジェットコースター", status: "Defunct" },
   Q135790425: { name: "Cétautomatix", status: "Operating" },
@@ -93,6 +94,8 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     inversions: 0,
     status: "Operating",
     coaster_type: "Wood",
+    // Opened 23 Aug 1923: https://de.wikipedia.org/wiki/Big_Dipper_(Blackpool)
+    opening_year: 1923,
     image_url:
       "https://commons.wikimedia.org/wiki/Special:FilePath/Big%20Dipper%20(Pleasure%20Beach,%20Blackpool)%2002.jpg",
   },
@@ -280,14 +283,279 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q122460556: { name: "Wickie The Ride" },
   // Fårup Sommarland — Wikidata swapped height/length (63 ft tall, 1486 ft long)
   Q106372161: { height_ft: 63, length_ft: 1486 },
-  // Fårup Sommarland — Wikidata swapped height/length (20 m / 540 m)
-  Q12325227: { height_ft: 66, length_ft: 1772, speed_mph: 50 },
+  // Fårup Sommarland — Wikidata swapped height/length (20 m / 540 m). Still listed by the park.
+  // https://www.faarupsommerland.dk/forlystelser
+  Q12325227: { height_ft: 66, length_ft: 1772, speed_mph: 50, status: "Operating" },
   // Six Flags Qiddiya — official 160 m (Wikidata slightly high at 163 m)
   Q131686270: { height_ft: 525 },
   // Coney Island historical — Wikidata conflated bad height (60 ft peak)
   Q7370852: { height_ft: 60 },
   // The STRAT — Wikidata uses tower elevation (264 m); ride structure is ~68 ft
   Q8041524: { height_ft: 68 },
+
+  // --- Catalog missing-data queue (Oct 2026). Metric sources converted to ft / mph. ---
+  // Fårup Sommerland Saven — Vekoma Family Boomerang, opened 5 Jun 2020: 24 m, 238 m, 60 km/h.
+  // https://vekoma.com/news/congratulations-to-farup-sommerland-with-the-opening-of-saven
+  // https://www.faarupsommerland.dk/forlystelser
+  Q131466702: {
+    status: "Operating",
+    manufacturer: "Vekoma",
+    opening_year: 2020,
+    height_ft: 79,
+    length_ft: 781,
+    speed_mph: 37,
+  },
+  // Hansa-Park — both still listed by the park (https://www.hansapark.de/attraktionen/).
+  // https://de.wikipedia.org/wiki/Die_Schlange_von_Midgard — Gerstlauer 2011, ca. 10 m, 200 m, 45 km/h
+  Q2238321: {
+    status: "Operating",
+    manufacturer: "Gerstlauer",
+    opening_year: 2011,
+    height_ft: 33,
+    length_ft: 656,
+    speed_mph: 28,
+  },
+  // https://de.wikipedia.org/wiki/Nessie_(Hansa-Park) — Schwarzkopf 1980, 26 m, 741 m, 79 km/h
+  Q1978391: {
+    status: "Operating",
+    manufacturer: "Schwarzkopf",
+    opening_year: 1980,
+    height_ft: 85,
+    length_ft: 2431,
+    speed_mph: 49,
+  },
+  // https://en.wikipedia.org/wiki/Bulldog_Coaster_(Brean_Leisure_Park) — status open
+  Q7499849: { status: "Operating" },
+  // La Ronde Boomerang — Vekoma, 1984. Standard model: 35.5 m, 285 m, 75.6 km/h.
+  // https://en.wikipedia.org/wiki/La_Ronde_(amusement_park)
+  // https://fr.wikipedia.org/wiki/Boomerang_(parcs_Six_Flags)
+  Q3220536: { status: "Operating", opening_year: 1984, height_ft: 116, length_ft: 935, speed_mph: 47 },
+  // La Ronde Toboggan Nordique — Zamperla wild mouse, 2003.
+  // https://en.wikipedia.org/wiki/La_Ronde_(amusement_park)
+  Q27925522: { status: "Operating", opening_year: 2003 },
+  // https://en.wikipedia.org/wiki/Goliath_(La_Ronde) — opened 13 May 2006
+  Q688778: { status: "Operating", opening_year: 2006 },
+  // Darien Lake Mind Eraser — Vekoma SLC, 1997, 110 ft; reopened 2025 after a 2024 refit.
+  // https://en.wikipedia.org/wiki/Six_Flags_Darien_Lake
+  // Standard 689 m / 80 km/h layout: https://fr.wikipedia.org/wiki/The_Mind_Eraser
+  Q3521876: { status: "Operating", opening_year: 1997, height_ft: 110, length_ft: 2260, speed_mph: 50 },
+  // https://en.wikipedia.org/wiki/Sesame_Place_Philadelphia — Gravity Group, 2018
+  Q59587152: { status: "Operating", opening_year: 2018 },
+  // https://en.wikipedia.org/wiki/Dorney_Park_%26_Wildwater_Kingdom — Zamperla, 2000
+  Q8033427: { status: "Operating", opening_year: 2000 },
+  // https://en.wikipedia.org/wiki/Nickelodeon_Universe — Intamin Surfrider, 2008
+  Q4827808: { status: "Operating" },
+  // https://en.wikipedia.org/wiki/Zach%27s_Zoomer — status Open
+  Q3574493: { status: "Operating" },
+  // https://en.wikipedia.org/wiki/Valleyfair — Arrow, 1980
+  Q570734: { status: "Operating", opening_year: 1980 },
+  // Renamed from Spacely's Sprocket Rockets. https://en.wikipedia.org/wiki/Six_Flags_Great_America
+  Q3036455: { name: "Sprocket Rockets", status: "Operating" },
+  // https://en.wikipedia.org/wiki/Wandering_Oaken%27s_Sliding_Sleighs
+  Q124377115: { status: "Operating" },
+  // Single-install de/fr Wikipedia infoboxes (metric converted) for gaps the enwiki fill cannot reach.
+  // Bat Coaster @ Nigloland
+  // https://fr.wikipedia.org/wiki/Bat_Coaster
+  Q2887750: { height_ft: 66, speed_mph: 38, length_ft: 1148, manufacturer: "Pinfari", opening_year: 2002 },
+  // Flounder's Flying Fish Coaster @ Tokyo DisneySea
+  // https://fr.wikipedia.org/wiki/Flounder's_Flying_Fish_Coaster
+  Q2358448: { speed_mph: 20, length_ft: 679, manufacturer: "Togo" },
+  // Aftershock @ Silverwood Theme Park
+  // https://fr.wikipedia.org/wiki/Aftershock_(Silverwood_Theme_Park)
+  Q15139137: { height_ft: 192, speed_mph: 66, length_ft: 1204, manufacturer: "Vekoma", opening_year: 2008 },
+  // Anubis: The Ride @ Plopsaland Belgium
+  // https://fr.wikipedia.org/wiki/Anubis_The_Ride
+  Q612257: { height_ft: 112, speed_mph: 56, length_ft: 1969, manufacturer: "Gerstlauer", opening_year: 2009 },
+  // Big Loop @ Heide Park
+  // https://fr.wikipedia.org/wiki/Big_Loop
+  Q859001: { height_ft: 98, speed_mph: 39, length_ft: 2316, manufacturer: "Vekoma", opening_year: 1983 },
+  // Coaster Express @ Parque Warner Madrid
+  // https://de.wikipedia.org/wiki/Coaster-Express
+  Q1104428: {
+    height_ft: 121,
+    speed_mph: 50,
+    length_ft: 4573,
+    manufacturer: "Roller Coaster Corporation of America",
+    opening_year: 2002,
+  },
+  // Comet @ Walygator Parc
+  // https://fr.wikipedia.org/wiki/Comet_(Walygator_Grand_Est)
+  Q3565964: { height_ft: 79, speed_mph: 40, length_ft: 1936, manufacturer: "Vekoma", opening_year: 1989 },
+  // Desert Race @ Heide Park
+  // https://fr.wikipedia.org/wiki/Desert_Race
+  Q833115: { height_ft: 62, speed_mph: 62, length_ft: 2133, manufacturer: "Intamin", opening_year: 2007 },
+  // Die heiße Fahrt @ Wild- und Freizeitpark Klotten
+  // https://de.wikipedia.org/wiki/Die_heiße_Fahrt
+  Q1218623: { height_ft: 57, speed_mph: 34, length_ft: 1745, manufacturer: "Gerstlauer", opening_year: 2004 },
+  // Draak @ Plopsaland Belgium — renamed Draconis for 2025 (https://en.wikipedia.org/wiki/Plopsaland_Belgium)
+  // https://fr.wikipedia.org/wiki/Draconis
+  Q2197328: {
+    name: "Draconis",
+    height_ft: 46,
+    speed_mph: 22,
+    length_ft: 1476,
+    manufacturer: "Mack Rides",
+    opening_year: 2004,
+  },
+  // El Diablo @ PortAventura Park
+  // https://fr.wikipedia.org/wiki/El_Diablo_-_Tren_de_la_Mina
+  Q387867: {
+    height_ft: 54,
+    speed_mph: 37,
+    length_ft: 3306,
+    manufacturer: "Arrow Dynamics",
+    opening_year: 1995,
+  },
+  // Extreme Rusher @ Happy Valley Beijing
+  // https://fr.wikipedia.org/wiki/Extreme_Rusher
+  Q1385492: {
+    height_ft: 171,
+    speed_mph: 83,
+    length_ft: 2789,
+    manufacturer: "S&S Worldwide",
+    opening_year: 2011,
+  },
+  // Fjord Explorer @ Le Pal
+  // https://fr.wikipedia.org/wiki/Fjord_Explorer
+  Q125684938: {
+    height_ft: 92,
+    speed_mph: 49,
+    length_ft: 1969,
+    manufacturer: "Mack Rides",
+    opening_year: 2024,
+  },
+  // K3 Roller Skater @ Plopsaland Belgium
+  // https://fr.wikipedia.org/wiki/K3_Roller_Skater
+  Q15077669: { height_ft: 43, speed_mph: 29, length_ft: 1099, manufacturer: "Vekoma", opening_year: 1991 },
+  // Stunt Fall @ Parque Warner Madrid
+  // https://fr.wikipedia.org/wiki/Stunt_Fall
+  Q955517: { height_ft: 192, speed_mph: 66, length_ft: 1204, manufacturer: "Vekoma", opening_year: 2002 },
+  // Super Wirbel @ Plopsaland Deutschland
+  // https://de.wikipedia.org/wiki/Superwirbel
+  Q2368124: { height_ft: 75, speed_mph: 40, length_ft: 2398, manufacturer: "Vekoma", opening_year: 1979 },
+  // Thunderlooper @ Alton Towers
+  // https://fr.wikipedia.org/wiki/Thunderlooper
+  Q15077974: {
+    height_ft: 138,
+    speed_mph: 53,
+    length_ft: 722,
+    manufacturer: "Schwarzkopf",
+    opening_year: 1990,
+  },
+  // Timberline Twister @ Knott's Berry Farm
+  // https://fr.wikipedia.org/wiki/Timberline_Twister
+  Q3528737: { height_ft: 30, length_ft: 480, manufacturer: "Bradley and Kaye", opening_year: 1983 },
+  // Tomahawk @ PortAventura Park
+  // https://fr.wikipedia.org/wiki/Tomahawk_(PortAventura_Park)
+  Q2299311: {
+    height_ft: 44,
+    speed_mph: 30,
+    length_ft: 1444,
+    manufacturer: "Custom Coasters International",
+    opening_year: 1997,
+  },
+  // Air Grover @ Busch Gardens Tampa Bay
+  // https://fr.wikipedia.org/wiki/Air_Grover
+  Q4698003: { opening_year: 2010 },
+  // Huracan @ Bellewaerde
+  // https://fr.wikipedia.org/wiki/Huracan_(Bellewaerde)
+  Q3947495: { height_ft: 49, speed_mph: 31, length_ft: 1640, opening_year: 2013 },
+  // Iron Claw @ Movie Park Germany
+  // https://fr.wikipedia.org/wiki/MP_Xpress
+  Q2438163: { height_ft: 109, speed_mph: 50, length_ft: 2260, opening_year: 2001 },
+  // Runaway Mountain @ Six Flags Over Texas
+  // https://fr.wikipedia.org/wiki/Runaway_Mountain_(Six_Flags_Over_Texas)
+  Q3453218: { height_ft: 65, speed_mph: 40, length_ft: 1500, opening_year: 1996 },
+  // Spatiale Expérience @ Nigloland
+  // https://fr.wikipedia.org/wiki/Spatiale_Experience
+  Q3492773: { height_ft: 66, speed_mph: 37, length_ft: 2625, opening_year: 1998 },
+  // Wile E. Coyote's Grand Canyon Blaster @ Six Flags Over Texas
+  // https://fr.wikipedia.org/wiki/Wile_E._Coyote's_Grand_Canyon_Blaster
+  Q2201269: { height_ft: 16, opening_year: 2001 },
+  // Abismo @ Parque de Atracciones de Madrid
+  // https://de.wikipedia.org/wiki/Abismo
+  Q321477: { height_ft: 152, speed_mph: 65, length_ft: 1476 },
+  // Batman Gotham City Escape @ Parque Warner Madrid
+  // https://de.wikipedia.org/wiki/Batman_Gotham_City_Escape
+  Q120186859: { height_ft: 148, speed_mph: 64, length_ft: 3314 },
+  // Journey to Atlantis @ SeaWorld San Diego
+  // https://de.wikipedia.org/wiki/Journey_to_Atlantis_(SeaWorld_San_Diego)
+  Q917240: { speed_mph: 42 },
+  // Tornado @ Särkänniemi
+  // https://fr.wikipedia.org/wiki/Tornado_(Särkänniemi)
+  Q826726: { height_ft: 82, manufacturer: "Intamin", opening_year: 2001 },
+  // Fridolin’s verrückter Zauberexpress @ Erlebnispark Straßwalchen
+  // https://de.wikipedia.org/wiki/Fridolin%E2%80%99s_verrückter_Zauberexpress
+  Q136436355: { speed_mph: 31, opening_year: 2021 },
+  // Helios @ Erlebnispark Straßwalchen
+  // https://de.wikipedia.org/wiki/Helios_(Achterbahn)
+  Q133864138: { speed_mph: 47 },
+  // Big Grizzly Mountain Runaway Mine Cars @ Hong Kong Disneyland
+  // https://de.wikipedia.org/wiki/Big_Grizzly_Mountain_Runaway_Mine_Cars
+  Q549739: { opening_year: 2012 },
+  // Lightning Rod @ Dollywood
+  // https://fr.wikipedia.org/wiki/Lightning_Rod
+  Q22073205: { height_ft: 207 },
+  // Lightning Run @ Kentucky Kingdom
+  // https://de.wikipedia.org/wiki/Lightning_Run
+  Q18153602: { height_ft: 100 },
+  // Piraten @ Djurs Sommerland
+  // https://fr.wikipedia.org/wiki/Piraten_(Djurs_Sommerland)
+  Q603039: { speed_mph: 56 },
+  // Raging Spirits @ Tokyo DisneySea
+  // https://fr.wikipedia.org/wiki/Raging_Spirits
+  Q267353: { height_ft: 52 },
+  // Uncharted: The Enigma of Penitence @ PortAventura Park
+  // https://fr.wikipedia.org/wiki/Uncharted_(PortAventura_Park)
+  Q123892097: { speed_mph: 43 },
+  // Coney Island Cyclone @ Luna Park, Coney Island
+  // https://fr.wikipedia.org/wiki/Cyclone_(Coney_Island)
+  Q677558: { manufacturer: "Harry C. Baker" },
+  // Psyké Underground @ Walibi Belgium
+  // https://fr.wikipedia.org/wiki/Turbine_(Walibi_Belgium)
+  Q2327576: { opening_year: 1982 },
+  // Roller Coaster @ Great Yarmouth Pleasure Beach
+  // https://de.wikipedia.org/wiki/Roller_Coaster_(Great_Yarmouth_Pleasure_Beach)
+  Q667635: { manufacturer: "Erich Heidrich", opening_year: 1932 },
+  // Sky Wheel @ Skyline Park
+  // https://fr.wikipedia.org/wiki/Sky_Wheel
+  Q667521: { length_ft: 492 },
+  // Ukko @ Linnanmäki
+  // https://fr.wikipedia.org/wiki/Ukko_(Linnanmäki)
+  Q3547878: { length_ft: 492 },
+  // Grand National @ Blackpool Pleasure Beach
+  // https://de.wikipedia.org/wiki/Grand_National_(Pleasure_Beach_Resort)
+  Q1542634: { manufacturer: "Charles Paige" },
+  // Nickelodeon Streak @ Blackpool Pleasure Beach
+  // https://de.wikipedia.org/wiki/Nickelodeon_Streak
+  Q1985681: { manufacturer: "Charles Paige" },
+  // Desperado @ Primm Valley Resorts
+  // https://de.wikipedia.org/wiki/Desperado_(Buffalo_Bill%E2%80%99s_Resort_&_Casino)
+  Q1200848: { opening_year: 1994 },
+  // Hollywood Dream – The Ride @ Universal Studios Japan
+  // https://de.wikipedia.org/wiki/Hollywood_Dream:_The_Ride
+  Q822344: { opening_year: 2007 },
+  // Kawasemi @ Tobu Zoo
+  // https://fr.wikipedia.org/wiki/Kawasemi
+  Q1267346: { opening_year: 2008 },
+  // Kumba @ Busch Gardens Tampa Bay
+  // https://de.wikipedia.org/wiki/Kumba_(Busch_Gardens_Tampa)
+  Q679029: { opening_year: 1993 },
+  // Loup Garou @ Walibi Belgium
+  // https://fr.wikipedia.org/wiki/Loup_Garou_(Walibi_Belgium)
+  Q261806: { opening_year: 2001 },
+  // Matterhorn-Blitz @ Europa-Park
+  // https://fr.wikipedia.org/wiki/Matterhorn-Blitz
+  Q319724: { opening_year: 1999 },
+  // Minifigure Speedway @ Legoland Windsor
+  // https://de.wikipedia.org/wiki/Minifigure_Speedway
+  Q130735411: { opening_year: 2024 },
+  // Superman: La Atracción de Acero @ Parque Warner Madrid
+  // https://de.wikipedia.org/wiki/Superman:_La_Atracción_de_Acero
+  Q667624: { opening_year: 2002 },
+  // Yukon Quad @ Le Pal
+  // https://fr.wikipedia.org/wiki/Yukon_Quad
+  Q98016144: { opening_year: 2018 },
 };
 
 /**

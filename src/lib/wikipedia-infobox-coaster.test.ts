@@ -6,6 +6,7 @@ import {
   extractInfoboxRollerCoasterBlock,
   isCountryOnlyInfoboxLocation,
   parseInfoboxCoasterLocationsFromWikitext,
+  parseInfoboxCoasterStatsForPark,
   parseInfoboxCoasterStatsFromWikitext,
 } from "./wikipedia-infobox-coaster";
 
@@ -48,6 +49,36 @@ describe("wikipedia-infobox-coaster", () => {
       manufacturer: "Bolliger & Mabillard",
       height_ft: 43,
     });
+  });
+
+  it.each([
+    ["{{Start date and age|1927|6|26|br=y}}", 1927],
+    ["{{Start date|df=yes|2003|4|5}}", 2003],
+    ["{{Start date and age|May 13, 2006}}", 2006],
+    ["{{start date and age|1975|5|3}}", 1975],
+    ["{{Start date|df=yes|1995|12|26}} (as Lethal Weapon)<br/>{{Start date|df=yes|2021|9|25}}", 1995],
+  ])("reads the year from opened = %s", (opened, year) => {
+    const wt = `{{Infobox roller coaster\n| name = Example\n| opened = ${opened}\n}}`;
+    expect(parseInfoboxCoasterStatsFromWikitext(wt).opening_year).toBe(year);
+  });
+
+  it("takes the opening year from the row's own install on a multi-park article", () => {
+    const wt = `{{Infobox roller coaster
+| name = Hyperspace Mountain
+| location = Disneyland Park (Paris)
+| opened = {{Start date|1995|6|1}}
+| height_ft = 105
+}}
+{{Infobox roller coaster
+| location = Hong Kong Disneyland
+| opened = {{Start date and age|2005|9|12}}
+}}`;
+    expect(parseInfoboxCoasterStatsForPark(wt, "Hong Kong Disneyland")).toMatchObject({
+      opening_year: 2005,
+      height_ft: 105,
+    });
+    expect(parseInfoboxCoasterStatsForPark(wt, "Shanghai Disneyland").opening_year).toBeUndefined();
+    expect(parseInfoboxCoasterStatsForPark(wt, null).opening_year).toBeUndefined();
   });
 
   it("parses dual roller coaster track-1 fields", () => {

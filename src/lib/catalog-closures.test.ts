@@ -296,3 +296,24 @@ describe("Wikipedia /extend installs", () => {
     for (const source of sources) expect(source).toMatch(/^https:\/\/\S+$/);
   });
 });
+
+describe("non-coaster rows", () => {
+  it("hides flat rides and shows but keeps the park's coasters", () => {
+    const parks: Park[] = [
+      { id: 69, name: "Worlds of Fun", country: "United States", latitude: 39.17, longitude: -94.49 },
+      { id: 244, name: "Hong Kong Disneyland", country: "China", latitude: 22.31, longitude: 114.04 },
+      { id: 85, name: "La Ronde", country: "Canada", latitude: 45.52, longitude: -73.53 },
+    ];
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 4919, park_id: 69, name: "Linus' Launcher" }),
+      coaster({ id: 4929, park_id: 69, name: "Woodstock Whirlybirds" }),
+      coaster({ id: 50, park_id: 69, name: "Mamba" }),
+      coaster({ id: 10506, park_id: 244, name: "Playhouse in the Woods" }),
+      coaster({ id: 10552, park_id: 244, name: "Wandering Oaken’s Sliding Sleighs", wikidata_id: "Q124377115" }),
+      coaster({ id: 9594, park_id: 85, name: "Vertigo (roller coaster)", wikidata_id: "Q1609030" }),
+      coaster({ id: 9371, park_id: 85, name: "Boomerang", wikidata_id: "Q3220536", status: "Unknown" }),
+    ]);
+    expect(coasters.map((c) => c.id).sort((a, b) => a - b)).toEqual([50, 9371, 10552]);
+    expect(coasters.find((c) => c.id === 9371)).toMatchObject({ status: "Operating", opening_year: 1984 });
+  });
+});

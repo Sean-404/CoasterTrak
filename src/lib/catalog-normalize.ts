@@ -13,7 +13,7 @@ import {
   isPlaceholderCoasterName,
   isThemeParksGhostCoasterName,
 } from "@/lib/coaster-dedup";
-import { applyParkScopedFixes, isMisattributedRow } from "@/lib/catalog-closures";
+import { applyParkScopedFixes, isMisattributedRow, isNonCoasterRow } from "@/lib/catalog-closures";
 import { applyCoasterKnownFixes, shouldSkipWikidataCoasterId } from "@/lib/coaster-known-fixes";
 import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
 import {
@@ -304,7 +304,8 @@ export function normalizeCatalog(parks: Park[], coasters: Coaster[]): Normalized
         !isPlaceholderCoasterName(c.name) &&
         !isThemeParksGhostCoasterName(c.name) &&
         !isKnownNonCoasterAttractionName(c.name) &&
-        !isMisattributedRow(c.name, displayParkNameById.get(c.park_id)),
+        !isMisattributedRow(c.name, displayParkNameById.get(c.park_id)) &&
+        !isNonCoasterRow(c.name, displayParkNameById.get(c.park_id)),
     );
 
   return {
