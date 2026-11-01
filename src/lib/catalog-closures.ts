@@ -15,6 +15,11 @@ export const CLOSED_PARKS: Record<string, { closedYear: number; source: string }
     closedYear: 2025,
     source: "https://www.foxla.com/news/six-flags-america-closes-after-50-years",
   },
+  // Nashville theme park; closed for good on 31 Dec 1997.
+  "Opryland USA": {
+    closedYear: 1997,
+    source: "https://en.wikipedia.org/wiki/Opryland_USA",
+  },
   // Cleveland lakeside park; closed for good on 28 Sep 1969.
   "Euclid Beach Park": {
     closedYear: 1969,
