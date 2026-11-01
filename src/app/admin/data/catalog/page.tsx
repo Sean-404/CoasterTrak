@@ -6,6 +6,7 @@ import { AppPageHeading } from "@/components/app-page-heading";
 import { SiteHeader } from "@/components/site-header";
 import { isAdminUser } from "@/lib/admin";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
+import { openAiAssessments } from "@/lib/catalog-quality-storage";
 import type {
   CatalogQualityFinding,
   CatalogQualitySnapshot,
@@ -174,10 +175,10 @@ export default function AdminCatalogQualityPage() {
   }, [filter, load]);
 
   const summary = snapshot?.report?.summary;
-  const aiFlagged =
-    snapshot?.aiReview?.assessments.filter(
-      (a) => !a.plausible && (a.confidence === "MEDIUM" || a.confidence === "HIGH"),
-    ) ?? [];
+  const aiFlagged = openAiAssessments(
+    snapshot?.aiReview?.assessments ?? [],
+    snapshot?.reviewQueue?.items ?? [],
+  ).filter((a) => !a.plausible && (a.confidence === "MEDIUM" || a.confidence === "HIGH"));
 
   return (
     <div className="min-h-screen bg-slate-50">

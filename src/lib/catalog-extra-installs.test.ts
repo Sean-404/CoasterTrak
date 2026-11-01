@@ -10,6 +10,56 @@ import {
 } from "@/lib/catalog-extra-installs";
 import { parseInfoboxCoasterLocationsFromWikitext } from "@/lib/wikipedia-infobox-coaster";
 
+describe("planEnsureCoasterInstalls park-scoped fixes", () => {
+  const parks = [
+    { id: 17, name: "Six Flags America", country: "United States", latitude: 0, longitude: 0 },
+    { id: 40, name: "Playland", country: "United States", latitude: 0, longitude: 0 },
+  ];
+  const row = {
+    id: 15854,
+    park_id: 17,
+    name: "The Dark Knight Coaster",
+    status: "Defunct",
+    coaster_type: "Steel",
+    manufacturer: "Mack Rides",
+    opening_year: 2009,
+    closing_year: 2025,
+    height_ft: null,
+    speed_mph: null,
+    length_ft: null,
+    inversions: null,
+    duration_s: null,
+    rcdb_id: null,
+    enwiki_title: "The Dark Knight Coaster",
+  };
+
+  it("does not reopen a ride at a closed park when Wikipedia's box says Closed with no date", () => {
+    const plans = planEnsureCoasterInstalls({
+      parks,
+      coasters: [row],
+      specs: [
+        {
+          parkName: "Six Flags America",
+          name: "The Dark Knight Coaster",
+          coaster_type: "Steel",
+          status: "Defunct",
+          opening_year: 2009,
+          closing_year: null,
+        },
+      ],
+    });
+    const statusPatches = plans.filter((p) => p.action === "patch" && ("status" in p.patch || "closing_year" in p.patch));
+    expect(statusPatches).toEqual([]);
+  });
+
+  it("leaves misattributed rows alone and never re-inserts them", () => {
+    const jumbo = { ...row, id: 15817, park_id: 40, name: "Jumbo Jet (Chelyuskintsev Park)", status: "Operating", closing_year: null };
+    const spec = { parkName: "Playland", name: "Jumbo Jet (Chelyuskintsev Park)", coaster_type: "Steel", status: "Operating" as const, opening_year: 1972 };
+    expect(planEnsureCoasterInstalls({ parks, coasters: [jumbo], specs: [spec] })).toEqual([]);
+    expect(planEnsureCoasterInstalls({ parks, coasters: [], specs: [spec] })).toEqual([]);
+  });
+});
+
 describe("planEnsureCoasterInstalls", () => {
   const parks = [
     { id: 88, name: "Six Flags Darien Lake", country: "United States", latitude: 0, longitude: 0 },
@@ -301,7 +351,10 @@ describe("planDiscoveredInfoboxInstalls", () => {
 
     expect(plans.filter((p) => p.action === "insert")).toHaveLength(0);
     const kkPatch = plans.find((p) => p.action === "patch" && p.coasterId === 1194);
-    expect(kkPatch?.action === "patch" ? kkPatch.patch.name : undefined).toBeUndefined();
+    // Wikipedia's name never wins here; the only rename is the curated park-scoped fix
+    // (catalog-closures: Kentucky Kingdom's "Garuda Glide" row is the old T2/T3, closed 2022).
+    expect(kkPatch?.action === "patch" ? kkPatch.patch.name : undefined).toBe("T3");
+    expect(kkPatch?.action === "patch" ? kkPatch.patch.status : undefined).toBeUndefined();
     expect(plans.some((p) => p.action === "patch" && p.coasterId === 391)).toBe(false);
   });
 

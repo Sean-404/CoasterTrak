@@ -18,6 +18,7 @@ import {
   type InfoboxCoasterStats,
 } from "@/lib/wikipedia-infobox-coaster";
 import type { Coaster, Park } from "@/types/domain";
+import { applyParkScopedFixes, isMisattributedRow } from "@/lib/catalog-closures";
 
 export type ExtraInstallInsert = {
   action: "insert";
@@ -202,6 +203,25 @@ export function buildExtraInstallPatch(
   return Object.keys(patch).length ? patch : null;
 }
 
+/**
+ * Closed parks and former installations win over Wikipedia's location boxes, which can
+ * still say "Operating" (or "Closed" with no date) for rides at a park that has shut.
+ */
+function parkScopedPatch(
+  existing: CoasterRef,
+  patch: Partial<Coaster> | null,
+  parkName: string | null | undefined,
+): Partial<Coaster> | null {
+  const merged = { ...existing, ...(patch ?? {}) } as Coaster;
+  const scoped = applyParkScopedFixes(merged, parkName);
+  const out: Partial<Coaster> = { ...(patch ?? {}) };
+  for (const key of ["name", "status", "opening_year", "closing_year"] as const) {
+    if (scoped[key] !== existing[key as keyof CoasterRef]) Object.assign(out, { [key]: scoped[key] });
+    else delete out[key];
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function planEnsureCoasterInstalls(opts: {
   parks: ParkRef[];
   coasters: CoasterRef[];
@@ -216,6 +236,7 @@ export function planEnsureCoasterInstalls(opts: {
   for (const spec of specs) {
     const parkId = findParkIdForInstall(opts.parks, spec);
     if (parkId == null) continue;
+    const parkName = opts.parks.find((p) => p.id === parkId)?.name ?? spec.parkName;
 
     const atPark = opts.coasters.filter((c) => c.park_id === parkId);
     // Prefer RCDB: relocates / renames keep the same id (Déjà Vu → mislabeled row).
@@ -226,6 +247,9 @@ export function planEnsureCoasterInstalls(opts: {
     const exactName = atPark.find((c) => sameInstallName(c.name, spec.name));
     const aliasMatch = atPark.find((c) => coasterMatchesInstallName(c.name, spec));
     const existing = byRcdb ?? exactName ?? aliasMatch;
+    // Rows attached to a park the ride never ran at stay hidden and untouched.
+    if (existing && isMisattributedRow(existing.name, parkName)) continue;
+    if (!existing && isMisattributedRow(spec.name, parkName)) continue;
     if (existing) {
       const nameTakenAtPark = atPark.some(
         (c) => c.id !== existing.id && sameInstallName(c.name, spec.name),
@@ -241,11 +265,11 @@ export function planEnsureCoasterInstalls(opts: {
           !(exactName && exactName.id === existing.id) &&
           !(aliasMatch && aliasMatch.id === existing.id),
       );
-      const patch = buildExtraInstallPatch(existing, spec, {
-        nameTakenAtPark,
-        rcdbTakenByOther,
-        rcdbOnlyMatch,
-      });
+      const patch = parkScopedPatch(
+        existing,
+        buildExtraInstallPatch(existing, spec, { nameTakenAtPark, rcdbTakenByOther, rcdbOnlyMatch }),
+        parkName,
+      );
       if (patch) {
         plans.push({ action: "patch", coasterId: existing.id, parkId, spec, patch });
         if (patch.rcdb_id) usedRcdb.add(patch.rcdb_id.trim());
@@ -253,8 +277,11 @@ export function planEnsureCoasterInstalls(opts: {
       continue;
     }
 
+    const scopedSpec = { ...spec, ...applyParkScopedFixes(spec, parkName) };
     const specForInsert =
-      spec.rcdb_id && usedRcdb.has(spec.rcdb_id) ? { ...spec, rcdb_id: undefined } : spec;
+      scopedSpec.rcdb_id && usedRcdb.has(scopedSpec.rcdb_id)
+        ? { ...scopedSpec, rcdb_id: undefined }
+        : scopedSpec;
     if (specForInsert.rcdb_id) usedRcdb.add(specForInsert.rcdb_id);
     plans.push({ action: "insert", parkId, spec: specForInsert });
   }

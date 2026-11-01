@@ -144,6 +144,21 @@ export function catalogReviewDismissKey(item: CatalogReviewItem): string {
   ].join("|");
 }
 
+/** Same key the coastertrak-data AI review uses (src/ai/review-context.ts reviewItemKey). */
+export function catalogReviewAiKey(item: CatalogReviewItem): string {
+  if (item.type === "POSSIBLE_DUPLICATE") return `dup:${item.entityA}:${item.entityB}`;
+  return `${item.type.toLowerCase()}:${item.entityId ?? ""}`;
+}
+
+/** AI flags only for review items still open, so dismissing an item also clears its flag. */
+export function openAiAssessments<A extends { itemKey: string }>(
+  assessments: readonly A[],
+  openItems: readonly CatalogReviewItem[],
+): A[] {
+  const open = new Set(openItems.map(catalogReviewAiKey));
+  return assessments.filter((a) => open.has(a.itemKey));
+}
+
 export function applyCatalogQualityDismissals<T extends {
   report: CatalogQualityReport | null;
   reviewQueue: CatalogReviewQueue | null;
