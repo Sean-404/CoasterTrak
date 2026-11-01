@@ -252,6 +252,13 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
   return a.id <= b.id ? a : b;
 }
 
+/** True when one ride closed before the other opened (e.g. a 1973 and a 2023 Zambezi Zinger). */
+function lifetimesDisjoint(a: Coaster, b: Coaster): boolean {
+  const endsBefore = (x: Coaster, y: Coaster) =>
+    x.closing_year != null && y.opening_year != null && x.closing_year < y.opening_year;
+  return endsBefore(a, b) || endsBefore(b, a);
+}
+
 /**
  * Collapse same-park name variants for catalog pages
  * (e.g. "The Big One" vs sparse "Big One", Fast Pass / Licznik twins).
@@ -259,6 +266,8 @@ export function preferCoasterForDedup(a: Coaster, b: Coaster): Coaster {
 export function dedupeCoastersForCatalog<T extends Coaster>(coasters: T[]): T[] {
   const winnerById = new Map<number, T>();
   const keyToWinnerId = new Map<string, number>();
+  // Same name, but one closed before the other opened: a different ride, kept as is.
+  const separateIds = new Set<number>();
 
   for (const coaster of coasters) {
     if (isOpsCounterOnlyName(coaster.name)) continue;
@@ -271,6 +280,11 @@ export function dedupeCoastersForCatalog<T extends Coaster>(coasters: T[]): T[] 
         matchedId = id;
         break;
       }
+    }
+
+    if (matchedId != null && lifetimesDisjoint(winnerById.get(matchedId)!, coaster)) {
+      separateIds.add(coaster.id);
+      continue;
     }
 
     if (matchedId == null) {
@@ -297,6 +311,10 @@ export function dedupeCoastersForCatalog<T extends Coaster>(coasters: T[]): T[] 
   const out: T[] = [];
   for (const coaster of coasters) {
     if (isOpsCounterOnlyName(coaster.name)) continue;
+    if (separateIds.has(coaster.id)) {
+      out.push(coaster);
+      continue;
+    }
     let winnerId: number | undefined;
     for (const key of coasterDedupLookupKeys(coaster)) {
       winnerId = keyToWinnerId.get(key);

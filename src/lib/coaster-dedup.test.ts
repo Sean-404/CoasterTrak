@@ -47,6 +47,15 @@ describe("normalizeCoasterDedupKey", () => {
 });
 
 describe("dedupeCoastersForCatalog", () => {
+  it("keeps same-named rides whose years do not overlap", () => {
+    const rows = [
+      coaster({ id: 4942, park_id: 69, name: "Zambezi Zinger", opening_year: 2023 }),
+      coaster({ id: 15626, park_id: 69, name: "Zambezi Zinger", status: "Defunct", opening_year: 1973, closing_year: 1997 }),
+      coaster({ id: 9, park_id: 69, name: "Zambezi Zinger (roller coaster)", opening_year: 2023 }),
+    ];
+    expect(dedupeCoastersForCatalog(rows).map((c) => c.id).sort((a, b) => a - b)).toEqual([4942, 15626]);
+  });
+
   it("keeps one Canada's Wonderland spelling twin", () => {
     const rows = [
       coaster({ id: 14678, name: "Wild Beast", wikidata_id: null, coaster_type: "Wood" }),

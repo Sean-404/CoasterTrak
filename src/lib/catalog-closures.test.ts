@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Coaster, Park } from "@/types/domain";
-import { applyParkScopedFixes } from "@/lib/catalog-closures";
+import { applyParkScopedFixes, FORMER_INSTALL_FIXES, MISATTRIBUTED_ROWS } from "@/lib/catalog-closures";
 import { normalizeCatalog } from "@/lib/catalog-normalize";
 import { coasterStatusDisplay } from "@/lib/coaster-status";
 
@@ -63,7 +63,7 @@ describe("normalizeCatalog applies park-scoped fixes", () => {
     const { coasters } = normalizeCatalog(parks, [
       coaster({ id: 10, park_id: 2, name: "Wildcat (Jolly Roger Amusement Park)", opening_year: 1979 }),
       coaster({ id: 11, park_id: 2, name: "Millennium Force", opening_year: 2000 }),
-      coaster({ id: 12, park_id: 17, name: "Batgirl Batarang" }),
+      coaster({ id: 12, park_id: 17, name: "Roar (roller coaster)", opening_year: 1998 }),
     ]);
     const byId = new Map(coasters.map((c) => [c.id, c]));
     expect(byId.get(10)?.status).toBe("Defunct");
@@ -191,5 +191,108 @@ describe("Orlando catalog corrections", () => {
     ]);
     expect(coasters.map((c) => c.id).sort()).toEqual([9727, 9797]);
     expect(coasters.find((c) => c.id === 9797)).toMatchObject({ manufacturer: "Vekoma", height_ft: 28 });
+  });
+});
+
+describe("Wikipedia /extend installs", () => {
+  const parks: Park[] = [
+    { id: 17, name: "Six Flags America", country: "United States", latitude: 38.9, longitude: -76.77 },
+    { id: 178, name: "Six Flags Mexico", country: "Mexico", latitude: 19.3, longitude: -99.21 },
+    { id: 78, name: "Disneyland", country: "United States", latitude: 33.81, longitude: -117.92 },
+    { id: 195, name: "Lagoon", country: "United States", latitude: 40.98, longitude: -111.9 },
+    { id: 69, name: "Worlds of Fun", country: "United States", latitude: 39.17, longitude: -94.49 },
+  ];
+
+  it("hides rows whose infobox park matched the wrong catalog park", () => {
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 216, park_id: 178, name: "Batgirl Batarang", wikidata_id: "Q4943492" }),
+      coaster({ id: 15768, park_id: 17, name: "Batgirl Batarang" }),
+      coaster({ id: 15805, park_id: 17, name: "Green Lantern (Six Flags Great Adventure)", status: "Defunct" }),
+      coaster({ id: 15842, park_id: 78, name: "Seven Dwarfs Mine Train" }),
+      coaster({ id: 15761, park_id: 195, name: "All American Triple Loop", status: "Defunct" }),
+    ]);
+    expect(coasters.map((c) => c.id)).toEqual([216]);
+  });
+
+  it("turns Worlds of Fun's Batgirl Batarang row into the park's own Boomerang", () => {
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({
+        id: 524,
+        park_id: 69,
+        name: "Batgirl Batarang",
+        status: "Unknown",
+        opening_year: 1988,
+        height_ft: 117,
+        image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/Boomerang%20%28Six%20Flags%20M%C3%A9xico%29.jpg",
+      }),
+    ]);
+    expect(coasters[0]).toMatchObject({
+      name: "Boomerang",
+      status: "Operating",
+      opening_year: 2000,
+      closing_year: null,
+      height_ft: null,
+      image_url: null,
+    });
+  });
+
+  it("names former installs as they ran at that park", () => {
+    expect(applyParkScopedFixes(coaster({ name: "Cosmic Coaster (Valleyfair)" }), "Dorney Park")).toMatchObject({
+      name: "Dragon Coaster",
+      status: "Defunct",
+      opening_year: 1992,
+      closing_year: 2010,
+    });
+    expect(applyParkScopedFixes(coaster({ name: "Alpine Bobsled", status: "Defunct" }), "Six Flags Great America")).toMatchObject({
+      name: "Rolling Thunder",
+      opening_year: 1989,
+      closing_year: 1995,
+    });
+    expect(
+      applyParkScopedFixes(coaster({ name: "Nightmare at Crack Axle Canyon", opening_year: 2006 }), "Beech Bend Park"),
+    ).toMatchObject({ name: "Jet Star", status: "Defunct", opening_year: null, closing_year: 1984 });
+  });
+
+  it("matches renamed Wikidata rows under both names, since the sync writes the name back", () => {
+    for (const name of ["Thunderbolt Express", "Demon"]) {
+      expect(applyParkScopedFixes(coaster({ name, opening_year: 1988 }), "Kings Island")).toMatchObject({
+        name: "Demon",
+        status: "Defunct",
+        opening_year: 1977,
+        closing_year: 1987,
+      });
+    }
+  });
+
+  it("restores Magic Mountain's own Goliath after /extend gave it Déjà Vu's years", () => {
+    const fixed = applyParkScopedFixes(
+      coaster({
+        name: "Goliath",
+        wikidata_id: "Q510289",
+        status: "Defunct",
+        opening_year: 2001,
+        closing_year: 2011,
+        manufacturer: "Rocky Mountain Construction",
+        enwiki_title: "Goliath (Six Flags New England)",
+        summary_text: "Goliath was a steel shuttle roller coaster…",
+      }),
+      "Six Flags Magic Mountain",
+    );
+    expect(fixed).toMatchObject({
+      status: "Operating",
+      opening_year: 2000,
+      closing_year: null,
+      manufacturer: "Giovanola",
+      enwiki_title: "Goliath (Six Flags Magic Mountain)",
+      summary_text: null,
+    });
+  });
+
+  it("cites a source URL for every correction", () => {
+    const sources = [
+      ...Object.values(FORMER_INSTALL_FIXES).flatMap((byName) => Object.values(byName).map((f) => f.source)),
+      ...Object.values(MISATTRIBUTED_ROWS).flatMap((byName) => Object.values(byName)),
+    ];
+    for (const source of sources) expect(source).toMatch(/^https:\/\/\S+$/);
   });
 });
