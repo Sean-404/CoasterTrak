@@ -9,6 +9,7 @@ import { ProfileAvatar } from "@/components/profile-avatar";
 import { AVATAR_OPTIONS, DEFAULT_AVATAR_KEY, normalizeAvatarKey, type AvatarKey } from "@/lib/avatars";
 import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 import { validateDisplayName } from "@/lib/display-name";
+import { KOFI_URL } from "@/lib/site-url";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   prefsFromProfileRow,
@@ -1066,6 +1067,23 @@ export default function AccountPage() {
                 </button>
               </form>
             </section>
+
+            {KOFI_URL ? (
+              <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="font-semibold text-slate-900">Support CoasterTrak</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  CoasterTrak is free. Optional tips help cover hosting and new features.
+                </p>
+                <a
+                  href={KOFI_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-800 transition hover:bg-amber-200"
+                >
+                  <span aria-hidden="true">☕</span> Tip on Ko-fi
+                </a>
+              </section>
+            ) : null}
 
             <section className="rounded-2xl border border-red-100 bg-white p-6 shadow-sm">
               <h2 className="font-semibold text-slate-900">Sign out</h2>

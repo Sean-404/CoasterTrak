@@ -26,6 +26,7 @@ import {
   type AchievementRide,
 } from "@/lib/achievements";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
+import { KOFI_URL } from "@/lib/site-url";
 import { isThrillCoaster, normalizeCoasterDedupKey } from "@/lib/coaster-dedup";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { cleanCoasterName, formatParkLabel, matchesSearchQuery } from "@/lib/display";
@@ -1713,6 +1714,19 @@ function StatsPageContent() {
               )}
             </>
           )}
+          {isOwnStatsView && KOFI_URL ? (
+            <p className="mt-8 text-center text-xs text-slate-500">
+              Enjoying CoasterTrak?{" "}
+              <a
+                href={KOFI_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-amber-700 underline-offset-2 hover:underline"
+              >
+                <span aria-hidden="true">☕</span> Support it on Ko-fi
+              </a>
+            </p>
+          ) : null}
         </AuthGate>
       </main>
     </div>

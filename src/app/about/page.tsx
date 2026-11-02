@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { CONTACT_EMAIL, INSTAGRAM_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, KOFI_URL } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "About CoasterTrak",
@@ -89,6 +89,20 @@ export default function AboutPage() {
             </a>
             .
           </p>
+          {KOFI_URL ? (
+            <p>
+              If CoasterTrak has helped you plan a trip or keep count, you can{" "}
+              <a
+                href={KOFI_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-amber-700 underline-offset-2 hover:underline"
+              >
+                leave a tip on Ko-fi
+              </a>
+              . It is entirely optional and goes toward hosting and new features.
+            </p>
+          ) : null}
           <h2 className="pt-2 text-xl font-semibold text-slate-900">How the catalog is maintained</h2>
           <p>
             Each park page is a planning sheet for leftover credits, not a copied encyclopedia entry. See{" "}

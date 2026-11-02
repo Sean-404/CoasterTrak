@@ -9,6 +9,8 @@ export const AUTH_ORIGIN = "https://coastertrak.com";
 
 export const CONTACT_EMAIL = "hello@coastertrak.com";
 export const INSTAGRAM_URL = "https://www.instagram.com/coastertrak/";
+/** Ko-fi tip page, e.g. "https://ko-fi.com/yourname". Tip links stay hidden while this is null. */
+export const KOFI_URL: string | null = "https://ko-fi.com/coastertrak";
 
 export const PASSWORD_RESET_PATH = "/reset-password";
 

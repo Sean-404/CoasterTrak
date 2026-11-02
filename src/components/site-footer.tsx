@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { INSTAGRAM_URL } from "@/lib/site-url";
+import { INSTAGRAM_URL, KOFI_URL } from "@/lib/site-url";
 
 type SiteFooterProps = {
   variant?: "light" | "dark";
@@ -55,6 +55,21 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
             </a>{" "}
             when an identifier is available.
           </p>
+          {KOFI_URL ? (
+            <a
+              href={KOFI_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={[
+                "mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                isDark
+                  ? "bg-amber-500/15 text-amber-300 hover:bg-amber-500/25"
+                  : "bg-amber-100 text-amber-800 hover:bg-amber-200",
+              ].join(" ")}
+            >
+              <span aria-hidden="true">☕</span> Support CoasterTrak on Ko-fi
+            </a>
+          ) : null}
         </div>
         <nav
           className={`flex flex-wrap gap-x-5 gap-y-2 text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}
