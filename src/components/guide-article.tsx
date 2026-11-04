@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { AdsenseAd } from "@/components/adsense-ad";
-import { GUIDES, type GuideMeta, guideAuthor, guidePath, guideUpdated } from "@/lib/guides";
+import { type GuideMeta, getGuide, guideAuthor, guidePath, guideUpdated } from "@/lib/guides";
 import { SITE_URL } from "@/lib/site-url";
 
 type GuideArticleShellProps = {
@@ -22,7 +22,7 @@ function formatGuideDate(isoDate: string): string {
 }
 
 export function GuideArticleShell({ guide, children, adSlot }: GuideArticleShellProps) {
-  const related = GUIDES.filter((g) => g.slug !== guide.slug).slice(0, 3);
+  const related = guide.related.flatMap((slug) => getGuide(slug) ?? []);
   const author = guideAuthor(guide);
   const updated = guideUpdated(guide);
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getCatalogSnapshot } from "@/lib/catalog-server";
-import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 // On-demand only — sync revalidates after real catalog changes (hourly ISR was wasteful).
 export const revalidate = false;
@@ -21,6 +21,7 @@ export const metadata: Metadata = {
       "Live catalog counts, sourcing, and how CoasterTrak turns park lineups into leftover credits you can actually log.",
     url: `${SITE_URL}/catalog`,
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

@@ -27,7 +27,7 @@ import { correctionMailto, parkDataCoverage } from "@/lib/catalog-sources";
 import { cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 import { clampSummaryText, fetchWikipediaSummaryForPark } from "@/lib/wikipedia-summary";
 
 // On-demand only — sync revalidates specific changed slugs; timers were burning Hobby ISR writes.
@@ -72,6 +72,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: intro,
       url: canonical,
       type: "website",
+      images: [SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary",

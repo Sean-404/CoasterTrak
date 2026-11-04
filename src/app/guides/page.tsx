@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { GUIDES, guideAuthor, guidePath, latestGuides } from "@/lib/guides";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Coaster credit guides",
@@ -23,6 +23,7 @@ export const metadata: Metadata = {
       "Guides on coaster credits, park leftovers, first park days, and CoasterGuessr from the CoasterTrak team.",
     url: `${SITE_URL}/guides`,
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

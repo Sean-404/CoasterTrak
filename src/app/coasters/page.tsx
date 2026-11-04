@@ -15,6 +15,7 @@ import { isCatalogIndexCrawlVariant, parseCatalogPage, sliceCatalogPage } from "
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug } from "@/lib/slug";
+import { SOCIAL_IMAGE } from "@/lib/site-url";
 
 // On-demand only — Sunday sync revalidates indexes; timers were burning Hobby ISR writes.
 export const revalidate = false;
@@ -48,6 +49,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
         "Browse roller coasters worldwide and open ride pages with stats, park links, and map deep links.",
       url: "/coasters",
       type: "website",
+      images: [SOCIAL_IMAGE],
     },
   };
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "What’s New — CoasterTrak",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
     description: "Recent CoasterTrak product updates in one place.",
     url: "/updates",
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 
