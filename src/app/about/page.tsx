@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AffiliateAboutParagraph } from "@/components/affiliate-policy-copy";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { CONTACT_EMAIL, INSTAGRAM_URL, KOFI_URL } from "@/lib/site-url";
@@ -73,6 +74,7 @@ export default function AboutPage() {
             affiliated with or endorsed by the parks in the catalog. The app is free to use; optional advertising,
             when enabled, helps cover hosting.
           </p>
+          <AffiliateAboutParagraph />
           <p>
             Product notes live on{" "}
             <Link href="/updates" className="font-medium text-amber-700 underline-offset-2 hover:underline">

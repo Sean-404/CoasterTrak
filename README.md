@@ -54,6 +54,16 @@ Manual units render only when both are set:
 
 Ads are mounted on guides and selected content pages only — never on thin stubs, login, or app chrome. Keep the flag off until AdSense approves the site.
 
+### Affiliate links (optional)
+
+The "Plan your visit" box on park pages renders only when the flag is on and the park has a confirmed link in `src/lib/affiliates.ts`. The Privacy Policy and About wording uses the same flag.
+
+- `NEXT_PUBLIC_AFFILIATES_ENABLED=true`
+- `NEXT_PUBLIC_GETYOURGUIDE_PARTNER_ID=<partner id>`
+- `NEXT_PUBLIC_ATTRACTIONTICKETS_LINK_TEMPLATE=<network deep link, with {url} where the destination goes>`
+
+These are inlined at build time, so changing them needs a redeploy. Keep partner ids in env, never in code: this repo is public. Keep the flag off until AdSense approves the site.
+
 ### Weekly digest cron
 
 Vercel Cron hits `GET /api/cron/weekly-digest` Sundays 18:00 UTC (`Authorization: Bearer <SYNC_CRON_SECRET>`).
