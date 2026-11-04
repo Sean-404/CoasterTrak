@@ -15,6 +15,11 @@ export const CLOSED_PARKS: Record<string, { closedYear: number; source: string }
     closedYear: 2025,
     source: "https://www.foxla.com/news/six-flags-america-closes-after-50-years",
   },
+  // Houston theme park; closed for good on 30 Oct 2005.
+  "Six Flags AstroWorld": {
+    closedYear: 2005,
+    source: "https://en.wikipedia.org/wiki/Six_Flags_AstroWorld",
+  },
   // Nashville theme park; closed for good on 31 Dec 1997.
   "Opryland USA": {
     closedYear: 1997,
@@ -700,6 +705,11 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   // After AstroWorld closed the track was moved to Darien Lake, stored and never reassembled.
   "Six Flags Darien Lake": {
     "Batman The Escape": "https://en.wikipedia.org/wiki/Batman_The_Escape",
+  },
+  // Ran at Venice Park, then Playland Park, in Houston until the 1960s; never at AstroWorld.
+  // Its Wikidata item names no park, only Playland coordinates about a mile from AstroWorld.
+  "Six Flags AstroWorld": {
+    "Giant Skyrocket": "https://en.wikipedia.org/wiki/Giant_Skyrocket",
   },
   // Firebird ran at Six Flags Great America (as Iron Wolf) and Six Flags America only.
   "Six Flags Magic Mountain": {

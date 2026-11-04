@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Coaster, Park } from "@/types/domain";
 import { applyParkScopedFixes, FORMER_INSTALL_FIXES, MISATTRIBUTED_ROWS } from "@/lib/catalog-closures";
 import { normalizeCatalog } from "@/lib/catalog-normalize";
-import { coasterStatusDisplay } from "@/lib/coaster-status";
+import { coasterStatusDisplay, isParkDefunct } from "@/lib/coaster-status";
 
 function coaster(partial: Partial<Coaster>): Coaster {
   return {
@@ -326,6 +326,31 @@ describe("Wikipedia /extend installs", () => {
       ...Object.values(MISATTRIBUTED_ROWS).flatMap((byName) => Object.values(byName)),
     ];
     for (const source of sources) expect(source).toMatch(/^https:\/\/\S+$/);
+  });
+});
+
+describe("Six Flags AstroWorld", () => {
+  const parks: Park[] = [
+    { id: 61, name: "Six Flags AstroWorld", country: "United States", latitude: 29.68, longitude: -95.41 },
+  ];
+
+  it("reads as a defunct park once the Houston coaster that never ran there is hidden", () => {
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 72, park_id: 61, name: "Giant Skyrocket", status: "Operating", opening_year: 1941 }),
+      coaster({ id: 101, park_id: 61, name: "Serpent", status: "Defunct", opening_year: 1969, closing_year: 2005 }),
+      coaster({ id: 109, park_id: 61, name: "Excalibur", status: "Defunct", opening_year: 1972, closing_year: 1998 }),
+    ]);
+    expect(coasters.map((c) => c.id).sort((a, b) => a - b)).toEqual([101, 109]);
+    expect(isParkDefunct(coasters)).toBe(true);
+  });
+
+  it("closes any other row there at the park's closing year, keeping earlier ride closures", () => {
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 1, park_id: 61, name: "Greezed Lightnin'", status: "Operating", opening_year: 1978 }),
+      coaster({ id: 109, park_id: 61, name: "Excalibur", status: "Defunct", opening_year: 1972, closing_year: 1998 }),
+    ]);
+    expect(coasters.find((c) => c.id === 1)).toMatchObject({ status: "Defunct", closing_year: 2005 });
+    expect(coasters.find((c) => c.id === 109)?.closing_year).toBe(1998);
   });
 });
 
