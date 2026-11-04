@@ -613,6 +613,67 @@ export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = 
 };
 
 /**
+ * Rides rebuilt so heavily that credit hunters count them as new (RMC conversions and the
+ * like). They stay separate from their successors, but the old row is closed, not "Operating".
+ * Plain renames are merged instead: see 20261104120000_merge_same_ride_duplicates.sql.
+ */
+export const REBUILT_RIDE_FIXES: Record<string, Record<string, InstallFix>> = {
+  "California's Great America": {
+    // Stand-up Vortex (1991–2016) became the floorless Patriot in 2017.
+    "Vortex (Great America)": {
+      fix: { name: "Vortex", status: "Defunct", opening_year: 1991, closing_year: 2016 },
+      source: "https://en.wikipedia.org/wiki/Patriot_(California%27s_Great_America)",
+    },
+    Vortex: {
+      fix: { status: "Defunct", opening_year: 1991, closing_year: 2016 },
+      source: "https://en.wikipedia.org/wiki/Patriot_(California%27s_Great_America)",
+    },
+  },
+  "Six Flags Over Texas": {
+    // Wooden Texas Giant closed 1 Nov 2009; RMC rebuilt it as New Texas Giant (2011).
+    "Texas Giant": {
+      fix: { status: "Defunct", opening_year: 1990, closing_year: 2009 },
+      source: "https://en.wikipedia.org/wiki/New_Texas_Giant",
+    },
+  },
+  "Six Flags Fiesta Texas": {
+    // Wooden Rattler closed 5 Aug 2012; RMC rebuilt it as Iron Rattler (2013).
+    "The Rattler": {
+      fix: { status: "Defunct", opening_year: 1992, closing_year: 2012 },
+      source: "https://en.wikipedia.org/wiki/Iron_Rattler",
+    },
+  },
+  "Six Flags New England": {
+    // Wooden Cyclone (1983–2014) became the steel-track Wicked Cyclone in 2015.
+    Cyclone: {
+      fix: { status: "Defunct", opening_year: 1983, closing_year: 2014 },
+      source: "https://en.wikipedia.org/wiki/Wicked_Cyclone",
+    },
+  },
+  Hersheypark: {
+    // Wooden Wildcat (1996–2022) became Wildcat's Revenge in 2023.
+    Wildcat: {
+      fix: { status: "Defunct", opening_year: 1996, closing_year: 2022 },
+      source: "https://en.wikipedia.org/wiki/Wildcat%27s_Revenge",
+    },
+  },
+  "Nagashima Spa Land": {
+    // Wooden White Cyclone (1994–2018) was rebuilt as Hakugei (2019).
+    "White Cyclone": {
+      fix: { status: "Defunct", opening_year: 1994, closing_year: 2018 },
+      source: "https://en.wikipedia.org/wiki/White_Cyclone",
+    },
+  },
+  "Walibi Holland": {
+    // Wooden Robin Hood closed 28 Oct 2018; RMC rebuilt it as Untamed (2019).
+    "Robin Hood": {
+      fix: { status: "Defunct", opening_year: 2000, closing_year: 2018 },
+      source: "https://en.wikipedia.org/wiki/Untamed_(Walibi_Holland)",
+    },
+  },
+};
+
+/**
  * Rows attached to a park the ride never ran at, usually because a park name in a
  * Wikipedia infobox matched a different park with a similar name. Hidden from that park.
  */
@@ -795,7 +856,8 @@ export function applyParkScopedFixes<
   if (!parkName) return coaster;
   let out = coaster;
 
-  const install = FORMER_INSTALL_FIXES[parkName]?.[coaster.name];
+  const install =
+    FORMER_INSTALL_FIXES[parkName]?.[coaster.name] ?? REBUILT_RIDE_FIXES[parkName]?.[coaster.name];
   if (install) out = { ...out, ...install.fix };
 
   const closure = CLOSED_PARKS[parkName];

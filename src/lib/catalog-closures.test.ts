@@ -176,6 +176,38 @@ describe("misattributed rows", () => {
   });
 });
 
+describe("rebuilt rides", () => {
+  it("closes the old row but keeps it separate from its successor", () => {
+    expect(applyParkScopedFixes(coaster({ name: "Texas Giant", opening_year: 1990 }), "Six Flags Over Texas")).toMatchObject({
+      status: "Defunct",
+      closing_year: 2009,
+    });
+    expect(applyParkScopedFixes(coaster({ name: "Vortex (Great America)" }), "California's Great America")).toMatchObject({
+      name: "Vortex",
+      opening_year: 1991,
+      closing_year: 2016,
+    });
+    const successor = coaster({ name: "New Texas Giant", opening_year: 2011 });
+    expect(applyParkScopedFixes(successor, "Six Flags Over Texas")).toBe(successor);
+  });
+
+  it("does not touch a same-named ride at another park", () => {
+    const row = coaster({ name: "Cyclone", opening_year: 1927 });
+    expect(applyParkScopedFixes(row, "Luna Park")).toBe(row);
+  });
+});
+
+describe("merged duplicates", () => {
+  it("hides the second Wikidata item so Eurosat is listed once", () => {
+    const parks: Park[] = [{ id: 3, name: "Europa-Park", country: "Germany", latitude: 48.27, longitude: 7.72 }];
+    const { coasters } = normalizeCatalog(parks, [
+      coaster({ id: 4385, park_id: 3, name: "Eurosat - CanCan Coaster", wikidata_id: "Q63196746" }),
+      coaster({ id: 15675, park_id: 3, name: "Eurosat", wikidata_id: "Q874877" }),
+    ]);
+    expect(coasters.map((c) => c.id)).toEqual([4385]);
+  });
+});
+
 describe("Orlando catalog corrections", () => {
   const parks: Park[] = [
     { id: 177, name: "Universal Studios Florida", country: "United States", latitude: 28.47, longitude: -81.47 },

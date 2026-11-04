@@ -565,6 +565,13 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
  * @see https://en.wikipedia.org/wiki/Skyscraper_(roller_coaster)
  */
 const SKIP_WIKIDATA_COASTER_IDS = new Set<string>([
+  // Second Wikidata items for rides merged in 20261104120000_merge_same_ride_duplicates.sql;
+  // skipped so a sync cannot recreate the duplicate row.
+  "Q874877", // Eurosat (kept: Eurosat - CanCan Coaster)
+  "Q16899487", // Runaway Train (kept: Scorpion Express)
+  "Q859406", // Big Thunder Mountain Railroad at Disneyland Paris
+  "Q7508555", // Sidewinder at Hersheypark (kept: Jolly Rancher Remix)
+  "Q141069235", // Gotham City Escape at Parque Warner Madrid
   "Q18378567",
   // Battersea Park funfair disaster (1972) — event article, not a catalog ride
   "Q22000267",
