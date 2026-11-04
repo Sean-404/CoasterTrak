@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AffiliatePrivacySection } from "@/components/affiliate-policy-copy";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
@@ -95,6 +96,8 @@ export default function PrivacyPage() {
             preferences through Google&apos;s ad settings. Ads are not shown on every page; authentication and empty
             utility screens are kept free of publisher ads.
           </p>
+
+          <AffiliatePrivacySection />
 
           <h2 className="text-xl font-semibold text-slate-900">Cookies and local storage</h2>
           <p>

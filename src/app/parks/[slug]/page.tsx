@@ -7,6 +7,7 @@ import { CatalogStatPills, type CatalogStatPill } from "@/components/catalog-sta
 import { ParkCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterList } from "@/components/park-coaster-list";
 import { ParkStatusBadge } from "@/components/park-status-badge";
+import { PlanYourVisit } from "@/components/plan-your-visit";
 import { WikipediaBackground } from "@/components/wikipedia-background";
 import {
   buildParkEditorialIntro,
@@ -246,6 +247,8 @@ export default async function ParkDetailPage({ params }: PageProps) {
           />
         </div>
       )}
+
+      <PlanYourVisit parkId={park.id} parkName={park.name} parkIsDefunct={parkIsDefunct} />
 
       <CatalogSourcesPanel
         coverage={coverageLines}
