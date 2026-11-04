@@ -1,4 +1,4 @@
-export type AffiliatePartner = "attractiontickets" | "getyourguide";
+export type AffiliatePartner = "getyourguide";
 
 export type AffiliateParkLink = {
   partner: AffiliatePartner;
@@ -10,8 +10,6 @@ export type AffiliateParkLink = {
 export type AffiliateEnv = {
   enabled: boolean;
   getYourGuidePartnerId?: string;
-  /** The partner network's deep link, with `{url}` where the destination goes. */
-  attractionTicketsLinkTemplate?: string;
 };
 
 export type ResolvedAffiliateLink = {
@@ -28,11 +26,8 @@ export const PLACEHOLDER_DESTINATION = "PLACEHOLDER_CONFIRM_URL";
 export const AFFILIATE_MAX_PARKS = 20;
 
 const PARTNERS: Record<AffiliatePartner, { name: string; hostname: string }> = {
-  attractiontickets: { name: "AttractionTickets.com", hostname: "www.attractiontickets.com" },
   getyourguide: { name: "GetYourGuide", hostname: "www.getyourguide.com" },
 };
-
-const ATTRACTION_TICKETS_ORLANDO = "https://www.attractiontickets.com/en/orlando-attraction-tickets";
 
 /**
  * Keyed by canonical park id: the seven Orlando parks, then the top non-Orlando parks by
@@ -42,39 +37,39 @@ const ATTRACTION_TICKETS_ORLANDO = "https://www.attractiontickets.com/en/orlando
  */
 export const AFFILIATE_PARK_LINKS: Readonly<Record<number, AffiliateParkLink>> = {
   151: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Disney's Magic Kingdom",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/walt-disney-world-orlando-tickets/magic-kingdom-tickets`,
+    destination: "https://www.getyourguide.com/magic-kingdom-park-l3851/",
   },
   284: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Epcot",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/walt-disney-world-orlando-tickets/epcot-tickets`,
+    destination: "https://www.getyourguide.com/epcot-theme-park-l3850/",
   },
   273: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Disney's Hollywood Studios",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/walt-disney-world-orlando-tickets/disneys-hollywood-studios-tickets`,
+    destination: "https://www.getyourguide.com/disney-s-hollywood-studios-l3855/",
   },
   191: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Disney's Animal Kingdom",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/walt-disney-world-orlando-tickets/disneys-animal-kingdom-tickets`,
+    destination: "https://www.getyourguide.com/disney-s-animal-kingdom-l3857/",
   },
   177: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Universal Studios Florida",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/universal-orlando-resort/universal-studios-florida`,
+    destination: "https://www.getyourguide.com/universal-studios-florida-l181174/",
   },
   169: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Universal's Islands of Adventure",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/universal-orlando-resort/universal%E2%80%99s-islands-adventure`,
+    destination: "https://www.getyourguide.com/universal-s-islands-of-adventure-l3853/",
   },
   332: {
-    partner: "attractiontickets",
+    partner: "getyourguide",
     parkName: "Epic Universe",
-    destination: `${ATTRACTION_TICKETS_ORLANDO}/universal-orlando-resort/epic-universe`,
+    destination: "https://www.getyourguide.com/universal-epic-universe-l219556/",
   },
   70: { partner: "getyourguide", parkName: "Six Flags Great Adventure", destination: PLACEHOLDER_DESTINATION },
   64: { partner: "getyourguide", parkName: "Six Flags Magic Mountain", destination: PLACEHOLDER_DESTINATION },
@@ -109,7 +104,6 @@ export function readAffiliateEnv(): AffiliateEnv {
   return {
     enabled: process.env.NEXT_PUBLIC_AFFILIATES_ENABLED === "true",
     getYourGuidePartnerId: process.env.NEXT_PUBLIC_GETYOURGUIDE_PARTNER_ID,
-    attractionTicketsLinkTemplate: process.env.NEXT_PUBLIC_ATTRACTIONTICKETS_LINK_TEMPLATE,
   };
 }
 
@@ -118,20 +112,6 @@ function confirmedDestination(link: AffiliateParkLink): URL | null {
   const url = new URL(link.destination);
   if (url.protocol !== "https:" || url.hostname !== PARTNERS[link.partner].hostname) return null;
   return url;
-}
-
-function trackedHref(partner: AffiliatePartner, destination: URL, env: AffiliateEnv): string | null {
-  if (partner === "getyourguide") {
-    const partnerId = env.getYourGuidePartnerId?.trim();
-    if (!partnerId) return null;
-    destination.searchParams.set("partner_id", partnerId);
-    return destination.href;
-  }
-
-  const template = env.attractionTicketsLinkTemplate?.trim();
-  if (!template?.includes("{url}")) return null;
-  const href = template.replace("{url}", () => encodeURIComponent(destination.href));
-  return URL.canParse(href) && new URL(href).protocol === "https:" ? href : null;
 }
 
 /** The park's tracked link, or null whenever the box must not appear. */
@@ -146,8 +126,9 @@ export function resolveAffiliateLink(
   if (!link) return null;
 
   const destination = confirmedDestination(link);
-  if (!destination) return null;
+  const partnerId = env.getYourGuidePartnerId?.trim();
+  if (!destination || !partnerId) return null;
 
-  const href = trackedHref(link.partner, destination, env);
-  return href ? { href, partnerName: PARTNERS[link.partner].name } : null;
+  destination.searchParams.set("partner_id", partnerId);
+  return { href: destination.href, partnerName: PARTNERS[link.partner].name };
 }

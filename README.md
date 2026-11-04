@@ -60,7 +60,6 @@ The "Plan your visit" box on park pages renders only when the flag is on and the
 
 - `NEXT_PUBLIC_AFFILIATES_ENABLED=true`
 - `NEXT_PUBLIC_GETYOURGUIDE_PARTNER_ID=<partner id>`
-- `NEXT_PUBLIC_ATTRACTIONTICKETS_LINK_TEMPLATE=<network deep link, with {url} where the destination goes>`
 
 These are inlined at build time, so changing them needs a redeploy. Keep partner ids in env, never in code: this repo is public. Keep the flag off until AdSense approves the site.
 

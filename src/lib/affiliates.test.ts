@@ -15,22 +15,17 @@ import {
 } from "@/lib/affiliates";
 
 const ALTON_TOWERS = 1;
-const MAGIC_KINGDOM = 151;
 const CEDAR_POINT_PLACEHOLDER = 2;
 const SIX_FLAGS_ASTROWORLD = 61;
 const UNMAPPED_PARK = 999_999;
 
-const TEMPLATE = "https://network.example/c/1/2/3?u={url}";
-const ENV_ON: AffiliateEnv = {
-  enabled: true,
-  getYourGuidePartnerId: "TESTID1",
-  attractionTicketsLinkTemplate: TEMPLATE,
-};
+const ORLANDO_PARK_IDS = [151, 284, 273, 191, 177, 169, 332];
+
+const ENV_ON: AffiliateEnv = { enabled: true, getYourGuidePartnerId: "TESTID1" };
 
 function stubAffiliateEnv(enabled: string) {
   vi.stubEnv("NEXT_PUBLIC_AFFILIATES_ENABLED", enabled);
   vi.stubEnv("NEXT_PUBLIC_GETYOURGUIDE_PARTNER_ID", "TESTID1");
-  vi.stubEnv("NEXT_PUBLIC_ATTRACTIONTICKETS_LINK_TEMPLATE", TEMPLATE);
 }
 
 function renderBox(parkId: number, parkIsDefunct = false): string {
@@ -44,7 +39,6 @@ afterEach(() => {
 describe("resolveAffiliateLink", () => {
   it("returns nothing while the flag is off, even with partner ids set", () => {
     expect(resolveAffiliateLink(ALTON_TOWERS, false, { ...ENV_ON, enabled: false })).toBeNull();
-    expect(resolveAffiliateLink(MAGIC_KINGDOM, false, { ...ENV_ON, enabled: false })).toBeNull();
   });
 
   it("returns nothing for parks with no mapped link", () => {
@@ -60,31 +54,15 @@ describe("resolveAffiliateLink", () => {
     expect(resolveAffiliateLink(ALTON_TOWERS, true, ENV_ON)).toBeNull();
   });
 
-  it("returns nothing when the partner has no id or template configured", () => {
+  it("returns nothing when no partner id is configured", () => {
     expect(resolveAffiliateLink(ALTON_TOWERS, false, { enabled: true })).toBeNull();
     expect(resolveAffiliateLink(ALTON_TOWERS, false, { enabled: true, getYourGuidePartnerId: " " })).toBeNull();
-    expect(resolveAffiliateLink(MAGIC_KINGDOM, false, { enabled: true })).toBeNull();
-  });
-
-  it("rejects an AttractionTickets template without {url} or without https", () => {
-    const notTemplated = { ...ENV_ON, attractionTicketsLinkTemplate: "https://network.example/c/1/2/3" };
-    const insecure = { ...ENV_ON, attractionTicketsLinkTemplate: "http://network.example/c?u={url}" };
-    expect(resolveAffiliateLink(MAGIC_KINGDOM, false, notTemplated)).toBeNull();
-    expect(resolveAffiliateLink(MAGIC_KINGDOM, false, insecure)).toBeNull();
   });
 
   it("adds the GetYourGuide partner id from env", () => {
     expect(resolveAffiliateLink(ALTON_TOWERS, false, ENV_ON)).toEqual({
       href: "https://www.getyourguide.com/alton-towers-l36405/?partner_id=TESTID1",
       partnerName: "GetYourGuide",
-    });
-  });
-
-  it("wraps the AttractionTickets destination in the network template", () => {
-    const destination = AFFILIATE_PARK_LINKS[MAGIC_KINGDOM].destination;
-    expect(resolveAffiliateLink(MAGIC_KINGDOM, false, ENV_ON)).toEqual({
-      href: `https://network.example/c/1/2/3?u=${encodeURIComponent(destination)}`,
-      partnerName: "AttractionTickets.com",
     });
   });
 });
@@ -94,7 +72,9 @@ describe("AFFILIATE_PARK_LINKS", () => {
 
   it("stays within the park limit and covers the seven Orlando parks", () => {
     expect(entries.length).toBeLessThanOrEqual(AFFILIATE_MAX_PARKS);
-    expect(entries.filter((entry) => entry.partner === "attractiontickets")).toHaveLength(7);
+    for (const id of ORLANDO_PARK_IDS) {
+      expect(resolveAffiliateLink(id, false, ENV_ON)).not.toBeNull();
+    }
   });
 
   it("keeps partner ids and tracking out of code", () => {
