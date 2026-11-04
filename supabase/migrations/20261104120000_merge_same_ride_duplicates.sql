@@ -84,9 +84,10 @@ begin
       raise exception 'Merge % -> %: keep row missing or at a different park', m.drop_id, m.keep_id;
     end if;
 
-    -- Release the stub's ids first: (park_id, external_source, external_id) is unique.
+    -- Release the stub's ids first: rcdb_id and (park_id, external_source, external_id)
+    -- are unique, so both rows cannot hold them while they are copied across.
     update coasters
-    set wikidata_id = null, external_source = null, external_id = null
+    set wikidata_id = null, external_source = null, external_id = null, rcdb_id = null
     where id = m.drop_id;
 
     update coasters k
