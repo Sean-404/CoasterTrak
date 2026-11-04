@@ -6,7 +6,7 @@ import "./globals.css";
 import { PresenceBeacon } from "@/components/presence-beacon";
 import { RegisterServiceWorker } from "@/components/register-service-worker";
 import { UnitsProvider } from "@/components/providers";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,21 +77,14 @@ export const metadata: Metadata = {
     url: "/",
     type: "website",
     locale: "en_GB",
-    images: [
-      {
-        url: "/coaster-hero.png",
-        width: 1200,
-        height: 630,
-        alt: "CoasterTrak — free coaster credit tracker",
-      },
-    ],
+    images: [SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "CoasterTrak | Free Coaster Credit Tracker",
     description:
       "Free coaster credit app to log unique credits, explore parks on a map, build a wishlist, and compare tallies.",
-    images: ["/coaster-hero.png"],
+    images: [SOCIAL_IMAGE.url],
   },
   robots: {
     index: true,

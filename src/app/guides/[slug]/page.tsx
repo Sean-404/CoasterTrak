@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { GuideArticleShell } from "@/components/guide-article";
 import { GUIDE_BODIES } from "@/content/guides";
 import { GUIDES, getGuide, guidePath } from "@/lib/guides";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 /** Optional AdSense slot — only renders when NEXT_PUBLIC_ADSENSE_ENABLED=true. */
 const GUIDE_AD_SLOT = process.env.NEXT_PUBLIC_ADSENSE_GUIDE_SLOT;
@@ -33,6 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: `${SITE_URL}${canonical}`,
       type: "article",
       publishedTime: guide.published,
+      images: [SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",

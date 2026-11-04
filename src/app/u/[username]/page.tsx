@@ -10,7 +10,7 @@ import {
   publicProfileHref,
   publicProfilePath,
 } from "@/lib/public-profile";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 import { cleanCoasterName } from "@/lib/display";
 
 type PageProps = {
@@ -49,6 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url: publicProfileHref(profile.displayName),
       type: "profile",
+      images: [SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary",

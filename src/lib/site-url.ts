@@ -12,6 +12,17 @@ export const INSTAGRAM_URL = "https://www.instagram.com/coastertrak/";
 /** Ko-fi tip page, e.g. "https://ko-fi.com/yourname". Tip links stay hidden while this is null. */
 export const KOFI_URL: string | null = "https://ko-fi.com/coastertrak";
 
+/**
+ * Default link preview image. A page that sets `openGraph` replaces the whole block from the root
+ * layout, so each one has to list this itself or it shares with no image.
+ */
+export const SOCIAL_IMAGE = {
+  url: "/coaster-hero.jpg",
+  width: 1376,
+  height: 768,
+  alt: "CoasterTrak: free coaster credit tracker",
+};
+
 export const PASSWORD_RESET_PATH = "/reset-password";
 
 export function siteHref(path: string, origin: string = SITE_URL): string {

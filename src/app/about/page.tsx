@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AffiliateAboutParagraph } from "@/components/affiliate-policy-copy";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { CONTACT_EMAIL, INSTAGRAM_URL, KOFI_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, KOFI_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "About CoasterTrak",
@@ -18,6 +18,7 @@ export const metadata: Metadata = {
       "CoasterTrak is a free coaster credit tracker for logging unique rides, exploring parks, and comparing tallies.",
     url: "/about",
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

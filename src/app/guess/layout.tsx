@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "CoasterGuessr",
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
       "Pin the park from a coaster photo. A free browser game for roller coaster fans, built into CoasterTrak.",
     url: "/guess",
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

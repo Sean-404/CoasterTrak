@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "World Coaster Map",
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
       "Explore roller coasters around the world on an interactive map, then switch to park or coaster lists.",
     url: "/map",
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

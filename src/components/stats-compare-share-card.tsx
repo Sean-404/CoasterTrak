@@ -55,7 +55,7 @@ export const CompareShareCard = forwardRef<HTMLDivElement, CompareShareCardProps
         <style>{`@import url("https://fonts.googleapis.com/css2?family=Bungee&display=swap");`}</style>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/coaster-hero.png"
+          src="/coaster-hero.jpg"
           alt=""
           style={{
             position: "absolute",

@@ -1,3 +1,4 @@
+import { Children, isValidElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import {
   GUIDES,
@@ -11,6 +12,16 @@ import {
 } from "@/lib/guides";
 import { GUIDE_BODIES } from "@/content/guides";
 
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (!isValidElement<{ children?: ReactNode }>(node)) return "";
+  return Children.toArray(node.props.children).map(textOf).join(" ");
+}
+
+function wordCount(node: ReactNode): number {
+  return textOf(node).split(/\s+/).filter((token) => /\w/.test(token)).length;
+}
+
 describe("guides registry", () => {
   it("has unique slugs and matching bodies", () => {
     const slugs = GUIDES.map((g) => g.slug);
@@ -22,11 +33,31 @@ describe("guides registry", () => {
     }
   });
 
-  it("includes substantial reading time for AdSense-oriented guides", () => {
+  it("has enough guides, each with a full description", () => {
     expect(GUIDES.length).toBeGreaterThanOrEqual(6);
     for (const guide of GUIDES) {
-      expect(guide.readingMinutes).toBeGreaterThanOrEqual(5);
       expect(guide.description.length).toBeGreaterThan(80);
+    }
+  });
+
+  it("states a reading time that matches the body at 200 words a minute", () => {
+    for (const guide of GUIDES) {
+      const expected = Math.max(1, Math.round(wordCount(GUIDE_BODIES[guide.slug]) / 200));
+      expect({ slug: guide.slug, minutes: guide.readingMinutes }).toEqual({
+        slug: guide.slug,
+        minutes: expected,
+      });
+    }
+  });
+
+  it("links related guides that exist and are not the guide itself", () => {
+    for (const guide of GUIDES) {
+      expect(guide.related.length).toBeGreaterThan(0);
+      expect(new Set(guide.related).size).toBe(guide.related.length);
+      for (const slug of guide.related) {
+        expect(slug).not.toBe(guide.slug);
+        expect(getGuide(slug)).toBeTruthy();
+      }
     }
   });
 });
@@ -39,6 +70,7 @@ function meta(partial: Partial<GuideMeta>): GuideMeta {
     summary: "s",
     published: "2026-01-01",
     readingMinutes: 5,
+    related: [],
     keywords: [],
     ...partial,
   };

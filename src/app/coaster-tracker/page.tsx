@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: {
@@ -20,6 +20,7 @@ export const metadata: Metadata = {
       "Free coaster tracker to log ride credits, discover parks worldwide, and compare stats with friends.",
     url: `${SITE_URL}/coaster-tracker`,
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

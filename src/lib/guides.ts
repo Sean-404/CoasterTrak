@@ -8,8 +8,10 @@ export type GuideMeta = {
   published: string;
   /** ISO date YYYY-MM-DD of the last real content change; defaults to `published`. */
   updated?: string;
-  /** Minutes, approximate. */
+  /** Minutes at 200 words a minute, rounded. guides.test.ts checks this against the body. */
   readingMinutes: number;
+  /** Slugs listed under "Related guides", most relevant first. */
+  related: string[];
   keywords: string[];
   /**
    * Key into GUIDE_AUTHORS for first-hand guides written by a named person.
@@ -56,7 +58,8 @@ export const GUIDES: GuideMeta[] = [
       "A first-hand trip report from May 2026: a week at Walt Disney World and six days at Universal including Epic Universe, the coasters I rode park by park, my top three, and what I would tell anyone planning the same trip.",
     summary: "My May 2026 Orlando trip: 17 credits, a top three, and the land not to miss.",
     published: "2026-10-24",
-    readingMinutes: 5,
+    readingMinutes: 3,
+    related: ["planning-park-leftovers", "first-park-day-credit-log", "first-year-credit-hunting"],
     author: "founder",
     keywords: [
       "Orlando coaster trip",
@@ -73,7 +76,8 @@ export const GUIDES: GuideMeta[] = [
       "A plain-English guide to coaster credits: unique rides versus repeats, edge cases enthusiasts argue about, and how to start a tally without a spreadsheet.",
     summary: "Unique rides, not FastPasses: how credit hunters count and why it matters.",
     published: "2026-10-06",
-    readingMinutes: 8,
+    readingMinutes: 3,
+    related: ["unique-credits-vs-total-rides", "first-park-day-credit-log", "first-year-credit-hunting"],
     keywords: [
       "coaster credit",
       "what is a coaster credit",
@@ -88,7 +92,8 @@ export const GUIDES: GuideMeta[] = [
       "A practical park-day workflow: what to log in line, what to finish at home, and how to avoid losing credits when the day gets chaotic.",
     summary: "A simple first-day system so you do not lose credits between queues.",
     published: "2026-10-06",
-    readingMinutes: 9,
+    readingMinutes: 2,
+    related: ["planning-park-leftovers", "unique-credits-vs-total-rides", "first-year-credit-hunting"],
     keywords: ["coaster credit log", "park day", "roller coaster tracker", "start credit count"],
   },
   {
@@ -98,7 +103,8 @@ export const GUIDES: GuideMeta[] = [
       "Why enthusiasts track two numbers, how re-rides work, and how to talk about both without mixing them up.",
     summary: "Two tallies, one day: credits stay put while ride counts climb.",
     published: "2026-10-06",
-    readingMinutes: 7,
+    readingMinutes: 2,
+    related: ["what-is-a-coaster-credit", "first-park-day-credit-log", "planning-park-leftovers"],
     keywords: ["unique credits", "total rides", "coaster tally", "re-rides"],
   },
   {
@@ -108,7 +114,8 @@ export const GUIDES: GuideMeta[] = [
       "Turn a park lineup into a ride order: log what you already have, find leftovers, and use friend compare before a shared trip.",
     summary: "Park leftovers and friend compare before you buy tickets.",
     published: "2026-10-06",
-    readingMinutes: 8,
+    readingMinutes: 2,
+    related: ["first-park-day-credit-log", "first-year-credit-hunting", "orlando-two-weeks-may-2026"],
     keywords: ["park leftovers", "coaster wishlist", "theme park planning", "friend compare"],
   },
   {
@@ -118,7 +125,8 @@ export const GUIDES: GuideMeta[] = [
       "A first-year strategy for credit hunters — how to pick parks, what “fast tally” really means, and how to keep the hobby fun instead of checklist-only.",
     summary: "Build a meaningful tally in year one without burning out.",
     published: "2026-10-06",
-    readingMinutes: 10,
+    readingMinutes: 2,
+    related: ["planning-park-leftovers", "orlando-two-weeks-may-2026", "first-park-day-credit-log"],
     keywords: ["credit hunting", "first year coaster credits", "theme park trip planning"],
   },
   {
@@ -128,7 +136,8 @@ export const GUIDES: GuideMeta[] = [
       "How CoasterGuessr works, tips for reading ride photos, and how the game connects to logging real credits on CoasterTrak.",
     summary: "Train your eye on park photos, then log the real credit later.",
     published: "2026-10-06",
-    readingMinutes: 6,
+    readingMinutes: 1,
+    related: ["what-is-a-coaster-credit", "planning-park-leftovers", "first-year-credit-hunting"],
     keywords: ["CoasterGuessr", "guess the coaster", "coaster photo game"],
   },
 ];

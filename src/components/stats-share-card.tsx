@@ -82,7 +82,7 @@ export const StatsShareCard = forwardRef<HTMLDivElement, StatsShareCardProps>(
 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/coaster-hero.png"
+          src="/coaster-hero.jpg"
           alt=""
           style={{
             position: "absolute",

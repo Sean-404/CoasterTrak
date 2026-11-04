@@ -23,7 +23,7 @@ import { resolveMergedCoasterId } from "@/lib/coaster-merges";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
-import { SITE_URL } from "@/lib/site-url";
+import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 import { coasterMissingFields, coasterSourceLinks, correctionMailto } from "@/lib/catalog-sources";
 import {
   clampSummaryText,
@@ -79,13 +79,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url: canonical,
       type: "article",
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+      images: [ogImage ? { url: ogImage } : SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | CoasterTrak`,
       description,
-      ...(ogImage ? { images: [ogImage] } : {}),
+      images: [ogImage ?? SOCIAL_IMAGE.url],
     },
   };
 }

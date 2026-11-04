@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { CONTACT_EMAIL, INSTAGRAM_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: "Contact CoasterTrak",
@@ -17,6 +17,7 @@ export const metadata: Metadata = {
       "Reach the CoasterTrak team about catalog data, privacy, or how the roller coaster tracker works.",
     url: "/contact",
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

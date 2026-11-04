@@ -16,6 +16,7 @@ import { isCatalogIndexCrawlVariant, parseCatalogPage, sliceCatalogPage } from "
 import { formatParkLabel, matchesSearchQuery } from "@/lib/display";
 import { parkSlug } from "@/lib/slug";
 import type { Park } from "@/types/domain";
+import { SOCIAL_IMAGE } from "@/lib/site-url";
 
 // On-demand only — Sunday sync revalidates indexes; timers were burning Hobby ISR writes.
 export const revalidate = false;
@@ -66,6 +67,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
         "Browse theme parks worldwide and open park pages to see roller coasters tracked on CoasterTrak.",
       url: "/parks",
       type: "website",
+      images: [SOCIAL_IMAGE],
     },
   };
 }

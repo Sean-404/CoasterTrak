@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AdsenseAd } from "@/components/adsense-ad";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { CONTACT_EMAIL, SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
   title: {
@@ -21,6 +21,7 @@ export const metadata: Metadata = {
       "Free coaster credit tracker to log unique rides, plan leftover credits at a park, and compare tallies with friends.",
     url: `${SITE_URL}/coaster-credits`,
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 

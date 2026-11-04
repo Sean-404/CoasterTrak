@@ -8,7 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 import { listFeaturedParks } from "@/lib/catalog-server";
 import { guideAuthor, guidePath, latestGuides } from "@/lib/guides";
 import { countRegisteredProfiles } from "@/lib/public-profile";
-import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL } from "@/lib/site-url";
+import { CONTACT_EMAIL, INSTAGRAM_URL, SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 import { parkSlug } from "@/lib/slug";
 
 // Without this, Next freezes the Supabase user count into the build output until the next deploy.
@@ -29,6 +29,7 @@ export const metadata: Metadata = {
       "Free coaster tracker to log unique credits, browse parks on a map, and see leftover rides before your next trip.",
     url: "/",
     type: "website",
+    images: [SOCIAL_IMAGE],
   },
 };
 
@@ -109,7 +110,7 @@ export default async function Home() {
 
       <section className="relative overflow-hidden bg-slate-950 pb-20 pt-16 text-white sm:pb-24 sm:pt-20">
         <Image
-          src="/coaster-hero.png"
+          src="/coaster-hero.jpg"
           alt="Roller coaster track against the sky: CoasterTrak coaster credit tracker"
           fill
           unoptimized
@@ -284,64 +285,6 @@ export default async function Home() {
             How we maintain the catalog
           </Link>
         </p>
-
-        <section className="mt-10 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">Build your coaster journey, then share it</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 sm:text-base">
-            Create an account to keep ride history, wishlists, and friend comparisons in sync. New to coaster
-            credits? Read how unique rides are counted, then use the full tracker guide for map and stats.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Link
-              href="/coaster-credits"
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Coaster credit tracker
-            </Link>
-            <Link
-              href="/coaster-tracker"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Full tracker guide
-            </Link>
-            <Link
-              href="/catalog"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              How the catalog works
-            </Link>
-            <Link
-              href="/parks"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Browse parks
-            </Link>
-            <Link
-              href="/coasters"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Browse coasters
-            </Link>
-            <Link
-              href="/guess"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Play CoasterGuessr
-            </Link>
-            <Link
-              href="/about"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              About CoasterTrak
-            </Link>
-            <Link
-              href="/contact"
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
-            >
-              Contact
-            </Link>
-          </div>
-        </section>
       </main>
       <SiteFooter />
     </div>
