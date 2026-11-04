@@ -18,7 +18,7 @@ export function PlanYourVisit({ parkId, parkName, parkIsDefunct }: PlanYourVisit
   return (
     <aside
       aria-labelledby="plan-your-visit-heading"
-      className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
     >
       <h2 id="plan-your-visit-heading" className="text-base font-semibold text-slate-900">
         Plan your visit
@@ -28,7 +28,7 @@ export function PlanYourVisit({ parkId, parkName, parkIsDefunct }: PlanYourVisit
         href={link.href}
         target="_blank"
         rel="sponsored noopener"
-        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg bg-amber-500 px-4 py-2.5 text-center text-sm font-semibold text-slate-900 transition hover:bg-amber-400 sm:inline-flex sm:w-auto"
+        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-800 transition hover:border-slate-400 sm:inline-flex sm:w-auto"
       >
         Find {parkName} tickets on {link.partnerName}
       </a>

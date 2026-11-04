@@ -232,6 +232,8 @@ export default async function ParkDetailPage({ params }: PageProps) {
         </Link>
       </div>
 
+      <PlanYourVisit parkId={park.id} parkName={park.name} parkIsDefunct={parkIsDefunct} />
+
       {coasters.length === 0 ? (
         <section className="mt-10">
           <h2 className="text-xl font-semibold text-slate-900">Roller coasters at {park.name}</h2>
@@ -247,8 +249,6 @@ export default async function ParkDetailPage({ params }: PageProps) {
           />
         </div>
       )}
-
-      <PlanYourVisit parkId={park.id} parkName={park.name} parkIsDefunct={parkIsDefunct} />
 
       <CatalogSourcesPanel
         coverage={coverageLines}
