@@ -19,6 +19,7 @@ import {
   buildCoasterMetaPills,
 } from "@/lib/catalog-coaster-pills";
 import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/lib/catalog-server";
+import { resolveMergedCoasterId } from "@/lib/coaster-merges";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const id = parseIdFromSlug(slug);
   if (!id) return { title: "Coaster not found" };
-  const coaster = await getCoasterById(id);
+  const coaster = await getCoasterById(resolveMergedCoasterId(id));
   if (!coaster) return { title: "Coaster not found" };
 
   const name = cleanCoasterName(coaster.name);
@@ -94,7 +95,8 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   const id = parseIdFromSlug(slug);
   if (!id) notFound();
 
-  const coaster = await getCoasterById(id);
+  // A merged ride's old URL falls through to the slug check below and redirects.
+  const coaster = await getCoasterById(resolveMergedCoasterId(id));
   if (!coaster) notFound();
 
   const canonicalSlug = coasterSlug(coaster.name, coaster.id);
