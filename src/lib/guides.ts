@@ -71,7 +71,7 @@ export const GUIDES: GuideMeta[] = [
     title: "What is a coaster credit?",
     description:
       "A plain-English guide to coaster credits: unique rides versus repeats, edge cases enthusiasts argue about, and how to start a tally without a spreadsheet.",
-    summary: "Unique rides, not FastPasses — how credit hunters count and why it matters.",
+    summary: "Unique rides, not FastPasses: how credit hunters count and why it matters.",
     published: "2026-10-06",
     readingMinutes: 8,
     keywords: [

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     absolute: "Free Coaster Credit Tracker | CoasterTrak",
   },
   description:
-    "Free coaster credit tracker and coaster tracker in your browser. Log unique rides, explore parks on a world map, build a wishlist, and compare tallies — no app store required.",
+    "Free coaster credit tracker and coaster tracker in your browser. Log unique rides, explore parks on a world map, build a wishlist, and compare tallies. No app store required.",
   alternates: {
     canonical: "/",
   },
@@ -110,7 +110,7 @@ export default async function Home() {
       <section className="relative overflow-hidden bg-slate-950 pb-20 pt-16 text-white sm:pb-24 sm:pt-20">
         <Image
           src="/coaster-hero.png"
-          alt="Roller coaster track against the sky — CoasterTrak coaster credit tracker"
+          alt="Roller coaster track against the sky: CoasterTrak coaster credit tracker"
           fill
           unoptimized
           className="object-cover object-center opacity-80"
@@ -125,7 +125,7 @@ export default async function Home() {
             <span className="break-words text-amber-400">Credit Tracker</span>
           </h1>
           <p className="mt-5 max-w-lg text-lg text-slate-300">
-            Free coaster tracker in your browser — log unique credits, discover parks on the map, and see what you
+            Free coaster tracker in your browser: log unique credits, discover parks on the map, and see what you
             still need before the next trip. No app download required.
           </p>
           {profileCount != null && profileCount > 0 ? (
@@ -154,7 +154,7 @@ export default async function Home() {
           <FeatureCard
             icon={<ParksIcon />}
             title="Coaster tracker guide"
-            description="Map, wishlist, stats, and friends — how the full free roller coaster tracker fits together."
+            description="Map, wishlist, stats, and friends: how the full free roller coaster tracker fits together."
             href="/coaster-tracker"
           />
         </div>
@@ -165,7 +165,7 @@ export default async function Home() {
               <div>
                 <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Featured parks</h2>
                 <p className="mt-2 max-w-2xl text-sm text-slate-600 sm:text-base">
-                  Popular parks with big ride catalogs — Disney, Universal, Six Flags, Alton Towers, and more.
+                  Popular parks with big ride catalogs: Disney, Universal, Six Flags, Alton Towers, and more.
                 </p>
               </div>
               <Link
@@ -231,7 +231,7 @@ export default async function Home() {
           <h2 className="text-2xl font-semibold text-slate-900 sm:text-3xl">A coaster credit tracker built for real trips</h2>
           <div className="mt-4 max-w-3xl space-y-4 text-base leading-relaxed text-slate-600">
             <p>
-              CoasterTrak is a free coaster credit app for keeping a durable record of unique rides — from local park
+              CoasterTrak is a free coaster credit app for keeping a durable record of unique rides, from local park
               day trips to multi-park holidays abroad. Instead of juggling notes and photos, you log each coaster
               credit in one place, then revisit totals, park leftovers, and milestones whenever you want.
             </p>
