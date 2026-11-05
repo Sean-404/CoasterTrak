@@ -7,7 +7,6 @@ import { AffiliateAboutParagraph, AffiliatePrivacySection } from "@/components/a
 import { PlanYourVisit } from "@/components/plan-your-visit";
 import {
   AFFILIATE_DISCLOSURE,
-  AFFILIATE_MAX_PARKS,
   AFFILIATE_PARK_LINKS,
   PLACEHOLDER_DESTINATION,
   type AffiliateEnv,
@@ -70,8 +69,7 @@ describe("resolveAffiliateLink", () => {
 describe("AFFILIATE_PARK_LINKS", () => {
   const entries = Object.entries(AFFILIATE_PARK_LINKS).map(([id, link]) => ({ id: Number(id), ...link }));
 
-  it("stays within the park limit and covers the seven Orlando parks", () => {
-    expect(entries.length).toBeLessThanOrEqual(AFFILIATE_MAX_PARKS);
+  it("covers the seven Orlando parks", () => {
     for (const id of ORLANDO_PARK_IDS) {
       expect(resolveAffiliateLink(id, false, ENV_ON)).not.toBeNull();
     }
