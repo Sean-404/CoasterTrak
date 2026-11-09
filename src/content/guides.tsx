@@ -14,6 +14,140 @@ const ride = (name: string, id: number) => `/coasters/${coasterSlug(name, id)}`;
 const park = (name: string, id: number) => `/parks/${parkSlug(name, id)}`;
 
 export const GUIDE_BODIES: Record<string, ReactNode> = {
+  "uk-coaster-favourites-alton-towers-thorpe-park-blackpool": (
+    <>
+      <GuideP>
+        I&apos;ve ridden the coasters at three of the UK&apos;s best-known parks: Alton Towers and Thorpe Park on
+        summer visits, and Blackpool Pleasure Beach most recently, on Saturday 7 November 2026. Here are my
+        favourites at each park, my UK top three, which rides are rough, and what I&apos;d tell anyone planning a
+        trip.
+      </GuideP>
+
+      <GuideH2>The parks at a glance</GuideH2>
+      <GuideUl>
+        <GuideLi>
+          <strong>Alton Towers:</strong> visited in summer, busy. Favourites: The Smiler, Oblivion and Nemesis
+          Reborn, plus Wicker Man for its theming.
+        </GuideLi>
+        <GuideLi>
+          <strong>Thorpe Park:</strong> visited in summer, busy. Favourites: Hyperia, Nemesis Inferno and Stealth.
+        </GuideLi>
+        <GuideLi>
+          <strong>Blackpool Pleasure Beach:</strong> Saturday 7 November 2026, seven new credits. Favourites: Icon
+          and The Big One.
+        </GuideLi>
+      </GuideUl>
+
+      <GuideH2>My UK top three</GuideH2>
+      <GuideOl>
+        <GuideLi>
+          <GuideLink href={ride("The Smiler", 4364)}>The Smiler</GuideLink>, Alton Towers. Gerstlauer, opened 2013.
+        </GuideLi>
+        <GuideLi>
+          <GuideLink href={ride("Hyperia", 5830)}>Hyperia</GuideLink>, Thorpe Park. Mack Rides, opened 2024.
+        </GuideLi>
+        <GuideLi>
+          <GuideLink href={ride("Nemesis Reborn", 2)}>Nemesis Reborn</GuideLink>, Alton Towers. Bolliger &amp;
+          Mabillard.
+        </GuideLi>
+      </GuideOl>
+      <GuideP>
+        Two of the three are at Alton Towers, so if you only have time for one park, that is the one I&apos;d pick.
+      </GuideP>
+
+      <GuideH2>Alton Towers</GuideH2>
+      <GuideP>
+        My favourites here are The Smiler, Oblivion and Nemesis Reborn, and two of them made my UK top three.
+      </GuideP>
+      <GuideP>
+        <GuideLink href={ride("Wicker Man", 1)}>Wicker Man</GuideLink> was amazing too. It has the best pre-show and
+        theming of any ride at all three parks, so don&apos;t rush past the build-up: it&apos;s part of the ride.
+      </GuideP>
+
+      <GuideH2>Thorpe Park</GuideH2>
+      <GuideP>
+        <GuideLink href={ride("Hyperia", 5830)}>Hyperia</GuideLink>,{" "}
+        <GuideLink href={ride("Nemesis Inferno", 641)}>Nemesis Inferno</GuideLink> and{" "}
+        <GuideLink href={ride("Stealth", 759)}>Stealth</GuideLink> are my favourites at Thorpe Park.
+      </GuideP>
+      <GuideP>
+        Colossus was good, but it&apos;s rough and quite bumpy on your head, so I only rode it once. If you&apos;re
+        sensitive to that, one lap is plenty.
+      </GuideP>
+      <GuideP>
+        The surprise of the day was{" "}
+        <GuideLink href={ride("The Walking Dead: The Ride", 414)}>The Walking Dead: The Ride</GuideLink>. I
+        wasn&apos;t expecting an indoor coaster, and it was really fun: think of it as a zombie version of Space
+        Mountain.
+      </GuideP>
+
+      <GuideH2>Blackpool Pleasure Beach</GuideH2>
+      <GuideP>
+        Blackpool has two sides. The newer rides are really good, and the old ones are rickety and rough in a way
+        you won&apos;t find at the other two parks.
+      </GuideP>
+      <GuideH3>The newer rides</GuideH3>
+      <GuideP>
+        <GuideLink href={ride("Icon", 1293)}>Icon</GuideLink> is really good and smooth. I rode it three times on
+        the day.
+      </GuideP>
+      <GuideH3>The Big One and the wooden classics</GuideH3>
+      <GuideP>
+        <GuideLink href={ride("The Big One", 368)}>The Big One</GuideLink> is nostalgic and the first drop is
+        amazing. It&apos;s quite bumpy and rickety, which I like because it gives it more character, but some
+        people won&apos;t.
+      </GuideP>
+      <GuideP>
+        The old wooden coasters are the same:{" "}
+        <GuideLink href={ride("Big Dipper", 33)}>Big Dipper</GuideLink>,{" "}
+        <GuideLink href={ride("Grand National", 65)}>Grand National</GuideLink> and{" "}
+        <GuideLink href={ride("Nickelodeon Streak", 62)}>Nickelodeon Streak</GuideLink> are good, but bumpy, and
+        that&apos;s what makes them charming. At times it feels like the ride could break at any minute, which is
+        half the fun.
+      </GuideP>
+      <GuideP>
+        If rough rides aren&apos;t for you, stick to Icon and the newer coasters and skip the old ones. Plenty of
+        people don&apos;t like that feeling, and that&apos;s fine.
+      </GuideP>
+
+      <GuideH2>Getting everything done in summer</GuideH2>
+      <GuideP>
+        Alton Towers and Thorpe Park were both busy when I went in summer, but I still managed to get everything
+        done. The trick is to plan your day and know where each ride is before you arrive, so you aren&apos;t
+        walking back and forth across the park.
+      </GuideP>
+      <GuideP>
+        Use the app too. Open the park on CoasterTrak before you go, log each ride as you finish it, and
+        what&apos;s left on the list is your plan for the rest of the day. See{" "}
+        <GuideLink href="/guides/planning-park-leftovers">planning park leftovers</GuideLink> for how I do it.
+      </GuideP>
+
+      <GuideH2>Not a coaster fan?</GuideH2>
+      <GuideP>
+        Alton Towers and Thorpe Park are great because of the themed rides, and the thrills are so worth it. But
+        there are fun things to do even if you don&apos;t really like rollercoasters, so they work for a group where
+        not everyone wants the big rides.
+      </GuideP>
+
+      <GuideH2>What I&apos;d tell a friend going next</GuideH2>
+      <GuideUl>
+        <GuideLi>In summer, plan your route and know where each ride is. You can still do everything.</GuideLi>
+        <GuideLi>Don&apos;t skip Wicker Man, and take in the pre-show.</GuideLi>
+        <GuideLi>Colossus is rough on your head; one ride might be enough.</GuideLi>
+        <GuideLi>
+          At Blackpool, the old coasters are bumpy by design. Love it or skip it, but know before you queue.
+        </GuideLi>
+      </GuideUl>
+      <GuideP>
+        All three parks have a full ride list on CoasterTrak:{" "}
+        <GuideLink href={park("Alton Towers", 1)}>Alton Towers</GuideLink>,{" "}
+        <GuideLink href={park("Thorpe Park", 98)}>Thorpe Park</GuideLink> and{" "}
+        <GuideLink href={park("Blackpool Pleasure Beach", 22)}>Blackpool Pleasure Beach</GuideLink>. Log what
+        you&apos;ve already ridden and you&apos;ll see what&apos;s left before you go.
+      </GuideP>
+    </>
+  ),
+
   "what-is-a-coaster-credit": (
     <>
       <GuideH2>The short answer</GuideH2>

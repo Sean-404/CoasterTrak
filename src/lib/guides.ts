@@ -52,6 +52,24 @@ export function guideUpdated(guide: Pick<GuideMeta, "published" | "updated">): s
  */
 export const GUIDES: GuideMeta[] = [
   {
+    slug: "uk-coaster-favourites-alton-towers-thorpe-park-blackpool",
+    title: "Alton Towers, Thorpe Park and Blackpool Pleasure Beach: my UK coaster favourites",
+    description:
+      "A first-hand guide to three UK coaster parks: my favourite rides at Alton Towers, Thorpe Park and Blackpool Pleasure Beach, my UK top three, which old coasters are rough, and how to get everything done on a busy summer day.",
+    summary: "My favourites at Alton Towers, Thorpe Park and Blackpool, plus my UK top three.",
+    published: "2026-11-09",
+    readingMinutes: 3,
+    related: ["orlando-two-weeks-may-2026", "planning-park-leftovers", "first-park-day-credit-log"],
+    author: "founder",
+    keywords: [
+      "UK roller coasters",
+      "Alton Towers coasters",
+      "Thorpe Park coasters",
+      "Blackpool Pleasure Beach coasters",
+      "best UK coasters",
+    ],
+  },
+  {
     slug: "orlando-two-weeks-may-2026",
     title: "Two weeks in Orlando: 17 coaster credits across Disney and Universal",
     description:
