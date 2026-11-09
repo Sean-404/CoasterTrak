@@ -11,24 +11,60 @@ export type WeeklyDigestStats = {
   totalRides: number;
   parksVisited: number;
   friendsActive: number;
+  /** Display names of active friends (those that have one), sorted; may be shorter than friendsActive. */
+  friendNames?: string[];
   communityRiders: number;
 };
+
+const MAX_NAMED_FRIENDS = 3;
+
+/**
+ * "Alex logged rides too", "Alex and Sam logged rides too", "Alex, Sam, Jo and 2 more…".
+ * Friends without a display name are counted in "more"; with no names it falls back to a count.
+ */
+export function describeActiveFriends(friendsActive: number, friendNames: string[] = []): string {
+  const shown = friendNames.slice(0, Math.min(MAX_NAMED_FRIENDS, friendsActive));
+  if (shown.length === 0) {
+    return `${friendsActive} friend${friendsActive === 1 ? "" : "s"} logged rides too`;
+  }
+  const more = friendsActive - shown.length;
+  const parts = more > 0 ? [...shown, `${more} more`] : shown;
+  const list =
+    parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `${list} logged rides too`;
+}
 
 export type WeeklyDigestPeriod = {
   startDate: string; // YYYY-MM-DD inclusive
   endDate: string; // YYYY-MM-DD inclusive
+  /** ISO timestamps bounding when rides were logged: [startsAt, endsBefore). */
+  startsAt: string;
+  endsBefore: string;
   label: string;
 };
 
-/** Rolling last-7-days window ending on `asOf` (local UTC calendar). */
+/**
+ * The seven full UTC days before `asOf`. The cron runs Monday morning, so this is the
+ * previous Monday–Sunday, including rides logged late on Sunday after a park day.
+ */
 export function weeklyDigestPeriod(asOf: Date = new Date()): WeeklyDigestPeriod {
-  const end = new Date(Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()));
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 6);
+  const endExclusive = new Date(
+    Date.UTC(asOf.getUTCFullYear(), asOf.getUTCMonth(), asOf.getUTCDate()),
+  );
+  const end = new Date(endExclusive);
+  end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(endExclusive);
+  start.setUTCDate(start.getUTCDate() - 7);
   const startDate = start.toISOString().slice(0, 10);
   const endDate = end.toISOString().slice(0, 10);
   const label = `${formatShortUtc(start)} – ${formatShortUtc(end)}`;
-  return { startDate, endDate, label };
+  return {
+    startDate,
+    endDate,
+    startsAt: start.toISOString(),
+    endsBefore: endExclusive.toISOString(),
+    label,
+  };
 }
 
 function formatShortUtc(d: Date): string {
@@ -39,7 +75,7 @@ function formatShortUtc(d: Date): string {
   });
 }
 
-/** True when the recipient or an accepted friend logged dated rides in the window. */
+/** True when the recipient or an accepted friend logged rides in the window. */
 export function shouldSendWeeklyDigest(stats: WeeklyDigestStats): boolean {
   return stats.newCredits > 0 || stats.totalRides > 0 || stats.friendsActive > 0;
 }
@@ -47,7 +83,7 @@ export function shouldSendWeeklyDigest(stats: WeeklyDigestStats): boolean {
 export function buildWeeklyDigestEmail(opts: {
   recipientUserId: string;
   displayName: string | null;
-  period: WeeklyDigestPeriod;
+  period: Pick<WeeklyDigestPeriod, "startDate" | "endDate" | "label">;
   stats: WeeklyDigestStats;
 }) {
   const firstName = opts.displayName?.trim() || "there";
@@ -67,13 +103,11 @@ export function buildWeeklyDigestEmail(opts: {
   }
   if (stats.parksVisited > 0) {
     bullets.push(
-      `${stats.parksVisited} park${stats.parksVisited === 1 ? "" : "s"} in your dated rides`,
+      `${stats.parksVisited} park${stats.parksVisited === 1 ? "" : "s"} in this week's logs`,
     );
   }
   if (stats.friendsActive > 0) {
-    bullets.push(
-      `${stats.friendsActive} friend${stats.friendsActive === 1 ? "" : "s"} logged rides too`,
-    );
+    bullets.push(describeActiveFriends(stats.friendsActive, stats.friendNames));
   }
 
   const communityLine =
@@ -138,30 +172,29 @@ export function buildWeeklyDigestEmail(opts: {
   return { subject, text, html };
 }
 
+/**
+ * Stats for rides *logged* in the window (by created_at), whatever date they were ridden.
+ * Many riders backfill past credits without a date, or log a trip a few days late; counting
+ * by ridden_on skipped them entirely. A "new credit" is a coaster first added this week.
+ */
 export async function loadWeeklyDigestStats(
   supabase: SupabaseClient,
   userId: string,
   period: WeeklyDigestPeriod,
   friendIds: string[],
 ): Promise<WeeklyDigestStats> {
-  const [{ data: creditRows }, { data: eventRows }, { data: communityRows }] = await Promise.all([
-    supabase
-      .from("ride_credit_summaries")
-      .select("coaster_id")
-      .eq("user_id", userId)
-      .gte("first_ridden_on", period.startDate)
-      .lte("first_ridden_on", period.endDate),
+  const [{ data: eventRows }, { data: communityRows }] = await Promise.all([
     supabase
       .from("ride_events")
       .select("coaster_id, quantity")
       .eq("user_id", userId)
-      .gte("ridden_on", period.startDate)
-      .lte("ridden_on", period.endDate),
+      .gte("created_at", period.startsAt)
+      .lt("created_at", period.endsBefore),
     supabase
       .from("ride_events")
       .select("user_id")
-      .gte("ridden_on", period.startDate)
-      .lte("ridden_on", period.endDate)
+      .gte("created_at", period.startsAt)
+      .lt("created_at", period.endsBefore)
       .limit(5000),
   ]);
 
@@ -170,33 +203,51 @@ export async function loadWeeklyDigestStats(
     0,
   );
 
+  let newCredits = 0;
   let parksVisited = 0;
   const coasterIds = [...new Set((eventRows ?? []).map((r) => r.coaster_id as number))];
   if (coasterIds.length > 0) {
-    const { data: coasters } = await supabase.from("coasters").select("park_id").in("id", coasterIds);
+    const [{ data: earlier }, { data: coasters }] = await Promise.all([
+      supabase
+        .from("ride_events")
+        .select("coaster_id")
+        .eq("user_id", userId)
+        .lt("created_at", period.startsAt)
+        .in("coaster_id", coasterIds),
+      supabase.from("coasters").select("park_id").in("id", coasterIds),
+    ]);
+    const alreadyLogged = new Set((earlier ?? []).map((r) => r.coaster_id as number));
+    newCredits = coasterIds.filter((id) => !alreadyLogged.has(id)).length;
     parksVisited = new Set((coasters ?? []).map((c) => c.park_id).filter(Boolean)).size;
   }
 
   let friendsActive = 0;
+  let friendNames: string[] = [];
   if (friendIds.length > 0) {
     const { data: friendEvents } = await supabase
       .from("ride_events")
       .select("user_id")
       .in("user_id", friendIds)
-      .gte("ridden_on", period.startDate)
-      .lte("ridden_on", period.endDate);
-    friendsActive = new Set((friendEvents ?? []).map((r) => r.user_id as string)).size;
+      .gte("created_at", period.startsAt)
+      .lt("created_at", period.endsBefore);
+    const activeFriendIds = [...new Set((friendEvents ?? []).map((r) => r.user_id as string))];
+    friendsActive = activeFriendIds.length;
+    if (activeFriendIds.length > 0) {
+      const { data: friendProfiles } = await supabase
+        .from("profiles")
+        .select("display_name, banned_at")
+        .in("user_id", activeFriendIds);
+      friendNames = (friendProfiles ?? [])
+        .filter((p) => !p.banned_at)
+        .map((p) => (p.display_name as string | null)?.trim() ?? "")
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b));
+    }
   }
 
   const communityRiders = new Set((communityRows ?? []).map((r) => r.user_id as string)).size;
 
-  return {
-    newCredits: creditRows?.length ?? 0,
-    totalRides,
-    parksVisited,
-    friendsActive,
-    communityRiders,
-  };
+  return { newCredits, totalRides, parksVisited, friendsActive, friendNames, communityRiders };
 }
 
 async function acceptedFriendIds(supabase: SupabaseClient, userId: string): Promise<string[]> {
