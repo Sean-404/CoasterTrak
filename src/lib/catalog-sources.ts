@@ -37,7 +37,7 @@ export function coasterSourceLinks(
     links.push({
       label: "Wikipedia article",
       href: wikipedia,
-      detail: "Photo, background summary and gaps in the measurements",
+      detail: "Photo and gaps in the measurements; read it for the ride's history",
     });
   }
   const rcdb = rcdbCoasterUrl(coaster.rcdb_id);

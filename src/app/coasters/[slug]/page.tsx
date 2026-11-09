@@ -8,7 +8,7 @@ import { CatalogStatPills } from "@/components/catalog-stat-pills";
 import { CoasterDetailActions } from "@/components/coaster-detail-actions";
 import { CoasterCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
-import { WikipediaBackground } from "@/components/wikipedia-background";
+import { CatalogNote } from "@/components/catalog-note";
 import {
   buildCoasterEditorialIntro,
   CATALOG_THIN_ROBOTS,
@@ -18,6 +18,7 @@ import {
   buildCoasterMeasurementPills,
   buildCoasterMetaPills,
 } from "@/lib/catalog-coaster-pills";
+import { coasterNote } from "@/lib/catalog-notes";
 import { getCoasterById, getCoastersForPark, listCoastersForSitemap } from "@/lib/catalog-server";
 import { resolveMergedCoasterId } from "@/lib/coaster-merges";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
@@ -66,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     160,
   );
   const canonical = `/coasters/${coasterSlug(coaster.name, coaster.id)}`;
-  const indexable = isCoasterCatalogSubstantial(coaster);
+  const indexable = isCoasterCatalogSubstantial(coaster, await getCommunityStatsById());
   const ogImage = coaster.image_url || wikiSummary?.imageUrl || null;
 
   return {
@@ -124,6 +125,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
   });
   const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
   const communityStats = await getCommunityStatsById();
+  const note = coasterNote(coaster.id);
 
   const siteUrl = SITE_URL;
   const bodyIntro = buildCoasterEditorialIntro(coaster, parkLabel || null);
@@ -189,18 +191,12 @@ export default async function CoasterDetailPage({ params }: PageProps) {
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>
 
+      {note ? <CatalogNote note={note} /> : null}
+
       <CoasterCommunityStats
         coasterName={name}
         stats={communityStats ? communityStats.get(coaster.id) : null}
       />
-
-      {wikiSummary?.extract ? (
-        <WikipediaBackground
-          extract={wikiSummary.extract}
-          url={wikiSummary.url}
-          note="Confirm ride status with the park before visiting."
-        />
-      ) : null}
 
       {(metaPills.length > 0 || measurementPills.length > 0) ? (
         <div className="mt-8 space-y-3">

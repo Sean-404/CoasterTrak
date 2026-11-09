@@ -204,81 +204,42 @@ describe("normalizeCatalog", () => {
 });
 
 describe("catalog content helpers", () => {
-  it("marks coasters with image or stats as substantial", () => {
-    expect(
-      isCoasterCatalogSubstantial({
-        id: 1,
-        park_id: 1,
-        name: "Test",
-        coaster_type: "Steel",
-        status: "Operating",
-        height_ft: 100,
-        speed_mph: 50,
-      }),
-    ).toBe(true);
-    expect(
-      isCoasterCatalogSubstantial({
-        id: 1,
-        park_id: 1,
-        name: "Stub",
-        coaster_type: "Unknown",
-        status: "Operating",
-      }),
-    ).toBe(false);
+  const nemesis: Coaster = {
+    id: 1,
+    park_id: 1,
+    name: "Nemesis",
+    coaster_type: "Steel",
+    status: "Operating",
+    height_ft: 42,
+    speed_mph: 50,
+  };
+  const oblivion: Coaster = {
+    id: 2,
+    park_id: 1,
+    name: "Oblivion",
+    coaster_type: "Steel",
+    status: "Operating",
+    speed_mph: 68,
+  };
+
+  it("does not index a coaster for catalog photos and measurements alone", () => {
+    const photographed: Coaster = {
+      ...nemesis,
+      image_url: "https://upload.wikimedia.org/test.jpg",
+      length_ft: 2349,
+      inversions: 4,
+    };
+    expect(isCoasterCatalogSubstantial(photographed)).toBe(false);
   });
 
   it("builds a park intro from coaster stats", () => {
-    const intro = buildParkEditorialIntro("Alton Towers", "England", [
-      {
-        id: 1,
-        park_id: 1,
-        name: "Nemesis",
-        coaster_type: "Steel",
-        status: "Operating",
-        height_ft: 42,
-        speed_mph: 50,
-      },
-      {
-        id: 2,
-        park_id: 1,
-        name: "Oblivion",
-        coaster_type: "Steel",
-        status: "Operating",
-        speed_mph: 68,
-      },
-    ]);
+    const intro = buildParkEditorialIntro("Alton Towers", "England", [nemesis, oblivion]);
     expect(intro).toContain("Alton Towers");
     expect(intro).toContain("2 roller coasters");
-    expect(isParkCatalogSubstantial([])).toBe(false);
-    expect(
-      isParkCatalogSubstantial([
-        {
-          id: 1,
-          park_id: 1,
-          name: "Nemesis",
-          coaster_type: "Steel",
-          status: "Operating",
-        },
-        {
-          id: 2,
-          park_id: 1,
-          name: "Oblivion",
-          coaster_type: "Steel",
-          status: "Operating",
-        },
-      ]),
-    ).toBe(true);
   });
 
-  it("does not treat Wikipedia copy as unique catalog value", () => {
-    expect(
-      isCoasterCatalogSubstantial({
-        id: 1,
-        park_id: 1,
-        name: "Stub",
-        coaster_type: "Unknown",
-        status: "Operating",
-      }),
-    ).toBe(false);
+  it("does not index a park for its catalog lineup alone", () => {
+    expect(isParkCatalogSubstantial(1, [])).toBe(false);
+    expect(isParkCatalogSubstantial(1, [nemesis, oblivion])).toBe(false);
   });
 });
