@@ -65,7 +65,7 @@ These are inlined at build time, so changing them needs a redeploy. Keep partner
 
 ### Weekly digest cron
 
-Vercel Cron hits `GET /api/cron/weekly-digest` Sundays 18:00 UTC (`Authorization: Bearer <SYNC_CRON_SECRET>`).
+Vercel Cron hits `GET /api/cron/weekly-digest` Mondays 08:00 UTC and covers rides logged the previous Monday–Sunday (by when they were logged, not the ride date). Vercel only sends `Authorization: Bearer <CRON_SECRET>`, so set `CRON_SECRET` in Vercel to the same value as `SYNC_CRON_SECRET`.
 Users get digests by default (`notify_weekly_digest`). They can uncheck at signup or under Account → Weekly credit digest. Apply migrations `20261006180000_notify_weekly_digest.sql` and `20261006183000_weekly_digest_default_on.sql`.
 
 ## Deploy (Vercel free tier)

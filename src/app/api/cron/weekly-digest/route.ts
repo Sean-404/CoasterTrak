@@ -5,7 +5,7 @@ import { sendWeeklyDigests } from "@/lib/weekly-digest";
 
 export const maxDuration = 300;
 
-/** Sunday weekly digest cron (Vercel Cron GET + Bearer SYNC_CRON_SECRET). */
+/** Monday weekly digest cron (Vercel Cron GET + Bearer SYNC_CRON_SECRET; set CRON_SECRET to the same value). */
 export async function GET(request: Request) {
   const rateLimitError = requireSyncRateLimit(request);
   if (rateLimitError) return rateLimitError;
