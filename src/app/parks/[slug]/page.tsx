@@ -8,7 +8,7 @@ import { ParkCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterList } from "@/components/park-coaster-list";
 import { ParkStatusBadge } from "@/components/park-status-badge";
 import { PlanYourVisit } from "@/components/plan-your-visit";
-import { WikipediaBackground } from "@/components/wikipedia-background";
+import { CatalogNote } from "@/components/catalog-note";
 import {
   buildParkEditorialIntro,
   CATALOG_THIN_ROBOTS,
@@ -21,6 +21,7 @@ import {
   listParksForSitemap,
   resolveCatalogParkId,
 } from "@/lib/catalog-server";
+import { parkNote } from "@/lib/catalog-notes";
 import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { correctionMailto, parkDataCoverage } from "@/lib/catalog-sources";
@@ -60,7 +61,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const canonicalPark =
     canonicalId === park.id ? park : ((await getParkById(canonicalId)) ?? park);
   const canonical = `/parks/${parkSlug(canonicalPark.name, canonicalPark.id)}`;
-  const indexable = isParkCatalogSubstantial(coasters);
+  const indexable = isParkCatalogSubstantial(canonicalPark.id, coasters, await getCommunityStatsById());
 
   return {
     title: `${park.name} roller coasters`,
@@ -102,6 +103,7 @@ export default async function ParkDetailPage({ params }: PageProps) {
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
   const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
   const communityStats = await getCommunityStatsById();
+  const note = parkNote(park.id);
   const intro = buildParkEditorialIntro(park.name, countryLabel, coasters);
   const highlights = computeParkHighlights(coasters);
   const parkIsDefunct = highlights.isDefunctPark;
@@ -196,15 +198,9 @@ export default async function ParkDetailPage({ params }: PageProps) {
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{intro}</p>
 
-      <ParkCommunityStats parkName={park.name} coasters={coasters} statsById={communityStats} />
+      {note ? <CatalogNote note={note} /> : null}
 
-      {wikiSummary?.extract ? (
-        <WikipediaBackground
-          extract={wikiSummary.extract}
-          url={wikiSummary.url}
-          note="Ride stats and status may differ from the park's current lineup."
-        />
-      ) : null}
+      <ParkCommunityStats parkName={park.name} coasters={coasters} statsById={communityStats} />
 
       {highlightStats.length > 0 ? (
         <div className="mt-8">
@@ -252,6 +248,17 @@ export default async function ParkDetailPage({ params }: PageProps) {
       )}
 
       <CatalogSourcesPanel
+        sources={
+          wikiSummary?.url
+            ? [
+                {
+                  label: "Read more on Wikipedia",
+                  href: wikiSummary.url,
+                  detail: "The park's history and background",
+                },
+              ]
+            : undefined
+        }
         coverage={coverageLines}
         reportHref={correctionMailto(park.name, `${SITE_URL}/parks/${canonicalSlug}`)}
       />

@@ -2,6 +2,8 @@ import type { Coaster } from "@/types/domain";
 import { cleanCoasterName } from "@/lib/display";
 import { coasterLifecycle, isCoasterDefunct, isParkDefunct } from "@/lib/coaster-status";
 import { fmtHeight, fmtSpeed } from "@/lib/units";
+import { coasterNote, parkNote } from "@/lib/catalog-notes";
+import { COMMUNITY_MIN_CONTRIBUTORS, type CommunityCoasterStats } from "@/lib/community-stats";
 
 const IMPERIAL = "imperial" as const;
 
@@ -22,22 +24,39 @@ export function coasterStatCount(coaster: Coaster): number {
   return n;
 }
 
+/** Community stats keyed by coaster id, as returned by getCommunityStatsById (null when unavailable). */
+export type CommunityStatsLookup = ReadonlyMap<number, CommunityCoasterStats> | null | undefined;
+
 /**
- * Wikipedia extracts do not count as unique value. Index only when CoasterTrak has
- * its own catalog facts (photo, measurements, or a real park lineup).
+ * Whether a coaster page has content of CoasterTrak's own, which is what earns it a
+ * place in the index. Catalog facts (Wikidata measurements, Wikipedia photos) and rider
+ * counts alone are not enough: they read the same as every other catalog site. It needs
+ * a hand-written note, or star ratings from enough members to be shown publicly.
  */
-export function isCoasterCatalogSubstantial(coaster: Coaster): boolean {
-  if (coaster.image_url) return true;
-  return coasterStatCount(coaster) >= 2;
+export function isCoasterCatalogSubstantial(
+  coaster: Pick<Coaster, "id">,
+  communityStats?: CommunityStatsLookup,
+): boolean {
+  if (coasterNote(coaster.id)) return true;
+  const ratingCount = communityStats?.get(coaster.id)?.ratingCount;
+  return ratingCount != null && ratingCount >= COMMUNITY_MIN_CONTRIBUTORS;
 }
 
-export function isParkCatalogSubstantial(coasters: Coaster[]): boolean {
-  if (coasters.length >= 2) return true;
-  return coasters.some((c) => isCoasterCatalogSubstantial(c));
+/** A park page is indexable with its own hand-written note, or when any of its coasters is. */
+export function isParkCatalogSubstantial(
+  parkId: number,
+  coasters: Pick<Coaster, "id">[],
+  communityStats?: CommunityStatsLookup,
+): boolean {
+  if (parkNote(parkId)) return true;
+  return coasters.some((c) => isCoasterCatalogSubstantial(c, communityStats));
 }
 
-/** Thin catalog stubs: keep them out of the index and stop passing crawl equity onward. */
-export const CATALOG_THIN_ROBOTS = { index: false, follow: false } as const;
+/**
+ * Catalog pages without original content: keep them out of the index, but let crawlers
+ * follow their links so pages that do qualify (and the guides) are still discovered.
+ */
+export const CATALOG_THIN_ROBOTS = { index: false, follow: true } as const;
 
 export type ParkHighlightStats = {
   operatingCount: number;
