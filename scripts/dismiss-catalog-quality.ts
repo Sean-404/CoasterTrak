@@ -110,10 +110,29 @@ async function dismissCoasterItems(ids: Set<number>, apply: boolean) {
   ]);
   if (!reviewQueue) throw new Error("No published review queue.");
 
+  // Duplicate pairs carry no dbId, only coastertrak-data entity ids
+  // (coaster_wikidata_Q… when the row has a QID, else coaster_db_<id>).
+  const { data: rows, error } = await createServiceRoleClient()
+    .from("coasters")
+    .select("id,wikidata_id,external_id")
+    .in("id", [...ids]);
+  if (error) throw new Error(error.message);
+  const entityIds = new Set<string>();
+  for (const row of rows ?? []) {
+    const qid = (row.wikidata_id ?? row.external_id)?.match(/^Q\d+$/i)?.[0];
+    entityIds.add(qid ? `coaster_wikidata_${qid.toUpperCase()}` : `coaster_db_${row.id}`);
+  }
+
   const matches = (item: CatalogReviewItem) =>
-    item.entityType === "coaster" && item.dbId != null && ids.has(item.dbId);
+    item.entityType === "coaster" &&
+    ((item.dbId != null && ids.has(item.dbId)) ||
+      (item.type === "POSSIBLE_DUPLICATE" &&
+        (entityIds.has(item.entityA ?? "") || entityIds.has(item.entityB ?? ""))));
   const picked = reviewQueue.items.filter(matches);
-  for (const item of picked) console.error(`  ${item.type} ${item.field ?? ""} — ${item.entityName ?? item.entityId}`);
+  for (const item of picked) {
+    const label = item.type === "POSSIBLE_DUPLICATE" ? `${item.nameA} / ${item.nameB}` : (item.entityName ?? item.entityId);
+    console.error(`  ${item.type} ${item.field ?? ""} — ${label}`);
+  }
   console.error(`Dismissing ${picked.length} review items for ${ids.size} coaster ids.`);
   if (!apply || picked.length === 0) return;
 
