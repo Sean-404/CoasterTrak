@@ -9,6 +9,8 @@ import { CoasterDetailActions } from "@/components/coaster-detail-actions";
 import { CoasterCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterRow } from "@/components/park-coaster-row";
 import { CatalogNote } from "@/components/catalog-note";
+import { PhotoCredit } from "@/components/photo-credit";
+import { fetchCommonsCredit } from "@/lib/commons-credit";
 import {
   buildCoasterEditorialIntro,
   CATALOG_THIN_ROBOTS,
@@ -53,14 +55,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const name = cleanCoasterName(coaster.name);
   const parkLabel = formatParkLabel(coaster.parks?.name, coaster.parks?.country);
-  const wikiSummary = await fetchWikipediaSummaryForCoaster({
-    rideName: name,
-    parkName: coaster.parks?.name,
-    enwikiTitle: coaster.enwiki_title,
-    wikidataId: coaster.wikidata_id,
-    storedSummary: coaster.summary_text,
-    storedEnwikiTitle: coaster.enwiki_title,
-  });
   const title = parkLabel ? `${name} at ${coaster.parks?.name}` : name;
   const description = clampSummaryText(
     buildCoasterEditorialIntro(coaster, parkLabel || null),
@@ -68,8 +62,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   );
   const canonical = `/coasters/${coasterSlug(coaster.name, coaster.id)}`;
   const indexable = isCoasterCatalogSubstantial(coaster, await getCommunityStatsById());
-  const ogImage = coaster.image_url || wikiSummary?.imageUrl || null;
-
+  // Link previews use the site image: a Commons photo there would appear without its required credit.
   return {
     title,
     description,
@@ -80,13 +73,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       url: canonical,
       type: "article",
-      images: [ogImage ? { url: ogImage } : SOCIAL_IMAGE],
+      images: [SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | CoasterTrak`,
       description,
-      images: [ogImage ?? SOCIAL_IMAGE.url],
+      images: [SOCIAL_IMAGE.url],
     },
   };
 }
@@ -124,7 +117,10 @@ export default async function CoasterDetailPage({ params }: PageProps) {
     storedEnwikiTitle: coaster.enwiki_title,
   });
   const displayImage = coaster.image_url || wikiSummary?.imageUrl || null;
-  const communityStats = await getCommunityStatsById();
+  const [photoCredit, communityStats] = await Promise.all([
+    fetchCommonsCredit(displayImage),
+    getCommunityStatsById(),
+  ]);
   const note = coasterNote(coaster.id);
 
   const siteUrl = SITE_URL;
@@ -177,16 +173,23 @@ export default async function CoasterDetailPage({ params }: PageProps) {
       ) : null}
 
       {displayImage ? (
-        <div className="relative mt-8 aspect-[16/10] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
-          <Image
-            src={displayImage}
-            alt={`${name} roller coaster`}
-            fill
-            className="object-cover"
-            sizes="(max-width: 896px) 100vw, 896px"
-            unoptimized
-          />
-        </div>
+        <figure className="mt-8">
+          <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm">
+            <Image
+              src={displayImage}
+              alt={`${name} roller coaster`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 896px) 100vw, 896px"
+              unoptimized
+            />
+          </div>
+          {photoCredit ? (
+            <figcaption className="mt-2">
+              <PhotoCredit credit={photoCredit} />
+            </figcaption>
+          ) : null}
+        </figure>
       ) : null}
 
       <p className="mt-6 max-w-3xl text-base leading-relaxed text-slate-700">{bodyIntro}</p>

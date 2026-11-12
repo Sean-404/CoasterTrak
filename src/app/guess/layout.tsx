@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { CATALOG_DETAIL_CRAWLABLE } from "@/lib/catalog-content";
 import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 
 export const metadata: Metadata = {
+  // The game is a page of other people's photos, so it stays out of the index with the catalog.
+  ...(CATALOG_DETAIL_CRAWLABLE ? {} : { robots: { index: false, follow: true } }),
   title: "CoasterGuessr",
   description:
     "CoasterGuessr is a free coaster photo game. Look at a roller coaster photo, pin the park on the world map, and see how close you were.",

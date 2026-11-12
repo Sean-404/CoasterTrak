@@ -5,6 +5,7 @@ import { AuthErrorHandler } from "@/components/auth-error-handler";
 import { HomeHeroCtas } from "@/components/home-hero-ctas";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { CATALOG_DETAIL_CRAWLABLE } from "@/lib/catalog-content";
 import { listFeaturedParks } from "@/lib/catalog-server";
 import { guideAuthor, guidePath, latestGuides } from "@/lib/guides";
 import { countRegisteredProfiles } from "@/lib/public-profile";
@@ -35,7 +36,8 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const [featuredParks, profileCount] = await Promise.all([
-    listFeaturedParks(6),
+    // Park pages are kept off the homepage while robots.txt blocks them (CATALOG_DETAIL_CRAWLABLE).
+    CATALOG_DETAIL_CRAWLABLE ? listFeaturedParks(6) : Promise.resolve([]),
     countRegisteredProfiles(),
   ]);
 

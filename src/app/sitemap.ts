@@ -1,5 +1,9 @@
 import type { MetadataRoute } from "next";
-import { isCoasterCatalogSubstantial, isParkCatalogSubstantial } from "@/lib/catalog-content";
+import {
+  CATALOG_DETAIL_CRAWLABLE,
+  isCoasterCatalogSubstantial,
+  isParkCatalogSubstantial,
+} from "@/lib/catalog-content";
 import { COASTER_NOTES, PARK_NOTES } from "@/lib/catalog-notes";
 import {
   getCoasterById,
@@ -35,7 +39,9 @@ function staticRoutes(catalogStamp: Date): MetadataRoute.Sitemap {
     { path: "/map", priority: 0.9, changeFrequency: "weekly" as const },
     { path: "/parks", priority: 0.85, changeFrequency: "weekly" as const },
     { path: "/coasters", priority: 0.85, changeFrequency: "weekly" as const },
-    { path: "/guess", priority: 0.75, changeFrequency: "weekly" as const },
+    ...(CATALOG_DETAIL_CRAWLABLE
+      ? [{ path: "/guess", priority: 0.75, changeFrequency: "weekly" as const }]
+      : []),
     { path: "/about", priority: 0.7, changeFrequency: "monthly" as const },
     { path: "/updates", priority: 0.65, changeFrequency: "weekly" as const },
     { path: "/contact", priority: 0.5, changeFrequency: "yearly" as const },
@@ -104,6 +110,8 @@ async function listIndexableCatalog(): Promise<{ parks: Named[]; coasters: Named
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalogStamp = weekStartUtc();
   const core = [...staticRoutes(catalogStamp), ...guideRoutes()];
+  // robots.txt blocks catalog detail pages for now, so listing them would only send crawlers to blocked URLs.
+  if (!CATALOG_DETAIL_CRAWLABLE) return core;
 
   try {
     // Public profiles are deliberately absent: the privacy policy says stats pages are not offered

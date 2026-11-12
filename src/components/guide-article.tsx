@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { AdsenseAd } from "@/components/adsense-ad";
+import { CATALOG_DETAIL_CRAWLABLE } from "@/lib/catalog-content";
 import { type GuideMeta, getGuide, guideAuthor, guidePath, guideUpdated } from "@/lib/guides";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -199,7 +200,13 @@ export function GuideLi({ children }: { children: ReactNode }) {
   return <li>{children}</li>;
 }
 
+const CATALOG_DETAIL_HREF = /^\/(parks|coasters)\//;
+
 export function GuideLink({ href, children }: { href: string; children: ReactNode }) {
+  // Ride and park names stay as plain text while catalog pages are blocked from crawlers.
+  if (!CATALOG_DETAIL_CRAWLABLE && CATALOG_DETAIL_HREF.test(href)) {
+    return <span className="font-semibold text-slate-900">{children}</span>;
+  }
   return (
     <Link href={href} className="font-semibold text-amber-700 underline-offset-2 hover:underline">
       {children}

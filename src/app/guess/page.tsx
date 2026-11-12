@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PhotoCreditLoader } from "@/components/photo-credit-loader";
 import { SiteHeader } from "@/components/site-header";
 
 const GuessPinMap = dynamic(() => import("@/components/guess-pin-map").then((m) => m.GuessPinMap), {
@@ -191,6 +192,11 @@ export default function GuessPage() {
                   }}
                 />
               )}
+              {round && status !== "loading" ? (
+                <div className="absolute inset-x-0 bottom-0 bg-black/55 px-2 py-1">
+                  <PhotoCreditLoader imageUrl={round.imageUrl} tone="dark" linkSource={revealed} />
+                </div>
+              ) : null}
             </div>
             <div className="hidden space-y-3 px-4 py-4 lg:block">
               <ResultCopy

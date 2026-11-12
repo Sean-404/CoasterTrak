@@ -58,6 +58,21 @@ export function isParkCatalogSubstantial(
  */
 export const CATALOG_THIN_ROBOTS = { index: false, follow: true } as const;
 
+/**
+ * Whether park and coaster detail pages and CoasterGuessr are open to crawlers and linked
+ * from the homepage and guides. They are built from Wikidata facts and Wikimedia photos,
+ * which AdSense rejected as replicated content even with noindex, because its review looks
+ * at every page a visitor can reach. While false, robots.txt blocks them, the sitemap
+ * leaves them out, and the homepage and guides stop linking to them. The pages still work
+ * for anyone who opens them from the map or the park and coaster lists.
+ *
+ * Turn this on once enough catalog pages carry hand-written notes (catalog-notes.ts).
+ */
+export const CATALOG_DETAIL_CRAWLABLE = false;
+
+/** robots.txt paths that are blocked while CATALOG_DETAIL_CRAWLABLE is false. */
+export const CATALOG_DETAIL_ROBOTS_DISALLOW = ["/parks/", "/coasters/", "/guess"] as const;
+
 export type ParkHighlightStats = {
   operatingCount: number;
   defunctCount: number;

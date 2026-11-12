@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { PhotoCreditLoader } from "@/components/photo-credit-loader";
 
 type CoasterThumbnailProps = {
   name: string;
@@ -267,13 +268,18 @@ export const CoasterThumbnail = memo(function CoasterThumbnail({
             >
               Close
             </button>
-            <img
-              src={safeUrl}
-              alt={trimmed || "Coaster image"}
-              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-              referrerPolicy="no-referrer"
-              onClick={(event) => event.stopPropagation()}
-            />
+            <figure className="flex max-w-[90vw] flex-col items-center gap-2">
+              <img
+                src={safeUrl}
+                alt={trimmed || "Coaster image"}
+                className="max-h-[calc(90vh-3rem)] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+                referrerPolicy="no-referrer"
+                onClick={(event) => event.stopPropagation()}
+              />
+              <figcaption>
+                <PhotoCreditLoader imageUrl={safeUrl} tone="dark" className="text-center" />
+              </figcaption>
+            </figure>
           </div>,
           document.body,
         )}

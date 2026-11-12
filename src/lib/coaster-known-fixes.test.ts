@@ -27,6 +27,12 @@ describe("sanitizeCoasterImageUrl", () => {
   it("drops the Battersea incident photo", () => {
     expect(sanitizeCoasterImageUrl(BATTERSEA_INCIDENT)).toBeNull();
   });
+
+  it("drops single-wiki uploads but keeps Commons photos", () => {
+    expect(sanitizeCoasterImageUrl("https://upload.wikimedia.org/wikipedia/en/a/ab/Ride_logo.png")).toBeNull();
+    const commons = "https://commons.wikimedia.org/wiki/Special:FilePath/The%20Smiler.jpg";
+    expect(sanitizeCoasterImageUrl(commons)).toBe(commons);
+  });
 });
 
 describe("applyCoasterKnownFixes", () => {

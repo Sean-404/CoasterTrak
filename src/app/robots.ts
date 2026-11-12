@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { CATALOG_DETAIL_CRAWLABLE, CATALOG_DETAIL_ROBOTS_DISALLOW } from "@/lib/catalog-content";
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
 
 const ROBOTS_HOST = (() => {
@@ -15,7 +16,19 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin", "/account", "/api/", "/login", "/reset-password", "/wishlist", "/stats", "/friends", "/users", "/achievements"],
+        disallow: [
+          "/admin",
+          "/account",
+          "/api/",
+          "/login",
+          "/reset-password",
+          "/wishlist",
+          "/stats",
+          "/friends",
+          "/users",
+          "/achievements",
+          ...(CATALOG_DETAIL_CRAWLABLE ? [] : CATALOG_DETAIL_ROBOTS_DISALLOW),
+        ],
       },
     ],
     sitemap: `${BASE_URL}/sitemap.xml`,

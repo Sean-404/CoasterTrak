@@ -1,4 +1,5 @@
 import type { Coaster } from "@/types/domain";
+import { isLocalWikiUpload } from "@/lib/commons-credit";
 import { normalizeManufacturerLabel } from "@/lib/display";
 
 const INCIDENT_IMAGE_TOKENS = new Set([
@@ -41,6 +42,8 @@ export function isLikelyIncidentImageUrl(url: string | null | undefined): boolea
 export function sanitizeCoasterImageUrl(url: string | null | undefined): string | null {
   if (url == null || url === "") return null;
   if (isLikelyIncidentImageUrl(url)) return null;
+  // Single-wiki uploads are usually fair-use files we have no licence to show.
+  if (isLocalWikiUpload(url)) return null;
   return url;
 }
 

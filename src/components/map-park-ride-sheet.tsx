@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Coaster, Park } from "@/types/domain";
 import { CoasterActions } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
+import { PhotoCreditLoader } from "@/components/photo-credit-loader";
 import {
   normalizeCoasterDedupKey,
   preferCoasterForDedup,
@@ -273,13 +274,18 @@ export function MapParkRideSheet({
               >
                 Close
               </button>
-              <img
-                src={preview.imageUrl}
-                alt={preview.name}
-                className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
-                referrerPolicy="no-referrer"
-                onClick={(event) => event.stopPropagation()}
-              />
+              <figure className="flex max-w-[90vw] flex-col items-center gap-2">
+                <img
+                  src={preview.imageUrl}
+                  alt={preview.name}
+                  className="max-h-[calc(90vh-3rem)] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+                  referrerPolicy="no-referrer"
+                  onClick={(event) => event.stopPropagation()}
+                />
+                <figcaption>
+                  <PhotoCreditLoader imageUrl={preview.imageUrl} tone="dark" className="text-center" />
+                </figcaption>
+              </figure>
             </div>,
             document.body,
           )
