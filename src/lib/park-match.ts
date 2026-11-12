@@ -36,10 +36,13 @@ export function normalizeParkNameForMatch(name: string): string {
     .trim();
 }
 
+/** Catch-all park labels, compared trimmed and lowercased. */
+export const PLACEHOLDER_PARK_NAMES: readonly string[] = ["other", "unknown", "n/a", "na", "misc"];
+
 /** Placeholder / junk park labels that should not appear in the public catalog. */
 export function isLikelyPlaceholderParkName(name: string): boolean {
   const n = name.trim().toLowerCase();
-  if (n === "other" || n === "unknown" || n === "n/a" || n === "na" || n === "misc") return true;
+  if (PLACEHOLDER_PARK_NAMES.includes(n)) return true;
   if (isWikidataQidLabel(name)) return true;
   return isJammedMultiLocationParkName(name);
 }

@@ -141,6 +141,10 @@ async function main(): Promise<void> {
     console.log("Skipping auto-repair / gap fill (Supabase env not set).");
   }
 
+  // Hand coastertrak-data this site's hidden-row rules so it does not re-flag hidden rows.
+  console.log("Exporting catalog hidden-row rules to coastertrak-data…");
+  runNodeTsx("scripts/export-catalog-hidden-rules.ts");
+
   runCli(["analyze:supabase"]);
 
   const hasAiKey = Boolean(

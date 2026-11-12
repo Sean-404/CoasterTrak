@@ -581,6 +581,11 @@ const SKIP_WIKIDATA_COASTER_IDS = new Set<string>([
   "Q3569870",
 ]);
 
+/** Every skipped Wikidata id, sorted (exported to coastertrak-data by catalog-hidden-rules.ts). */
+export function skippedWikidataCoasterIds(): string[] {
+  return [...SKIP_WIKIDATA_COASTER_IDS].sort();
+}
+
 export function shouldSkipWikidataCoasterId(wikidataId: string | null | undefined): boolean {
   const q = wikidataId?.trim().toUpperCase();
   return Boolean(q && SKIP_WIKIDATA_COASTER_IDS.has(q));
