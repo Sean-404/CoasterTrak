@@ -273,6 +273,13 @@ export default function AdminPage() {
           >
             Catalog quality dashboard →
           </Link>
+          <span className="mx-2 text-slate-300">·</span>
+          <Link
+            href="/admin/reviews"
+            className="text-sm font-semibold text-amber-700 underline-offset-2 hover:underline"
+          >
+            Park review moderation →
+          </Link>
         </p>
 
         {loading ? (

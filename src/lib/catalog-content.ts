@@ -4,6 +4,7 @@ import { coasterLifecycle, isCoasterDefunct, isParkDefunct } from "@/lib/coaster
 import { fmtHeight, fmtSpeed } from "@/lib/units";
 import { coasterNote, parkNote } from "@/lib/catalog-notes";
 import { COMMUNITY_MIN_CONTRIBUTORS, type CommunityCoasterStats } from "@/lib/community-stats";
+import { PARK_REVIEWS_INDEX_MIN } from "@/lib/park-reviews";
 
 const IMPERIAL = "imperial" as const;
 
@@ -42,13 +43,18 @@ export function isCoasterCatalogSubstantial(
   return ratingCount != null && ratingCount >= COMMUNITY_MIN_CONTRIBUTORS;
 }
 
-/** A park page is indexable with its own hand-written note, or when any of its coasters is. */
+/**
+ * A park page is indexable with its own hand-written note, enough approved member reviews,
+ * or when any of its coasters is.
+ */
 export function isParkCatalogSubstantial(
   parkId: number,
   coasters: Pick<Coaster, "id">[],
   communityStats?: CommunityStatsLookup,
+  approvedReviewCount = 0,
 ): boolean {
   if (parkNote(parkId)) return true;
+  if (approvedReviewCount >= PARK_REVIEWS_INDEX_MIN) return true;
   return coasters.some((c) => isCoasterCatalogSubstantial(c, communityStats));
 }
 

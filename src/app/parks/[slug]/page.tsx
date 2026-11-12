@@ -6,6 +6,7 @@ import { CatalogSourcesPanel } from "@/components/catalog-sources-panel";
 import { CatalogStatPills, type CatalogStatPill } from "@/components/catalog-stat-pills";
 import { ParkCommunityStats } from "@/components/community-ride-stats";
 import { ParkCoasterList } from "@/components/park-coaster-list";
+import { ParkReviews } from "@/components/park-reviews";
 import { ParkStatusBadge } from "@/components/park-status-badge";
 import { PlanYourVisit } from "@/components/plan-your-visit";
 import { CatalogNote } from "@/components/catalog-note";
@@ -24,6 +25,7 @@ import {
 import { parkNote } from "@/lib/catalog-notes";
 import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
+import { getApprovedReviewsForPark } from "@/lib/park-reviews-server";
 import { correctionMailto, parkDataCoverage } from "@/lib/catalog-sources";
 import { cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
@@ -61,7 +63,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const canonicalPark =
     canonicalId === park.id ? park : ((await getParkById(canonicalId)) ?? park);
   const canonical = `/parks/${parkSlug(canonicalPark.name, canonicalPark.id)}`;
-  const indexable = isParkCatalogSubstantial(canonicalPark.id, coasters, await getCommunityStatsById());
+  const reviewCount = (await getApprovedReviewsForPark(canonicalPark.id))?.length ?? 0;
+  const indexable = isParkCatalogSubstantial(
+    canonicalPark.id,
+    coasters,
+    await getCommunityStatsById(),
+    reviewCount,
+  );
 
   return {
     title: `${park.name} roller coasters`,
@@ -102,7 +110,10 @@ export default async function ParkDetailPage({ params }: PageProps) {
   const coasters = await getCoastersForPark(park.id);
   const countryLabel = canonicalCountryLabel(park.country) || park.country;
   const wikiSummary = await fetchWikipediaSummaryForPark(park.name);
-  const communityStats = await getCommunityStatsById();
+  const [communityStats, reviews] = await Promise.all([
+    getCommunityStatsById(),
+    getApprovedReviewsForPark(park.id),
+  ]);
   const note = parkNote(park.id);
   const intro = buildParkEditorialIntro(park.name, countryLabel, coasters);
   const highlights = computeParkHighlights(coasters);
@@ -246,6 +257,15 @@ export default async function ParkDetailPage({ params }: PageProps) {
           />
         </div>
       )}
+
+      {reviews ? (
+        <ParkReviews
+          parkId={park.id}
+          parkName={park.name}
+          parkPath={`/parks/${canonicalSlug}`}
+          reviews={reviews}
+        />
+      ) : null}
 
       <CatalogSourcesPanel
         sources={

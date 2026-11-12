@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isNextResponse, requireAdmin } from "@/lib/admin-api";
 import { adminClearProfileAvatar, adminClearRidePhotos } from "@/lib/admin-user-photos";
+import { revalidateReviewsByUser } from "@/lib/park-reviews-server";
 
 export const runtime = "nodejs";
 
@@ -59,6 +60,9 @@ export async function POST(request: Request, context: RouteContext) {
   if (authError) {
     return NextResponse.json({ error: "Profile banned, but Auth ban failed." }, { status: 500 });
   }
+
+  // Banned members' park reviews drop out of the public lists.
+  await revalidateReviewsByUser(ctx.service, userId);
 
   return NextResponse.json({ ok: true });
 }

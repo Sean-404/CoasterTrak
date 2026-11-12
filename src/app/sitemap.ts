@@ -13,6 +13,7 @@ import {
 } from "@/lib/catalog-server";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { GUIDES, guidePath } from "@/lib/guides";
+import { listParksWithOriginalContent } from "@/lib/park-reviews-server";
 import { SITE_URL as BASE_URL } from "@/lib/site-url";
 import { coasterSlug, parkSlug } from "@/lib/slug";
 
@@ -110,8 +111,24 @@ async function listIndexableCatalog(): Promise<{ parks: Named[]; coasters: Named
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const catalogStamp = weekStartUtc();
   const core = [...staticRoutes(catalogStamp), ...guideRoutes()];
-  // robots.txt blocks catalog detail pages for now, so listing them would only send crawlers to blocked URLs.
-  if (!CATALOG_DETAIL_CRAWLABLE) return core;
+  // robots.txt blocks catalog detail pages for now, apart from parks with original content
+  // (a note or enough approved member reviews), so only those are listed.
+  if (!CATALOG_DETAIL_CRAWLABLE) {
+    try {
+      const parks = await listParksWithOriginalContent();
+      return [
+        ...core,
+        ...parks.map((park) => ({
+          url: `${BASE_URL}/parks/${parkSlug(park.name, park.id)}`,
+          lastModified: catalogStamp,
+          changeFrequency: "weekly" as const,
+          priority: 0.8,
+        })),
+      ];
+    } catch {
+      return core;
+    }
+  }
 
   try {
     // Public profiles are deliberately absent: the privacy policy says stats pages are not offered

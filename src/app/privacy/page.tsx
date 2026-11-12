@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 4 November 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 12 November 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -39,6 +39,11 @@ export default function PrivacyPage() {
               <strong>Ride and preference data.</strong> Content you add in the app — for example logged rides,
               profile photos, ride photos, ratings, wishlist items, friend connections, and unit preferences — is
               stored so the Service can work across visits and devices.
+            </li>
+            <li>
+              <strong>Park reviews.</strong> If you write a park review we store its text, optional star rating and
+              visit year, when you wrote or edited it, and its moderation status. If another member reports a
+              review, we store that report and the optional reason they give.
             </li>
             <li>
               <strong>Usage and device data.</strong> We use privacy-oriented analytics (including Vercel Analytics
@@ -79,6 +84,15 @@ export default function PrivacyPage() {
             coaster, its average star rating, or how many wishlists it is on. These totals never name or link to
             anyone, and a figure is shown only when at least five members contribute to it. If your stats are set to
             Private, your rides, ratings and wishlist are not included in these totals.
+          </p>
+
+          <p>
+            <strong>Park reviews.</strong> A park review is public once a moderator approves it: it appears on that
+            park&apos;s page with your display name, star rating, visit year and the month it was published, and
+            search engines may index it. This applies even if your stats are Private. Pending and declined reviews
+            are visible only to you and our moderators. Reports are never shown to the review&apos;s author or to
+            other members. Deleting your review removes it from the page and from our database; deleting your
+            account deletes your reviews.
           </p>
 
           <h2 className="text-xl font-semibold text-slate-900">Service providers</h2>

@@ -52,6 +52,11 @@ describe("catalog indexing rule", () => {
     expect(isParkCatalogSubstantial(200, [{ id: 50 }, { id: 30 }], communityStats)).toBe(true);
   });
 
+  it("indexes a park with at least three approved member reviews", () => {
+    expect(isParkCatalogSubstantial(200, [{ id: 20 }], communityStats, 3)).toBe(true);
+    expect(isParkCatalogSubstantial(200, [{ id: 20 }], communityStats, 2)).toBe(false);
+  });
+
   it("does not index a park with only catalog rides", () => {
     expect(isParkCatalogSubstantial(200, [{ id: 20 }, { id: 50 }], communityStats)).toBe(false);
     expect(isParkCatalogSubstantial(200, [])).toBe(false);

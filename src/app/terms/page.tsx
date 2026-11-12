@@ -18,7 +18,7 @@ export default function TermsPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Terms of Service</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 31 July 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 12 November 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -43,9 +43,30 @@ export default function TermsPage() {
 
           <h2 className="text-xl font-semibold text-slate-900">Your content</h2>
           <p>
-            You retain ownership of content you submit (such as ride logs and profile details). By submitting content
+            You retain ownership of content you submit (such as ride logs, park reviews and profile details). By submitting content
             you grant us a limited licence to host, store, and display it as needed to operate the Service. Do not
             submit content that infringes others&apos; rights or that is abusive, illegal, or harmful.
+          </p>
+
+          <h2 id="reviews" className="scroll-mt-24 text-xl font-semibold text-slate-900">Park reviews</h2>
+          <p>
+            Signed-in members can write one review per park. Reviews are published under your display name on the
+            park&apos;s public page, where anyone can read them and search engines may index them. A moderator reads
+            every review before it appears, and again after each edit. You can edit or delete your review at any
+            time.
+          </p>
+          <p>Reviews must:</p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>Describe your own visit to the park, in your own words.</li>
+            <li>Not be copied from another site, review or guidebook, or written for payment or by the park.</li>
+            <li>Leave out links, web addresses, advertising and contact details.</li>
+            <li>
+              Stay about the park. No insults, hate, swearing, or personal details about staff or other visitors.
+            </li>
+          </ul>
+          <p>
+            We may decline, hide or remove any review, and suspend accounts that repeatedly break these rules. Members
+            can report a published review for a moderator to look at again.
           </p>
 
           <h2 className="text-xl font-semibold text-slate-900">Catalog and third-party data</h2>
