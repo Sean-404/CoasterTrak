@@ -34,6 +34,9 @@ export const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
 /** Correct country when Wikidata P17 or legacy CSV is wrong for a known park name. */
 export const PARK_COUNTRY_BY_NAME: Record<string, string> = {
   Nürburgring: "Germany",
+  // Helsinki and Alahärmä (Kauhava); legacy rows had Norway and Sweden.
+  Linnanmäki: "Finland",
+  PowerPark: "Finland",
 };
 
 /** Parks whose Wikidata item has no English label (WDQS would otherwise store the Q-id). */
