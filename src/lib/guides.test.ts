@@ -82,7 +82,7 @@ describe("guide authors", () => {
       if (guide.author) expect(GUIDE_AUTHORS[guide.author]).toBeTruthy();
     }
     expect(guideAuthor(meta({}))).toBeNull();
-    expect(guideAuthor(meta({ author: "founder" }))?.url).toBe("/u/CoasterTrak");
+    expect(guideAuthor(meta({ author: "founder" }))?.url).toBe("/about#who-runs-it");
   });
 
   it("keeps the founder byline off the house guides", () => {

@@ -34,7 +34,7 @@ export const GUIDE_AUTHORS: Record<string, GuideAuthor> = {
   founder: {
     name: "CoasterTrak's founder",
     bio: "I built CoasterTrak to keep track of my own coaster credits. I'm based in the UK, and trip reports marked with this byline come from my own park days.",
-    url: "/u/CoasterTrak",
+    url: "/about#who-runs-it",
   },
 };
 

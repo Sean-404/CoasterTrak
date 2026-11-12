@@ -69,7 +69,17 @@ export default function AboutPage() {
               : look at a coaster photo and pin the park on the map.
             </li>
           </ul>
-          <h2 className="pt-2 text-xl font-semibold text-slate-900">Who runs it</h2>
+          <h2 id="who-runs-it" className="scroll-mt-24 pt-2 text-xl font-semibold text-slate-900">
+            Who runs it
+          </h2>
+          <p>
+            CoasterTrak is built and run by one coaster fan based in the UK, who started it to keep track of their own
+            credits. The trip reports in the{" "}
+            <Link href="/guides" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              guides
+            </Link>{" "}
+            marked &ldquo;By CoasterTrak&apos;s founder&rdquo; come from those park days.
+          </p>
           <p>
             CoasterTrak is an independent fan project — not a park, manufacturer, or ticket seller. We are not
             affiliated with or endorsed by the parks in the catalog. The app is free to use; optional advertising,
