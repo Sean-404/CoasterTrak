@@ -9,7 +9,7 @@ import { buildGuessCandidates, type GuessCandidate } from "@/lib/guess-round";
 import { applyCoasterKnownFixes } from "@/lib/coaster-known-fixes";
 import { applyParkScopedFixes } from "@/lib/catalog-closures";
 import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
-import { canonicalCountryLabel, reconcileCountryWithCoords } from "@/lib/geo-country";
+import { canonicalCountryLabel, resolveParkCountry } from "@/lib/geo-country";
 import { matchesSearchQuery } from "@/lib/display";
 import { isCatalogHiddenParkName } from "@/lib/park-match";
 import { coasterLifecycle } from "@/lib/coaster-status";
@@ -179,7 +179,7 @@ function isExcludedFeaturedParkName(name: string): boolean {
 
 function displayCountryForPark(park: Park): string {
   return (
-    reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null) ||
+    resolveParkCountry(park) ||
     canonicalCountryLabel(park.country) ||
     park.country ||
     "Unknown"

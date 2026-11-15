@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canonicalCountryLabel, normalizeParkLongitude, reconcileCountryWithCoords } from "@/lib/geo-country";
+import {
+  canonicalCountryLabel,
+  normalizeParkLongitude,
+  reconcileCountryWithCoords,
+  resolveParkCountry,
+} from "@/lib/geo-country";
 
 describe("Hong Kong / Macau country labels", () => {
   it("canonicalizes Hong Kong aliases", () => {
@@ -72,6 +77,51 @@ describe("Canada country labels", () => {
   it("does not re-label northern US parks as Canada", () => {
     // Kings Island, Ohio
     expect(reconcileCountryWithCoords("United States", 39.344, -84.268)).toBe("United States");
+    // Seabreeze (Rochester NY), Great Escape (Lake George NY), Story Land (Glen NH),
+    // Funtown Splashtown USA (Saco ME): all sat inside the old Canada box.
+    expect(reconcileCountryWithCoords("United States", 43.2316, -77.5432)).toBe("United States");
+    expect(reconcileCountryWithCoords("United States", 43.351, -73.6901)).toBe("United States");
+    expect(reconcileCountryWithCoords("United States", 44.1161, -71.1828)).toBe("United States");
+    expect(reconcileCountryWithCoords("United States", 43.5283, -70.4312)).toBe("United States");
+  });
+
+  it("still labels Canadian parks with no stored country", () => {
+    // La Ronde (Montreal) and Playland (Vancouver)
+    expect(reconcileCountryWithCoords("Unknown", 45.5225, -73.535)).toBe("Canada");
+    expect(reconcileCountryWithCoords("", 49.2826, -123.0362)).toBe("Canada");
+  });
+});
+
+describe("Singapore country labels", () => {
+  it("corrects Malaysia-labeled parks on Singapore island", () => {
+    // Universal Studios Singapore, Sentosa
+    expect(reconcileCountryWithCoords("Malaysia", 1.2534, 103.824)).toBe("Singapore");
+  });
+
+  it("keeps Johor parks in Malaysia", () => {
+    // Legoland Malaysia (Iskandar Puteri) and Johor Bahru
+    expect(reconcileCountryWithCoords("Malaysia", 1.4268, 103.6297)).toBe("Malaysia");
+    expect(reconcileCountryWithCoords("Malaysia", 1.4655, 103.7578)).toBe("Malaysia");
+  });
+});
+
+describe("resolveParkCountry", () => {
+  it("applies per-park overrides over a wrong stored country", () => {
+    expect(
+      resolveParkCountry({ name: "Story Land", country: "Canada", latitude: 44.1161, longitude: -71.1828 }),
+    ).toBe("United States");
+    expect(
+      resolveParkCountry({ name: "Universal Studios Singapore", country: "Malaysia", latitude: 1.2534, longitude: 103.824 }),
+    ).toBe("Singapore");
+  });
+
+  it("falls back to the coordinate check for other parks", () => {
+    expect(resolveParkCountry({ name: "La Ronde", country: "United States", latitude: 45.5225, longitude: -73.535 })).toBe(
+      "Canada",
+    );
+    expect(resolveParkCountry({ name: "Calaway Park", country: "Canada", latitude: 51.0875, longitude: -114.3594 })).toBe(
+      "Canada",
+    );
   });
 });
 

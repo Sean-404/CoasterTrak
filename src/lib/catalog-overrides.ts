@@ -37,6 +37,13 @@ export const PARK_COUNTRY_BY_NAME: Record<string, string> = {
   // Helsinki and Alahärmä (Kauhava); legacy rows had Norway and Sweden.
   Linnanmäki: "Finland",
   PowerPark: "Finland",
+  // A loose coordinate box used to relabel these northern US parks as Canada.
+  "Seabreeze Amusement Park": "United States",
+  "Great Escape": "United States",
+  "Story Land": "United States",
+  "Funtown Splashtown USA": "United States",
+  // Stored as Malaysia; it is on Sentosa.
+  "Universal Studios Singapore": "Singapore",
 };
 
 /** Parks whose Wikidata item has no English label (WDQS would otherwise store the Q-id). */

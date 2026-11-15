@@ -20,7 +20,7 @@ import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
 import { pickBestMapSearchHit } from "@/lib/map-search";
-import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { resolveParkCountry } from "@/lib/geo-country";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import { normalizeCatalog } from "@/lib/catalog-normalize";
@@ -336,7 +336,7 @@ function continentFromCountryLabel(country: string | null | undefined): Continen
 function getParkContinent(park: Park): Continent {
   const lat = park.latitude;
   const lng = park.longitude;
-  const resolvedCountry = reconcileCountryWithCoords(park.country, lat ?? null, lng ?? null);
+  const resolvedCountry = resolveParkCountry(park);
 
   const byCountry = continentFromCountryLabel(resolvedCountry) !== "All"
     ? continentFromCountryLabel(resolvedCountry)
@@ -507,7 +507,7 @@ function displayCountryForPark(park: Park | null | undefined): string {
   if (isLikelyPlaceholderParkName(park.name) || isUnknownHistoricalParkName(park.name)) {
     return "Unknown";
   }
-  const resolved = reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null).trim();
+  const resolved = resolveParkCountry(park).trim();
   return resolved || "Unknown";
 }
 

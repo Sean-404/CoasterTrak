@@ -3,6 +3,8 @@
  * Used by catalog sync and map UI so pins in India are not labeled China, etc.
  */
 
+import { PARK_COUNTRY_BY_NAME } from "@/lib/catalog-overrides";
+
 /** Bounding boxes are intentionally loose for park-scale use (not border disputes). */
 function countryHintFromLatLng(lat: number, lng: number): string | null {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -25,10 +27,17 @@ function countryHintFromLatLng(lat: number, lng: number): string | null {
   if ((lat >= 30 && lat <= 46 && lng >= 129 && lng <= 146) || (lat >= 24 && lat <= 31 && lng >= 122 && lng <= 132)) {
     return "Japan";
   }
-  // Southern Canada — Quebec / Ontario / Maritimes (La Ronde, Canada's Wonderland corridor).
-  if (lat >= 43 && lat <= 47.5 && lng >= -80 && lng <= -57) return "Canada";
-  // Lower mainland BC (Playland / Greater Vancouver parks).
-  if (lat >= 48 && lat <= 49.6 && lng >= -125 && lng <= -122.5) return "Canada";
+  // Singapore island, kept south of the Johor Strait so Legoland Malaysia and Johor Bahru stay Malaysia.
+  if (lat >= 1.15 && lng >= 103.6 && lng <= 104.1 && lat <= (lng < 103.75 ? 1.4 : 1.45)) return "Singapore";
+  // Canada hints stay north of the US border. The old box (43–47.5°N, 80–57°W) also covered
+  // upstate New York, Vermont, New Hampshire and Maine, and relabelled their parks as Canada.
+  // Southern Quebec and eastern Ontario: the border runs along 45°N east of the St. Lawrence,
+  // and the river itself lies south of 45°N further west (La Ronde, Montreal).
+  if (lat > 45.02 && lat <= 47.5 && lng >= -79.5 && lng <= -71.4) return "Canada";
+  // Quebec City area, west of Maine.
+  if (lat >= 46.3 && lat <= 47.5 && lng > -71.4 && lng <= -70.6) return "Canada";
+  // Lower mainland BC (Playland / Greater Vancouver), north of the 49th parallel.
+  if (lat >= 49.0 && lat <= 49.6 && lng >= -125 && lng <= -122.5) return "Canada";
   // Germany (mainland). Lower bound lat 49.5 keeps Alsace / Europa-Park (France) out of this band.
   if (lat >= 49.5 && lat <= 55.1 && lng >= 6.5 && lng <= 15.0) return "Germany";
   return null;
@@ -148,9 +157,26 @@ export function reconcileCountryWithCoords(
   ) {
     return hint;
   }
+  // Universal Studios Singapore was stored as Malaysia.
+  if (hint === "Singapore" && cl === "malaysia") return hint;
   // Wikidata sometimes labels German parks (e.g. Nürburgring) as France despite DE coordinates.
   if (hint === "Germany" && cl === "france") return hint;
   return c;
+}
+
+/**
+ * Country to show for a park: a hand-checked override by park name when there is one
+ * (catalog-overrides.ts), otherwise the stored country reconciled with its coordinates.
+ * Overrides apply before the database row is repaired, so pages are right straight away.
+ */
+export function resolveParkCountry(park: {
+  name?: string | null;
+  country?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}): string {
+  const override = park.name ? PARK_COUNTRY_BY_NAME[park.name.trim()] : undefined;
+  return override ?? reconcileCountryWithCoords(park.country, park.latitude ?? null, park.longitude ?? null);
 }
 
 /**

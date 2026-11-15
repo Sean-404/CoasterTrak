@@ -14,7 +14,7 @@ import {
 import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
 import { normalizeLifecycleStatus, isParkDefunct } from "@/lib/coaster-status";
 import { compareCoastersOperatingFirst } from "@/lib/catalog-coaster-sort";
-import { reconcileCountryWithCoords } from "@/lib/geo-country";
+import { resolveParkCountry } from "@/lib/geo-country";
 import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { coasterSlug, parkSlug } from "@/lib/slug";
 import { type Units } from "@/lib/units";
@@ -109,11 +109,7 @@ export function MapParkRideSheet({
     ? rideGroups.filter((g) => g.members.some((c) => matchesSearchQuery(c.name, filter)))
     : rideGroups;
 
-  const country = reconcileCountryWithCoords(
-    park.country,
-    park.latitude ?? null,
-    park.longitude ?? null,
-  );
+  const country = resolveParkCountry(park);
   const parkIsDefunct = isParkDefunct(coasters);
 
   const panel = (

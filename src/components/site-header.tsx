@@ -12,8 +12,10 @@ import { getSupabaseBrowserClient, getSupabaseUserSafe } from "@/lib/supabase";
 export function SiteHeader() {
   const pathname = usePathname();
   const discoverActive = isDiscoverPath(pathname);
-  const guessActive = pathname === "/guess" || pathname.startsWith("/guess/");
-  const updatesActive = pathname === "/updates" || pathname.startsWith("/updates/");
+  const isSection = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
+  const parksActive = isSection("/parks");
+  const guessActive = isSection("/guess");
+  const updatesActive = isSection("/updates");
   const [isAuthed, setIsAuthed] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
@@ -61,38 +63,37 @@ export function SiteHeader() {
     window.location.href = "/";
   }
 
+  const navLink = (href: string, label: string, active = isSection(href)) => (
+    <Link
+      href={href}
+      onClick={() => setMenuOpen(false)}
+      aria-current={active ? "page" : undefined}
+      className={`transition ${active ? "text-white" : "text-slate-400 hover:text-white"}`}
+    >
+      {label}
+    </Link>
+  );
+
+  // Signed-out visitors (and the server-rendered page crawlers see) get public pages, not
+  // links that only lead to a sign-in prompt. Members get their tracker pages.
   const coreNavLinks = (
     <>
-      <Link
-        href={DISCOVER_HREF}
-        onClick={() => setMenuOpen(false)}
-        aria-current={discoverActive ? "page" : undefined}
-        className={`transition ${
-          discoverActive ? "text-white" : "text-slate-400 hover:text-white"
-        }`}
-      >
-        Discover
-      </Link>
-      <Link href="/wishlist" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Wishlist
-      </Link>
-      <Link href="/stats" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        My Stats
-      </Link>
-      <Link href="/friends" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Friends
-      </Link>
-      <Link href="/achievements" onClick={() => setMenuOpen(false)} className="text-slate-400 transition hover:text-white">
-        Achievements
-      </Link>
-      <Link
-        href="/guess"
-        onClick={() => setMenuOpen(false)}
-        aria-current={guessActive ? "page" : undefined}
-        className={`transition ${guessActive ? "text-white" : "text-slate-400 hover:text-white"}`}
-      >
-        CoasterGuessr
-      </Link>
+      {isAuthed ? (
+        <>
+          {navLink(DISCOVER_HREF, "Discover", discoverActive)}
+          {navLink("/wishlist", "Wishlist")}
+          {navLink("/stats", "My Stats")}
+          {navLink("/friends", "Friends")}
+          {navLink("/achievements", "Achievements")}
+        </>
+      ) : (
+        <>
+          {navLink(DISCOVER_HREF, "Map", discoverActive && !parksActive)}
+          {navLink("/parks", "Parks", parksActive)}
+          {navLink("/guides", "Guides")}
+        </>
+      )}
+      {navLink("/guess", "CoasterGuessr", guessActive)}
       <Link
         href="/updates"
         onClick={() => setMenuOpen(false)}
@@ -110,6 +111,7 @@ export function SiteHeader() {
           />
         ) : null}
       </Link>
+      {isAuthed ? null : navLink("/about", "About")}
       {isAdmin ? (
         <Link href="/admin" onClick={() => setMenuOpen(false)} className="text-amber-400 transition hover:text-amber-300">
           Admin
