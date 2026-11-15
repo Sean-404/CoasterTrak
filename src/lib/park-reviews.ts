@@ -35,6 +35,18 @@ export type PublicParkReview = {
   publishedAt: string;
 };
 
+/** A review as listed on its author's profile or stats page. */
+export type ProfileParkReview = {
+  id: number;
+  parkName: string;
+  parkHref: string | null;
+  rating: number | null;
+  body: string;
+  visitedYear: number | null;
+  publishedAt: string;
+  status: ParkReviewStatus;
+};
+
 /** The signed-in member's own review, in any status. */
 export type OwnParkReview = ParkReviewInput & {
   id: number;

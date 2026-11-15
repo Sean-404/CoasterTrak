@@ -7,6 +7,7 @@ import {
   isParkReviewStatus,
   reviewAuthorName,
   type OwnParkReview,
+  type ProfileParkReview,
   type PublicParkReview,
 } from "@/lib/park-reviews";
 import { parkSlug } from "@/lib/slug";
@@ -67,6 +68,7 @@ const getApprovedReviewRowsCached = unstable_cache(
       .filter((row) => !authors.get(row.user_id)?.banned_at)
       .map((row) => ({
         parkId: row.park_id,
+        userId: row.user_id,
         id: row.id,
         authorName: reviewAuthorName(authors.get(row.user_id)?.display_name),
         rating: row.rating,
@@ -75,12 +77,13 @@ const getApprovedReviewRowsCached = unstable_cache(
         publishedAt: row.moderated_at ?? row.updated_at,
       }));
   },
-  ["park-reviews-approved-v1"],
+  ["park-reviews-approved-v2"],
   // Moderation busts the tag; the weekly fallback matches the catalog caches.
   { revalidate: 604800, tags: [PARK_REVIEWS_CACHE_TAG] },
 );
 
-type PublicParkReviewWithPark = PublicParkReview & { parkId: number };
+/** Server-only shape: parkId and userId never leave the server except as links. */
+type PublicParkReviewWithPark = PublicParkReview & { parkId: number; userId: string };
 
 /**
  * Every approved review, or null when they could not be loaded (e.g. the migration has not
@@ -109,6 +112,77 @@ export async function getApprovedReviewsForPark(parkId: number): Promise<PublicP
       visitedYear: r.visitedYear,
       publishedAt: r.publishedAt,
     }));
+}
+
+/** Park name and page link for a review, resolved through the cached catalog. */
+async function withPark<T extends { parkId: number }>(rows: T[]): Promise<Array<T & { parkName: string; parkHref: string | null }>> {
+  const parks = new Map<number, Awaited<ReturnType<typeof getParkById>>>();
+  for (const id of new Set(rows.map((r) => r.parkId))) parks.set(id, await getParkById(id));
+  return rows.map((row) => {
+    const park = parks.get(row.parkId);
+    return {
+      ...row,
+      parkName: park?.name ?? "Unknown park",
+      parkHref: park ? `/parks/${parkSlug(park.name, park.id)}` : null,
+    };
+  });
+}
+
+/** A member's approved reviews for their profile, newest first; null when reviews are unavailable. */
+export async function getApprovedReviewsByUser(userId: string): Promise<ProfileParkReview[] | null> {
+  const all = await getApprovedReviews();
+  if (!all) return null;
+  const mine = all
+    .filter((r) => r.userId === userId)
+    .map((r) => ({
+      id: r.id,
+      parkId: r.parkId,
+      rating: r.rating,
+      body: r.body,
+      visitedYear: r.visitedYear,
+      publishedAt: r.publishedAt,
+      status: "approved" as const,
+    }));
+  return (await withPark(mine)).map((r) => ({
+    id: r.id,
+    parkName: r.parkName,
+    parkHref: r.parkHref,
+    rating: r.rating,
+    body: r.body,
+    visitedYear: r.visitedYear,
+    publishedAt: r.publishedAt,
+    status: r.status,
+  }));
+}
+
+/** Every review the signed-in member wrote, in any status, for their own stats page. */
+export async function getOwnReviews(service: SupabaseClient, userId: string): Promise<ProfileParkReview[]> {
+  const { data, error } = await service
+    .from("park_reviews")
+    .select(REVIEW_COLUMNS)
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(500);
+  if (error) throw new Error(`park_reviews read failed: ${error.message}`);
+  const rows = ((data ?? []) as ReviewRow[]).map((row) => ({
+    id: row.id,
+    parkId: row.park_id,
+    rating: row.rating,
+    body: row.body,
+    visitedYear: row.visited_year,
+    publishedAt: row.status === "approved" ? (row.moderated_at ?? row.updated_at) : row.updated_at,
+    status: isParkReviewStatus(row.status) ? row.status : ("pending" as const),
+  }));
+  return (await withPark(rows)).map((r) => ({
+    id: r.id,
+    parkName: r.parkName,
+    parkHref: r.parkHref,
+    rating: r.rating,
+    body: r.body,
+    visitedYear: r.visitedYear,
+    publishedAt: r.publishedAt,
+    status: r.status,
+  }));
 }
 
 /** Approved review count per park id. */

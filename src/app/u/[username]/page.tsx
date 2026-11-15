@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { ProfileReviews } from "@/components/profile-reviews";
 import { PublicProfileActions } from "@/components/public-profile-actions";
+import { getApprovedReviewsByUser } from "@/lib/park-reviews-server";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { unjamGeoLabel } from "@/lib/geo-country";
@@ -127,6 +129,8 @@ export default async function PublicProfilePage({ params }: PageProps) {
             ) : null}
           </div>
         )}
+
+        <ProfileReviews reviews={(await getApprovedReviewsByUser(profile.userId)) ?? []} />
 
         <PublicProfileActions userId={profile.userId} displayName={profile.displayName} />
 

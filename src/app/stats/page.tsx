@@ -9,6 +9,7 @@ import { applyRideCredit } from "@/components/coaster-actions";
 import { CoasterThumbnail } from "@/components/coaster-thumbnail";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { RiddenRideSheet } from "@/components/ridden-ride-sheet";
+import { StatsProfileReviews } from "@/components/stats-profile-reviews";
 import { SiteHeader } from "@/components/site-header";
 import { StarRating } from "@/components/star-rating";
 import { StatsShareControls } from "@/components/stats-share-controls";
@@ -1710,6 +1711,9 @@ function StatsPageContent() {
               </section>
             )
           )}
+          {activeStatsUserId ? (
+            <StatsProfileReviews userId={activeStatsUserId} isOwn={isOwnStatsView} />
+          ) : null}
             </>
               )}
             </>
