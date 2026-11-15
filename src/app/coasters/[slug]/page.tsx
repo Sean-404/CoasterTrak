@@ -27,7 +27,7 @@ import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { cleanCoasterName, formatParkLabel } from "@/lib/display";
 import { coasterSlug, parseIdFromSlug, parkSlug } from "@/lib/slug";
 import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
-import { coasterMissingFields, coasterSourceLinks, correctionMailto } from "@/lib/catalog-sources";
+import { coasterSourceLinks, correctionMailto } from "@/lib/catalog-sources";
 import {
   clampSummaryText,
   fetchWikipediaSummaryForCoaster,
@@ -244,15 +244,6 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         </Link>
       </div>
 
-      <CatalogSourcesPanel
-        sources={coasterSourceLinks(coaster, wikiSummary?.url)}
-        missing={coasterMissingFields(coaster)}
-        reportHref={correctionMailto(
-          park ? `${name} at ${park.name}` : name,
-          `${siteUrl}/coasters/${canonicalSlug}`,
-        )}
-      />
-
       {siblings.length > 0 && park ? (
         <section className="mt-10">
           <h2 className="text-xl font-semibold text-slate-900">More coasters at {park.name}</h2>
@@ -272,10 +263,14 @@ export default async function CoasterDetailPage({ params }: PageProps) {
         </section>
       ) : null}
 
-      <p className="mt-8 text-xs leading-relaxed text-slate-500">
-        Catalog details may be incomplete or outdated. Always confirm ride status and restrictions with the park
-        before visiting.
-      </p>
+      <CatalogSourcesPanel
+        sources={coasterSourceLinks(coaster, wikiSummary?.url)}
+        note="Details may be incomplete or out of date. Check ride status and restrictions with the park before you visit."
+        reportHref={correctionMailto(
+          park ? `${name} at ${park.name}` : name,
+          `${siteUrl}/coasters/${canonicalSlug}`,
+        )}
+      />
     </CatalogPageShell>
   );
 }

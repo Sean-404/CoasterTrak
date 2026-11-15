@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  coasterMissingFields,
-  coasterSourceLinks,
-  correctionMailto,
-  enwikiArticleUrl,
-  parkDataCoverage,
-  wikidataItemUrl,
-} from "./catalog-sources";
+import { coasterSourceLinks, correctionMailto, enwikiArticleUrl, wikidataItemUrl } from "./catalog-sources";
 import { buildParkEditorialIntro, computeParkHighlights } from "./catalog-content";
 import type { Coaster } from "@/types/domain";
 
@@ -50,19 +43,9 @@ describe("source links", () => {
       enwiki_title: "Abyss (roller coaster)",
       rcdb_id: "11665",
     });
-    expect(links.map((l) => l.label)).toEqual(["Wikidata Q1", "Wikipedia article", "RCDB #11665"]);
-  });
-});
-
-describe("coasterMissingFields", () => {
-  it("is empty for a complete record", () => {
-    expect(coasterMissingFields(makeCoaster({}))).toEqual([]);
-  });
-
-  it("names unconfirmed status and missing stats", () => {
-    expect(
-      coasterMissingFields(makeCoaster({ status: "Unknown", duration_s: null, image_url: null })),
-    ).toEqual(["operating status", "ride duration", "photo"]);
+    expect(links.map((l) => l.label)).toEqual(["Wikidata", "Wikipedia", "RCDB (link only)"]);
+    expect(links[0]?.detail).toContain("Q1");
+    expect(links[2]?.detail).toContain("#11665");
   });
 });
 
@@ -88,16 +71,6 @@ describe("park counts with unconfirmed statuses", () => {
     expect(buildParkEditorialIntro("Test Park", "United Kingdom", lineup)).toContain(
       "1 as operating, 1 as defunct or historical and 1 without a confirmed status yet",
     );
-  });
-
-  it("summarises data coverage", () => {
-    expect(parkDataCoverage(lineup)).toEqual({
-      total: 3,
-      linkedToWikidata: 2,
-      statusConfirmed: 2,
-      withHeight: 3,
-      withPhoto: 3,
-    });
   });
 });
 

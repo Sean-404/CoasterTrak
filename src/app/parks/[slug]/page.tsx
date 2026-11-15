@@ -26,7 +26,7 @@ import { parkNote } from "@/lib/catalog-notes";
 import { isCoasterSitemapEligible } from "@/lib/catalog-sitemap";
 import { getCommunityStatsById } from "@/lib/community-stats-server";
 import { getApprovedReviewsForPark } from "@/lib/park-reviews-server";
-import { correctionMailto, parkDataCoverage } from "@/lib/catalog-sources";
+import { correctionMailto } from "@/lib/catalog-sources";
 import { cleanCoasterName } from "@/lib/display";
 import { canonicalCountryLabel } from "@/lib/geo-country";
 import { parseIdFromSlug, parkSlug, coasterSlug } from "@/lib/slug";
@@ -162,16 +162,6 @@ export default async function ParkDetailPage({ params }: PageProps) {
     highlightStats.push({ label: type, value: String(count), tone: "slate" });
   }
 
-  const coverage = parkDataCoverage(coasters);
-  const coverageLines =
-    coverage.total > 0
-      ? [
-          `${coverage.linkedToWikidata} of ${coverage.total} rides are linked to a Wikidata item.`,
-          `Operating status is confirmed for ${coverage.statusConfirmed} of ${coverage.total}.`,
-          `Height is listed for ${coverage.withHeight} of ${coverage.total}; ${coverage.withPhoto} have a photo.`,
-        ]
-      : [];
-
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "AmusementPark",
@@ -268,26 +258,23 @@ export default async function ParkDetailPage({ params }: PageProps) {
       ) : null}
 
       <CatalogSourcesPanel
-        sources={
-          wikiSummary?.url
-            ? [
-                {
-                  label: "Read more on Wikipedia",
-                  href: wikiSummary.url,
-                  detail: "The park's history and background",
-                },
-              ]
-            : undefined
+        sources={[
+          {
+            label: "Wikidata",
+            href: "https://www.wikidata.org/",
+            detail: "Park and ride records, statuses and most measurements",
+          },
+          ...(wikiSummary?.url
+            ? [{ label: "Wikipedia", href: wikiSummary.url, detail: "The park's history and background" }]
+            : []),
+        ]}
+        note={
+          parkIsDefunct
+            ? "This park appears to be closed, based on its listed coasters. Check before you travel."
+            : "Details may be incomplete or out of date. Check opening and ride status with the park before you travel."
         }
-        coverage={coverageLines}
         reportHref={correctionMailto(park.name, `${SITE_URL}/parks/${canonicalSlug}`)}
       />
-
-      <p className="mt-8 text-xs leading-relaxed text-slate-500">
-        {parkIsDefunct
-          ? "This park appears defunct based on its catalog coasters. Always confirm status before travelling."
-          : "Catalog details may be incomplete or outdated. Always confirm operating status with the park before travelling."}
-      </p>
     </CatalogPageShell>
   );
 }

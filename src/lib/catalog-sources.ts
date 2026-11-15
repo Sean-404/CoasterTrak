@@ -1,5 +1,4 @@
 import type { Coaster } from "@/types/domain";
-import { coasterLifecycle } from "@/lib/coaster-status";
 import { normalizeRcdbId, rcdbCoasterUrl } from "@/lib/rcdb";
 import { CONTACT_EMAIL } from "@/lib/site-url";
 
@@ -27,15 +26,15 @@ export function coasterSourceLinks(
   const wikidata = wikidataItemUrl(coaster.wikidata_id);
   if (wikidata) {
     links.push({
-      label: `Wikidata ${coaster.wikidata_id!.trim()}`,
+      label: "Wikidata",
       href: wikidata,
-      detail: "Ride identity, park, status and most measurements",
+      detail: `Item ${coaster.wikidata_id!.trim()}: ride identity, park, status and most measurements`,
     });
   }
   const wikipedia = wikipediaUrl || enwikiArticleUrl(coaster.enwiki_title);
   if (wikipedia) {
     links.push({
-      label: "Wikipedia article",
+      label: "Wikipedia",
       href: wikipedia,
       detail: "Photo and gaps in the measurements; read it for the ride's history",
     });
@@ -43,45 +42,12 @@ export function coasterSourceLinks(
   const rcdb = rcdbCoasterUrl(coaster.rcdb_id);
   if (rcdb) {
     links.push({
-      label: `RCDB #${normalizeRcdbId(coaster.rcdb_id)}`,
+      label: "RCDB (link only)",
       href: rcdb,
-      detail: "Link only (ID from Wikidata) — no RCDB data is copied",
+      detail: `Entry #${normalizeRcdbId(coaster.rcdb_id)}, linked by its Wikidata ID. No RCDB data is copied.`,
     });
   }
   return links;
-}
-
-/** Fields we do not have for this ride, phrased for readers. */
-export function coasterMissingFields(coaster: Coaster): string[] {
-  const missing: string[] = [];
-  if (coasterLifecycle(coaster) === "Unknown") missing.push("operating status");
-  if (!coaster.manufacturer?.trim()) missing.push("manufacturer");
-  if (coaster.opening_year == null) missing.push("opening year");
-  if (coaster.height_ft == null) missing.push("height");
-  if (coaster.speed_mph == null) missing.push("speed");
-  if (coaster.length_ft == null) missing.push("length");
-  if (coaster.inversions == null) missing.push("inversions");
-  if (coaster.duration_s == null) missing.push("ride duration");
-  if (!coaster.image_url) missing.push("photo");
-  return missing;
-}
-
-export type ParkDataCoverage = {
-  total: number;
-  linkedToWikidata: number;
-  statusConfirmed: number;
-  withHeight: number;
-  withPhoto: number;
-};
-
-export function parkDataCoverage(coasters: Coaster[]): ParkDataCoverage {
-  return {
-    total: coasters.length,
-    linkedToWikidata: coasters.filter((c) => wikidataItemUrl(c.wikidata_id) != null).length,
-    statusConfirmed: coasters.filter((c) => coasterLifecycle(c) !== "Unknown").length,
-    withHeight: coasters.filter((c) => c.height_ft != null).length,
-    withPhoto: coasters.filter((c) => Boolean(c.image_url)).length,
-  };
 }
 
 /** Pre-filled correction email so reports arrive with the page they are about. */

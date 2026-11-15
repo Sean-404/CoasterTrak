@@ -1,73 +1,45 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import type { SourceLink } from "@/lib/catalog-sources";
 
 type CatalogSourcesPanelProps = {
-  /** Per-record sources (coaster pages). */
-  sources?: SourceLink[];
-  /** Plain-language coverage lines (park pages), e.g. "Status confirmed for 15 of 25 rides". */
-  coverage?: string[];
-  /** Fields we do not have yet; shown so readers know what is missing rather than guessing. */
-  missing?: string[];
+  /** Where the record came from. Each link's detail shows as a tooltip. */
+  sources: SourceLink[];
+  /** Short travel caveat, e.g. "Details may be out of date. Check with the park before you travel." */
+  note: string;
   reportHref: string;
 };
 
-/** Where a catalog record came from, what it lacks, and how to correct it. */
-export function CatalogSourcesPanel({ sources, coverage, missing, reportHref }: CatalogSourcesPanelProps) {
-  return (
-    <section
-      aria-labelledby="catalog-sources-heading"
-      className="mt-10 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-    >
-      <h2 id="catalog-sources-heading" className="text-base font-semibold text-slate-900">
-        Sources &amp; corrections
-      </h2>
+const LINK = "font-medium text-amber-700 underline-offset-2 hover:underline";
 
-      {sources && sources.length > 0 ? (
-        <ul className="mt-3 space-y-2 text-sm text-slate-700">
-          {sources.map((source) => (
-            <li key={source.href}>
-              <a
-                href={source.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-semibold text-amber-700 underline-offset-2 hover:underline"
-              >
+/** Credits a catalog record's sources and offers a way to report a mistake, in two lines. */
+export function CatalogSourcesPanel({ sources, note, reportHref }: CatalogSourcesPanelProps) {
+  return (
+    <section aria-label="Sources and corrections" className="mt-10 border-t border-slate-200 pt-5 text-sm text-slate-600">
+      <p>
+        <span className="font-medium text-slate-700">Sources:</span>{" "}
+        {sources.length > 0 ? (
+          sources.map((source, i) => (
+            <Fragment key={source.href}>
+              {i > 0 ? <span aria-hidden> · </span> : null}
+              <a href={source.href} target="_blank" rel="noopener noreferrer" title={source.detail} className={LINK}>
                 {source.label}
               </a>
-              <span className="text-slate-500"> — {source.detail}</span>
-            </li>
-          ))}
-        </ul>
-      ) : sources ? (
-        <p className="mt-3 text-sm text-slate-600">
-          This record is not linked to a Wikidata item yet, so its details have not been cross-checked.
-        </p>
-      ) : null}
-
-      {coverage && coverage.length > 0 ? (
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
-          {coverage.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      {missing && missing.length > 0 ? (
-        <p className="mt-3 text-sm text-slate-600">
-          <span className="font-medium text-slate-700">Not in our sources yet:</span> {missing.join(", ")}.
-        </p>
-      ) : null}
-
-      <p className="mt-4 text-sm text-slate-600">
-        Spotted a mistake or know a missing detail?{" "}
-        <a href={reportHref} className="font-semibold text-amber-700 underline-offset-2 hover:underline">
-          Send a correction
-        </a>{" "}
-        with a source we can check. How records are built:{" "}
-        <Link href="/catalog" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
-          how the catalog works
+            </Fragment>
+          ))
+        ) : (
+          <>not yet cross-checked against Wikidata.</>
+        )}
+      </p>
+      <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+        {note}{" "}
+        <a href={reportHref} className={LINK}>
+          Report a mistake
+        </a>
+        <span aria-hidden> · </span>
+        <Link href="/catalog" className={LINK}>
+          How the catalog works
         </Link>
-        .
       </p>
     </section>
   );
