@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 12 November 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 15 November 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -44,6 +44,12 @@ export default function PrivacyPage() {
               <strong>Park reviews.</strong> If you write a park review we store its text, optional star rating and
               visit year, when you wrote or edited it, and its moderation status. If another member reports a
               review, we store that report and the optional reason they give.
+            </li>
+            <li>
+              <strong>Location, only if you ask.</strong> When you tap &ldquo;Find parks near me&rdquo; on the map,
+              your browser asks for permission and then shares your approximate location with the page. It is used
+              on your device to find the nearest park and show where you are on the map. It is not sent to
+              CoasterTrak, stored, or shared, and you can turn location access off in your browser at any time.
             </li>
             <li>
               <strong>Usage and device data.</strong> We use privacy-oriented analytics (including Vercel Analytics

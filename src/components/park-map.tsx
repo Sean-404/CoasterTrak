@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import L from "leaflet";
 import type { Coaster, Park } from "@/types/domain";
@@ -247,6 +247,8 @@ type Props = {
   preserveRestoredCamera?: boolean;
   /** Bumped when search focuses a park/ride so the camera re-flies. */
   focusRequestKey?: number;
+  /** The visitor's position after they asked to find parks near them. */
+  userLocation?: { lat: number; lng: number } | null;
 };
 
 export function ParkMap({
@@ -264,6 +266,7 @@ export function ParkMap({
   viewResetKey = 0,
   preserveRestoredCamera = false,
   focusRequestKey = 0,
+  userLocation = null,
 }: Props) {
   const selectedPark = useMemo(() => {
     if (!parks.length) return null;
@@ -326,6 +329,17 @@ export function ParkMap({
         url={tileLayer.url}
         maxZoom={tileLayer.maxZoom}
       />
+      {userLocation ? (
+        <CircleMarker
+          center={[userLocation.lat, userLocation.lng]}
+          radius={8}
+          pathOptions={{ color: "#ffffff", weight: 3, fillColor: "#2563eb", fillOpacity: 1 }}
+        >
+          <Tooltip direction="top" offset={[0, -8]}>
+            You are here
+          </Tooltip>
+        </CircleMarker>
+      ) : null}
       <MarkerClusterGroup chunkedLoading>
         {parks.map((park) => {
           const dimOthers = selectedParkId != null && park.id !== selectedParkId ? 0.38 : 1;

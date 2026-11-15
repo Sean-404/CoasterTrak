@@ -14,6 +14,42 @@ export type ProductUpdate = {
  */
 export const PRODUCT_UPDATES: ProductUpdate[] = [
   {
+    id: "2026-11-15b-find-parks-near-me",
+    date: "2026-11-15",
+    title: "Find parks near me",
+    summary:
+      "Standing in a park? Tap \"Find parks near me\" on the map and CoasterTrak asks if you are at the nearest one, then opens its ride list so you can log credits as you go.",
+    highlights: [
+      "Your location stays on your device: it is never sent to CoasterTrak or stored",
+      "Once you have allowed location, the map checks quietly each time you open it",
+      "On My Stats, tap a ride and use \"Go to park\" to jump to that park's page",
+    ],
+  },
+  {
+    id: "2026-11-15a-tidier-pages",
+    date: "2026-11-15",
+    title: "Tidier menus and park pages",
+    summary:
+      "Fewer links to wade through: the menu shows Map, Parks and Guides when you are signed out, the footer is shorter, and the Sources & corrections box on park and coaster pages is down to two lines.",
+    highlights: [
+      "Members still see Wishlist, My Stats, Friends and Achievements in the menu",
+      "Five parks moved to the right country, including Universal Studios Singapore and Story Land",
+      "Coaster photos now credit their photographer and licence",
+    ],
+  },
+  {
+    id: "2026-11-12a-park-reviews",
+    date: "2026-11-12",
+    title: "Write a park review",
+    summary:
+      "Every park page now has member reviews. Share how your day went, what to ride first and what to skip, with an optional star rating and visit year.",
+    highlights: [
+      "One review per park, at least 50 words, and you can edit or delete it any time",
+      "A moderator reads each review before it appears",
+      "New first-hand guide: UK favourites at Alton Towers, Thorpe Park and Blackpool",
+    ],
+  },
+  {
     id: "2026-10-25a-community-stats",
     date: "2026-10-25",
     title: "Community stats on park and coaster pages",

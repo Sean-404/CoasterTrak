@@ -21,6 +21,8 @@ import type { Coaster, Park } from "@/types/domain";
 import { cleanCoasterName, formatManufacturerLabel, matchesSearchQuery } from "@/lib/display";
 import { pickBestMapSearchHit } from "@/lib/map-search";
 import { resolveParkCountry } from "@/lib/geo-country";
+import { NearMePrompt } from "@/components/near-me-prompt";
+import type { LatLng } from "@/lib/nearby-park";
 import { continentIdForCountryLabel } from "@/lib/country-continent";
 import { applyCoasterKnownFixes, sanitizeCoasterImageUrl } from "@/lib/coaster-known-fixes";
 import { normalizeCatalog } from "@/lib/catalog-normalize";
@@ -1081,6 +1083,21 @@ function MapPageContent() {
 
   const [mapViewResetKey, setMapViewResetKey] = useState(0);
   const [searchFocusKey, setSearchFocusKey] = useState(0);
+  const [userLocation, setUserLocation] = useState<LatLng | null>(null);
+  const nearMeParks = useMemo(
+    () =>
+      deduplicatedParks.parks.filter(
+        (park) => !isLikelyPlaceholderParkName(park.name) && !isUnknownHistoricalParkName(park.name),
+      ),
+    [deduplicatedParks.parks],
+  );
+  const openParkFromLocation = useCallback((parkId: number) => {
+    setViewMode("map");
+    setPreserveRestoredCamera(false);
+    setSelectedCoasterId(null);
+    setFocusedParkId(parkId);
+    setSearchFocusKey((k) => k + 1);
+  }, []);
   const resetMapView = useCallback(() => {
     clearSavedMapView();
     setPreserveRestoredCamera(false);
@@ -1373,7 +1390,11 @@ function MapPageContent() {
           <p className="mb-2 text-sm text-slate-600">No parks in the catalog yet.</p>
         )}
         {!catalogLoading && viewMode === "map" ? (
+          <NearMePrompt parks={nearMeParks} onOpenPark={openParkFromLocation} onLocated={setUserLocation} />
+        ) : null}
+        {!catalogLoading && viewMode === "map" ? (
           <ParkMap
+            userLocation={userLocation}
             parks={filteredParks}
             coasters={coasterEntries}
             units={units}

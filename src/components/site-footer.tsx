@@ -19,7 +19,7 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-bungee text-sm tracking-wide text-amber-500">CoasterTrak</p>
           <p className={`mt-1 text-sm ${isDark ? "text-slate-400" : "text-slate-500"}`}>
@@ -55,6 +55,17 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
             </a>{" "}
             when an identifier is available.
           </p>
+          <p className={`mt-2 flex flex-wrap gap-x-3 text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+            <FooterLink href="/privacy" isDark={isDark}>
+              Privacy
+            </FooterLink>
+            <FooterLink href="/terms" isDark={isDark}>
+              Terms
+            </FooterLink>
+            <FooterLink href="/catalog" isDark={isDark}>
+              How the catalog works
+            </FooterLink>
+          </p>
           {KOFI_URL ? (
             <a
               href={KOFI_URL}
@@ -71,58 +82,44 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
             </a>
           ) : null}
         </div>
-        <nav
-          className={`flex flex-wrap gap-x-5 gap-y-2 text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}
-          aria-label="Legal"
-        >
-          <FooterLink href="/about" isDark={isDark}>
-            About
-          </FooterLink>
-          <FooterLink href="/updates" isDark={isDark}>
-            What’s new
-          </FooterLink>
-          <FooterLink href="/contact" isDark={isDark}>
-            Contact
-          </FooterLink>
-          <a
-            href={INSTAGRAM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={isDark ? "transition hover:text-white" : "transition hover:text-slate-900"}
-          >
-            Instagram
-          </a>
-          <FooterLink href="/privacy" isDark={isDark}>
-            Privacy
-          </FooterLink>
-          <FooterLink href="/terms" isDark={isDark}>
-            Terms
-          </FooterLink>
-          <FooterLink href="/guides" isDark={isDark}>
-            Guides
-          </FooterLink>
-          <FooterLink href="/coaster-credits" isDark={isDark}>
-            Coaster credits
-          </FooterLink>
-          <FooterLink href="/coaster-tracker" isDark={isDark}>
-            Coaster tracker
-          </FooterLink>
-          <FooterLink href="/catalog" isDark={isDark}>
-            Catalog
-          </FooterLink>
-          <FooterLink href="/map" isDark={isDark}>
-            Discover
-          </FooterLink>
-          <FooterLink href="/parks" isDark={isDark}>
-            Parks
-          </FooterLink>
-          <FooterLink href="/coasters" isDark={isDark}>
-            Coasters
-          </FooterLink>
-          <FooterLink href="/guess" isDark={isDark}>
-            CoasterGuessr
-          </FooterLink>
-        </nav>
+        <div className={`grid grid-cols-2 gap-x-10 gap-y-2 text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          <nav aria-label="Explore" className="flex flex-col gap-2">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              Explore
+            </p>
+            <FooterLink href="/guides" isDark={isDark}>
+              Guides
+            </FooterLink>
+            <FooterLink href="/parks" isDark={isDark}>
+              Parks
+            </FooterLink>
+            <FooterLink href="/map" isDark={isDark}>
+              Map
+            </FooterLink>
+          </nav>
+          <nav aria-label="CoasterTrak" className="flex flex-col gap-2">
+            <p className={`text-xs font-semibold uppercase tracking-wide ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+              CoasterTrak
+            </p>
+            <FooterLink href="/about" isDark={isDark}>
+              About
+            </FooterLink>
+            <FooterLink href="/updates" isDark={isDark}>
+              What’s new
+            </FooterLink>
+            <FooterLink href="/contact" isDark={isDark}>
+              Contact
+            </FooterLink>
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={isDark ? "transition hover:text-white" : "transition hover:text-slate-900"}
+            >
+              Instagram
+            </a>
+          </nav>
+        </div>
       </div>
     </footer>
   );

@@ -21,7 +21,7 @@ import { effectiveCoasterType } from "@/lib/wikidata-coaster-inference";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { rideSheetCommunityLine } from "@/lib/community-stats";
 import { loadCommunityStats, type CommunityStatsMap } from "@/lib/community-stats-client";
-import { coasterSlug } from "@/lib/slug";
+import { coasterSlug, parkSlug } from "@/lib/slug";
 import {
   RIDE_PHOTO_ACCEPT,
   removeRidePhoto,
@@ -162,6 +162,10 @@ export function RiddenRideSheet({
     ride.coasters?.coaster_type,
     ride.coasters?.manufacturer,
   );
+  const parkHref =
+    ride.coasters?.park_id != null && ride.coasters?.parks?.name
+      ? `/parks/${parkSlug(ride.coasters.parks.name, ride.coasters.park_id)}`
+      : null;
   const mapHref =
     ride.coasters?.park_id != null
       ? `/map?coaster=${ride.coaster_id}&park=${ride.coasters.park_id}&view=map`
@@ -209,7 +213,17 @@ export function RiddenRideSheet({
                 {coasterName}
               </h2>
               <p className="mt-0.5 text-sm leading-snug text-slate-500 break-words">
-                {parkLine && <span>{parkLine}</span>}
+                {parkLine && parkHref ? (
+                  <Link
+                    href={parkHref}
+                    onClick={onClose}
+                    className="font-medium text-amber-700 underline-offset-2 hover:underline"
+                  >
+                    {parkLine}
+                  </Link>
+                ) : parkLine ? (
+                  <span>{parkLine}</span>
+                ) : null}
                 {parkLine && <span> · </span>}
                 <span>{typeLabel}</span>
                 {ride.coasters?.manufacturer && (
@@ -481,6 +495,15 @@ export function RiddenRideSheet({
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            {parkHref ? (
+              <Link
+                href={parkHref}
+                className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-amber-500 px-3 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-amber-400"
+                onClick={onClose}
+              >
+                Go to park
+              </Link>
+            ) : null}
             <Link
               href={mapHref}
               className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
