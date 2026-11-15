@@ -87,7 +87,7 @@ export default function AboutPage() {
           </p>
           <h3 className="pt-1 text-lg font-semibold text-slate-900">Reviews and CoasterGuessr</h3>
           <p>
-            Every park page has member reviews: write one after your visit and a moderator checks it before it appears.
+            Every park page has member reviews: write one after your visit. A moderator reads new reviewers&apos; reviews before they appear.
             Between trips,{" "}
             <Link href="/guess" className="font-medium text-amber-700 underline-offset-2 hover:underline">
               CoasterGuessr

@@ -38,7 +38,7 @@ export function ParkReviews({ parkId, parkName, parkPath, reviews }: Props) {
         ) : null}
       </div>
       <p className="mt-1 text-sm text-slate-500">
-        Written by CoasterTrak members about their own visits, and checked by a moderator before they appear.
+        Written by CoasterTrak members about their own visits. Reviews are moderated, and you can report one.
       </p>
 
       <ParkReviewForm parkId={parkId} parkName={parkName} parkPath={parkPath} />

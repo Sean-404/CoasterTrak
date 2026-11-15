@@ -52,8 +52,8 @@ export default function TermsPage() {
           <p>
             Signed-in members can write one review per park. Reviews are published under your display name on the
             park&apos;s public page, where anyone can read them and search engines may index them. A moderator reads
-            every review before it appears, and again after each edit. You can edit or delete your review at any
-            time.
+            your first reviews before they appear. Once two of your reviews have been approved, new reviews and edits
+            publish straight away, and moderators can still hide them. You can edit or delete your review at any time.
           </p>
           <p>Reviews must:</p>
           <ul className="list-disc space-y-2 pl-5">

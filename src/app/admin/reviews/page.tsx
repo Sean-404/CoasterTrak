@@ -92,7 +92,8 @@ export default function AdminReviewsPage() {
             <AppPageHeading>Park reviews</AppPageHeading>
             <p className="mt-1 text-sm text-slate-500">
               Approve reviews that describe a real visit and follow the guidelines. Hide spam, ads, abuse,
-              copied text, or anything about people rather than the park.
+              copied text, or anything about people rather than the park. After two approved reviews and none
+              hidden, a member&apos;s reviews publish straight away and show as auto-published here.
             </p>
           </div>
           <Link href="/admin" className="text-sm font-semibold text-amber-700 hover:underline">
@@ -147,6 +148,11 @@ export default function AdminReviewsPage() {
                     <Link href={`/admin/users/${review.userId}`} className="text-slate-700 hover:underline">
                       {review.authorName}
                     </Link>
+                    {review.autoPublished ? (
+                      <span className="rounded bg-emerald-100 px-1.5 text-xs font-semibold text-emerald-800">
+                        auto-published
+                      </span>
+                    ) : null}
                     {review.authorBanned ? (
                       <span className="rounded bg-rose-100 px-1.5 text-xs font-semibold text-rose-700">banned</span>
                     ) : null}

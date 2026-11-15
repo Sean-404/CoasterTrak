@@ -14,6 +14,24 @@ export const REVIEW_DAILY_LIMIT = 5;
 /** A park page with this many approved reviews counts as having original content. */
 export const PARK_REVIEWS_INDEX_MIN = 3;
 export const REVIEW_EARLIEST_VISIT_YEAR = 1950;
+/** Reviews a moderator must approve before a member's later reviews publish straight away. */
+export const TRUSTED_REVIEWER_MIN_APPROVED = 2;
+
+export type ReviewerTrackRecord = {
+  /** Other reviews by this member that a moderator approved (auto-published ones do not count). */
+  moderatorApproved: number;
+  /** Reviews by this member a moderator hid. Any hidden review means every review is checked again. */
+  hidden: number;
+  banned: boolean;
+};
+
+/**
+ * Trusted members skip the moderation queue: at least two reviews approved by a moderator,
+ * none hidden, and not banned. Moderators can still hide a published review at any time.
+ */
+export function isTrustedReviewer(record: ReviewerTrackRecord): boolean {
+  return !record.banned && record.hidden === 0 && record.moderatorApproved >= TRUSTED_REVIEWER_MIN_APPROVED;
+}
 
 export type ParkReviewStatus = "pending" | "approved" | "hidden";
 

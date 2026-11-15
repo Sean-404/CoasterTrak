@@ -31,7 +31,7 @@ const STATUS_COPY: Record<OwnParkReview["status"], { title: string; body: string
   },
   approved: {
     title: "Your review is live",
-    body: "Thanks for sharing your visit. Editing it sends it back to a moderator.",
+    body: "Thanks for sharing your visit. You can edit or delete it any time.",
     tone: "border-emerald-200 bg-emerald-50",
   },
   hidden: {
@@ -195,7 +195,7 @@ export function ParkReviewForm({ parkId, parkName, parkPath }: Props) {
         <p className="text-sm font-semibold text-slate-900">Your review of {parkName}</p>
         <p className="mt-1 text-sm text-slate-600">
           Write about your own visit: what you rode, queue and timing tips, food, and how the day went. At least{" "}
-          {REVIEW_MIN_WORDS} words, no links. A moderator reads every review before it appears.
+          {REVIEW_MIN_WORDS} words, no links. A moderator reads new reviewers&apos; reviews before they appear.
         </p>
       </div>
 

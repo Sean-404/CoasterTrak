@@ -9,6 +9,7 @@ import {
   type OwnParkReview,
   type ProfileParkReview,
   type PublicParkReview,
+  type ReviewerTrackRecord,
 } from "@/lib/park-reviews";
 import { parkSlug } from "@/lib/slug";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
@@ -27,11 +28,13 @@ type ReviewRow = {
   created_at: string;
   updated_at: string;
   moderated_at: string | null;
+  moderated_by: string | null;
 };
 
 type ProfileRow = { user_id: string; display_name: string | null; banned_at: string | null };
 
-const REVIEW_COLUMNS = "id,user_id,park_id,rating,body,visited_year,status,created_at,updated_at,moderated_at";
+const REVIEW_COLUMNS =
+  "id,user_id,park_id,rating,body,visited_year,status,created_at,updated_at,moderated_at,moderated_by";
 
 /** Display names and bans for a set of users, keyed by user id. */
 export async function loadReviewAuthors(
@@ -212,6 +215,35 @@ export async function listParksWithOriginalContent(): Promise<{ id: number; name
     if (park) parks.push({ id: park.id, name: park.name });
   }
   return parks.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * How a member's other reviews have fared, for the trusted-reviewer rule. The review being
+ * saved is left out, so editing an approved review does not count it twice.
+ */
+export async function loadReviewerTrackRecord(
+  service: SupabaseClient,
+  userId: string,
+  excludeParkId: number,
+): Promise<ReviewerTrackRecord> {
+  const base = () =>
+    service
+      .from("park_reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .neq("park_id", excludeParkId);
+  const [approved, hidden, profile] = await Promise.all([
+    base().eq("status", "approved").not("moderated_by", "is", null),
+    service.from("park_reviews").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "hidden"),
+    service.from("profiles").select("banned_at").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (approved.error) throw new Error(approved.error.message);
+  if (hidden.error) throw new Error(hidden.error.message);
+  return {
+    moderatorApproved: approved.count ?? 0,
+    hidden: hidden.count ?? 0,
+    banned: Boolean((profile.data as { banned_at: string | null } | null)?.banned_at),
+  };
 }
 
 export function toOwnParkReview(row: ReviewRow): OwnParkReview {

@@ -1,14 +1,17 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { isNextResponse, requireBearerUser, type AuthedRequestContext } from "@/lib/auth-request";
 import { getParkById, resolveCatalogParkId } from "@/lib/catalog-server";
-import { REVIEW_DAILY_LIMIT, validateParkReview } from "@/lib/park-reviews";
+import { REVIEW_DAILY_LIMIT, isTrustedReviewer, reviewAuthorName, validateParkReview } from "@/lib/park-reviews";
 import {
   REVIEW_COLUMNS,
   loadOwnReview,
+  loadReviewerTrackRecord,
   revalidateParkReviews,
   toOwnParkReview,
   type ReviewRow,
 } from "@/lib/park-reviews-server";
+import { buildReviewAlertEmail, reviewAlertRecipient } from "@/lib/review-alert-email";
+import { sendTransactionalEmail } from "@/lib/transactional-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,9 +32,9 @@ async function resolveReviewPark(rawParkId: unknown): Promise<number | null> {
   return park ? park.id : null;
 }
 
-async function isBanned(ctx: AuthedRequestContext): Promise<boolean> {
-  const { data } = await ctx.service.from("profiles").select("banned_at").eq("user_id", ctx.user.id).maybeSingle();
-  return Boolean((data as { banned_at: string | null } | null)?.banned_at);
+async function loadAuthorName(ctx: AuthedRequestContext): Promise<string> {
+  const { data } = await ctx.service.from("profiles").select("display_name").eq("user_id", ctx.user.id).maybeSingle();
+  return reviewAuthorName((data as { display_name: string | null } | null)?.display_name);
 }
 
 function unavailable(error: unknown) {
@@ -73,9 +76,11 @@ export async function PUT(request: Request) {
   if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: 400 });
 
   try {
-    if (await isBanned(ctx)) {
+    const record = await loadReviewerTrackRecord(ctx.service, ctx.user.id, parkId);
+    if (record.banned) {
       return NextResponse.json({ error: "This account cannot post reviews." }, { status: 403 });
     }
+    const trusted = isTrustedReviewer(record);
 
     const since = new Date(Date.now() - DAY_MS).toISOString();
     const { count, error: countError } = await ctx.service
@@ -102,8 +107,9 @@ export async function PUT(request: Request) {
           rating: validation.value.rating,
           body: validation.value.body,
           visited_year: validation.value.visitedYear,
-          status: "pending",
-          moderated_at: null,
+          // Trusted members publish straight away; moderated_by stays null to mark it as automatic.
+          status: trusted ? "approved" : "pending",
+          moderated_at: trusted ? new Date().toISOString() : null,
           moderated_by: null,
         },
         { onConflict: "user_id,park_id" },
@@ -112,8 +118,25 @@ export async function PUT(request: Request) {
       .single();
     if (error) throw new Error(error.message);
 
-    // An edited review leaves the public list until it is approved again.
-    if (previous?.status === "approved") await revalidateParkReviews(parkId);
+    // Park pages change when a review publishes, or when an edit takes a published one back to the queue.
+    if (trusted || previous?.status === "approved") await revalidateParkReviews(parkId);
+
+    if (!trusted) {
+      const authorName = await loadAuthorName(ctx);
+      const park = await getParkById(parkId);
+      const email = buildReviewAlertEmail({
+        parkName: park?.name ?? `Park ${parkId}`,
+        authorName,
+        rating: validation.value.rating,
+        body: validation.value.body,
+        isEdit: previous != null,
+      });
+      // Send after responding so a slow email provider never holds up the member.
+      after(async () => {
+        const result = await sendTransactionalEmail({ to: reviewAlertRecipient(), ...email });
+        if (!result.ok && !result.skipped) console.warn("[park-reviews] alert email failed:", result.error);
+      });
+    }
 
     return NextResponse.json({ review: toOwnParkReview(data as ReviewRow) });
   } catch (error) {

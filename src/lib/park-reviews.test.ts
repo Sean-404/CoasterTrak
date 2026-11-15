@@ -4,6 +4,7 @@ import {
   REVIEW_MAX_CHARS,
   containsBlockedWord,
   containsLink,
+  isTrustedReviewer,
   normalizeReportReason,
   normalizeReviewBody,
   reviewAuthorName,
@@ -99,5 +100,18 @@ describe("helpers", () => {
     expect(normalizeReportReason("")).toBeNull();
     expect(normalizeReportReason(5)).toBeNull();
     expect(normalizeReportReason("x".repeat(500))?.length).toBe(300);
+  });
+});
+
+describe("isTrustedReviewer", () => {
+  it("trusts members with two moderator-approved reviews and none hidden", () => {
+    expect(isTrustedReviewer({ moderatorApproved: 2, hidden: 0, banned: false })).toBe(true);
+    expect(isTrustedReviewer({ moderatorApproved: 5, hidden: 0, banned: false })).toBe(true);
+  });
+
+  it("keeps checking new members, anyone with a hidden review, and banned accounts", () => {
+    expect(isTrustedReviewer({ moderatorApproved: 1, hidden: 0, banned: false })).toBe(false);
+    expect(isTrustedReviewer({ moderatorApproved: 4, hidden: 1, banned: false })).toBe(false);
+    expect(isTrustedReviewer({ moderatorApproved: 4, hidden: 0, banned: true })).toBe(false);
   });
 });

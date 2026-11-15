@@ -93,7 +93,7 @@ export default function PrivacyPage() {
           </p>
 
           <p>
-            <strong>Park reviews.</strong> A park review is public once a moderator approves it: it appears on that
+            <strong>Park reviews.</strong> A park review is public once it is approved (or straight away once two of your reviews have been): it appears on that
             park&apos;s page with your display name, star rating, visit year and the month it was published, and
             search engines may index it. This applies even if your stats are Private. Pending and declined reviews
             are visible only to you and our moderators. Reports are never shown to the review&apos;s author or to

@@ -15,6 +15,8 @@ const LIST_LIMIT = 200;
 export type AdminParkReview = {
   id: number;
   status: string;
+  /** Published straight away because the author is a trusted reviewer. */
+  autoPublished: boolean;
   rating: number | null;
   body: string;
   visitedYear: number | null;
@@ -83,6 +85,7 @@ export async function GET(request: Request) {
       return {
         id: row.id,
         status: row.status,
+        autoPublished: row.status === "approved" && !row.moderated_by,
         rating: row.rating,
         body: row.body,
         visitedYear: row.visited_year,

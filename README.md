@@ -63,6 +63,14 @@ The "Plan your visit" box on park pages renders only when the flag is on and the
 
 These are inlined at build time, so changing them needs a redeploy. Keep partner ids in env, never in code: this repo is public. Keep the flag off until AdSense approves the site.
 
+### Park reviews
+
+Apply `supabase/migrations/20261112170000_park_reviews.sql`. Members write one review per park; moderate them at `/admin/reviews`.
+
+- A member's first reviews wait for a moderator. After two moderator-approved reviews and none hidden, their new reviews and edits publish straight away (shown as auto-published in the queue).
+- Each review that needs checking emails `REVIEW_ALERT_EMAIL` (falls back to the contact address) through Resend, so `RESEND_API_KEY` must be set.
+- A park with three approved reviews loses `noindex` and is reopened in robots.txt and the sitemap.
+
 ### Weekly digest cron
 
 Vercel Cron hits `GET /api/cron/weekly-digest` Mondays 08:00 UTC and covers rides logged the previous Monday–Sunday (by when they were logged, not the ride date). Vercel only sends `Authorization: Bearer <CRON_SECRET>`, so set `CRON_SECRET` in Vercel to the same value as `SYNC_CRON_SECRET`.
