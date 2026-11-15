@@ -175,12 +175,12 @@ export default async function ParksIndexPage({ searchParams }: PageProps) {
             <Link href="/map" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
               interactive map
             </Link>
-            . New to credit tracking? Start with the{" "}
+            . New to credit tracking? Start with{" "}
             <Link
-              href="/coaster-tracker"
+              href="/guides/what-is-a-coaster-credit"
               className="font-semibold text-amber-700 underline-offset-2 hover:underline"
             >
-              coaster tracker guide
+              what a coaster credit is
             </Link>
             .
           </>

@@ -41,34 +41,59 @@ export default function AboutPage() {
             brings those pieces together: log credits as you go, see your totals on a stats dashboard, unlock
             achievements, and compare progress with friends.
           </p>
-          <h2 className="pt-2 text-xl font-semibold text-slate-900">What you can do</h2>
-          <ul className="list-disc space-y-2 pl-5">
-            <li>
-              Discover parks and coasters on an{" "}
-              <Link href="/map" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-                interactive world map
-              </Link>
-              , or browse the{" "}
-              <Link href="/parks" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-                park
-              </Link>{" "}
-              and{" "}
-              <Link href="/coasters" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-                coaster
-              </Link>{" "}
-              lists.
-            </li>
-            <li>Save rides to a wishlist and check them off after each trip.</li>
-            <li>Review personal stats such as ride counts, height totals, and park coverage.</li>
-            <li>Connect with friends to compare credits and milestones.</li>
-            <li>
-              Play{" "}
-              <Link href="/guess" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-                CoasterGuessr
-              </Link>
-              : look at a coaster photo and pin the park on the map.
-            </li>
-          </ul>
+          <h2 id="how-it-works" className="scroll-mt-24 pt-2 text-xl font-semibold text-slate-900">
+            How it works
+          </h2>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Find parks and rides</h3>
+          <p>
+            Start on the{" "}
+            <Link href="/map" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              world map
+            </Link>{" "}
+            or the{" "}
+            <Link href="/parks" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              park list
+            </Link>
+            . A park page lists its coasters, and each coaster page links back to its park. You can browse without an
+            account. At a park, tap &ldquo;Find parks near me&rdquo; on the map and CoasterTrak asks whether you are
+            at the closest one, then opens its ride list.
+          </p>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Log your credits</h3>
+          <p>
+            Mark a coaster ridden and it becomes one credit. Ride it again and your credit count stays the same while
+            your ride count goes up, so &ldquo;400 credits and 18 rides today&rdquo; both show up. Add dates if you want
+            a first-ridden and last-ridden history; older undated credits still count. Stats start on a thrill-ride
+            view with family coasters hidden, but achievements count everything you log. New to the hobby? Read{" "}
+            <Link href="/guides/what-is-a-coaster-credit" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              what a coaster credit is
+            </Link>
+            .
+          </p>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Wishlist, stats and achievements</h3>
+          <p>
+            Save rides you still want to a wishlist and check them off after each trip. My Stats shows your credits,
+            ride counts, parks visited and height totals, and Achievements turns them into milestones. Tap any ride on
+            My Stats to rate it, add a photo, or jump to its park.
+          </p>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Friends and privacy</h3>
+          <p>
+            Add friends to compare tallies and see the rides only they have at a park you are visiting together. Your
+            stats are friends-only by default; you can make them private or public in Account. Profile and stats pages
+            are never offered to search engines, and location data is stripped from photos before they are saved. The{" "}
+            <Link href="/privacy" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              Privacy Policy
+            </Link>{" "}
+            has the details.
+          </p>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Reviews and CoasterGuessr</h3>
+          <p>
+            Every park page has member reviews: write one after your visit and a moderator checks it before it appears.
+            Between trips,{" "}
+            <Link href="/guess" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              CoasterGuessr
+            </Link>{" "}
+            shows you a coaster photo and asks you to pin the park on the map.
+          </p>
           <h2 id="who-runs-it" className="scroll-mt-24 pt-2 text-xl font-semibold text-slate-900">
             Who runs it
           </h2>
@@ -164,18 +189,20 @@ export default function AboutPage() {
             </Link>{" "}
             — park name, ride name, and what should change.
           </p>
-          <h2 className="pt-2 text-xl font-semibold text-slate-900">Who it is for</h2>
+          <h2 id="questions" className="scroll-mt-24 pt-2 text-xl font-semibold text-slate-900">
+            Common questions
+          </h2>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Is CoasterTrak free?</h3>
+          <p>Yes. Logging credits, the map, wishlists, stats, friends and reviews are all free with an account.</p>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Do I need an account?</h3>
           <p>
-            CoasterTrak is for casual day-trippers and seasoned credit hunters alike. Create a free account to save
-            your history across devices, or explore the map without signing in. Start with the{" "}
-            <Link href="/coaster-credits" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-              coaster credit tracker
-            </Link>{" "}
-            if you want the tally explained, or the{" "}
-            <Link href="/coaster-tracker" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-              roller coaster tracker guide
-            </Link>{" "}
-            for the full walkthrough.
+            Not to browse. Anyone can use the map, park pages and guides. An account saves your credits, wishlist and
+            friends across devices.
+          </p>
+          <h3 className="pt-1 text-lg font-semibold text-slate-900">Is there an app?</h3>
+          <p>
+            CoasterTrak runs in your phone&apos;s browser, so there is nothing to install. To open it like an app, use
+            Add to Home Screen in Safari on iPhone, or Install app when Chrome offers it on Android.
           </p>
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Contact</h2>
           <p>

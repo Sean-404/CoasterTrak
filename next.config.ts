@@ -37,69 +37,80 @@ const csp = [
 const nextConfig: NextConfig = {
   async redirects() {
     return [
+      // Merged into the guides and About (2026-11-15): they repeated the credit guides.
+      {
+        source: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
+        permanent: true,
+      },
+      {
+        source: "/coaster-tracker",
+        destination: "/about",
+        permanent: true,
+      },
       {
         source: "/coaster-trak",
-        destination: "/coaster-tracker",
+        destination: "/about",
         permanent: true,
       },
       {
         source: "/coaster-credit",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-credit-tracker",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-credit-app",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-credits-app",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-credit-logger",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/roller-coaster-credits",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/roller-coaster-credit-tracker",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-log",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-logger",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/coaster-tally",
-        destination: "/coaster-credits",
+        destination: "/guides/what-is-a-coaster-credit",
         permanent: true,
       },
       {
         source: "/roller-coaster-tracker",
-        destination: "/coaster-tracker",
+        destination: "/about",
         permanent: true,
       },
       {
         source: "/coaster-track",
-        destination: "/coaster-tracker",
+        destination: "/about",
         permanent: true,
       },
       {

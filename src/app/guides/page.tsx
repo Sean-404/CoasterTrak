@@ -88,12 +88,8 @@ export default function GuidesHubPage() {
         <section className="mt-12 space-y-3 text-sm leading-relaxed text-slate-600">
           <h2 className="text-lg font-semibold text-slate-900">Also useful</h2>
           <p>
-            <Link href="/coaster-credits" className="font-semibold text-amber-700 hover:underline">
-              Free coaster credit tracker overview
-            </Link>
-            {" · "}
-            <Link href="/coaster-tracker" className="font-semibold text-amber-700 hover:underline">
-              Full tracker product guide
+            <Link href="/about#how-it-works" className="font-semibold text-amber-700 hover:underline">
+              How CoasterTrak works
             </Link>
             {" · "}
             <Link href="/catalog" className="font-semibold text-amber-700 hover:underline">

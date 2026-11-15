@@ -27,10 +27,10 @@ export function HomeHeroCtas() {
         Open free tracker &rarr;
       </Link>
       <Link
-        href="/coaster-credits"
+        href="/guides"
         className="rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
       >
-        Coaster credit tracker
+        Read the guides
       </Link>
       {isAuthed ? (
         <Link

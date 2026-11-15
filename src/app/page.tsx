@@ -150,15 +150,15 @@ export default async function Home() {
           />
           <FeatureCard
             icon={<GuideIcon />}
-            title="Coaster credit tracker"
-            description="What a credit is, how unique rides are counted, and how to start your free tally."
-            href="/coaster-credits"
+            title="What is a coaster credit?"
+            description="Unique rides versus repeats, the edge cases enthusiasts argue about, and how to start a tally."
+            href="/guides/what-is-a-coaster-credit"
           />
           <FeatureCard
             icon={<ParksIcon />}
-            title="Coaster tracker guide"
-            description="Map, wishlist, stats, and friends: how the full free roller coaster tracker fits together."
-            href="/coaster-tracker"
+            title="How CoasterTrak works"
+            description="Map, logging, wishlist, stats, friends and reviews: how the pieces fit together."
+            href="/about#how-it-works"
           />
         </div>
 

@@ -132,7 +132,7 @@ export default async function CatalogGuidePage() {
               Discover map
             </Link>
             . If you are new to tallies, read{" "}
-            <Link href="/coaster-credits" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+            <Link href="/guides/what-is-a-coaster-credit" className="font-medium text-amber-700 underline-offset-2 hover:underline">
               how coaster credits work
             </Link>
             .

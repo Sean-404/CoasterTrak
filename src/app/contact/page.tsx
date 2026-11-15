@@ -89,13 +89,13 @@ export default function ContactPage() {
 
           <h2 className="pt-2 text-xl font-semibold text-slate-900">Product questions</h2>
           <p>
-            For how unique coaster credits are counted, start with the{" "}
-            <Link href="/coaster-credits" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-              coaster credit tracker
+            For how unique coaster credits are counted, read{" "}
+            <Link href="/guides/what-is-a-coaster-credit" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              what a coaster credit is
             </Link>
-            . For map, wishlist, and stats screens, see the{" "}
-            <Link href="/coaster-tracker" className="font-medium text-amber-700 underline-offset-2 hover:underline">
-              roller coaster tracker guide
+            . For the map, wishlist and stats screens, see{" "}
+            <Link href="/about#how-it-works" className="font-medium text-amber-700 underline-offset-2 hover:underline">
+              how CoasterTrak works
             </Link>
             . If something in the app is broken, describe the page and what you expected to happen.
           </p>

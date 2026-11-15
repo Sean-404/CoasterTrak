@@ -224,8 +224,8 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         coaster pages are credit targets. Wikipedia extracts, when present, are background — not the article.
       </GuideP>
       <GuideP>
-        For a product-focused overview, read the{" "}
-        <GuideLink href="/coaster-credits">coaster credit tracker page</GuideLink> and the{" "}
+        For a tour of the app, read{" "}
+        <GuideLink href="/about#how-it-works">how CoasterTrak works</GuideLink> and the{" "}
         <GuideLink href="/catalog">catalog guide</GuideLink>.
       </GuideP>
     </>
@@ -497,7 +497,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         Start a free log from{" "}
         <GuideLink href="/login">signup</GuideLink>, read{" "}
         <GuideLink href="/guides/what-is-a-coaster-credit">what a credit is</GuideLink>, and keep the{" "}
-        <GuideLink href="/coaster-tracker">coaster tracker guide</GuideLink> handy for map, wishlist, and stats
+        <GuideLink href="/about#how-it-works">how CoasterTrak works</GuideLink> handy for the map, wishlist, and stats
         screens.
       </GuideP>
     </>

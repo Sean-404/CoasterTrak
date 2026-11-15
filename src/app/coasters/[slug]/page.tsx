@@ -237,7 +237,7 @@ export default async function CoasterDetailPage({ params }: PageProps) {
           Credit guides
         </Link>
         <Link
-          href="/coaster-tracker"
+          href="/about#how-it-works"
           className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400"
         >
           How tracking works

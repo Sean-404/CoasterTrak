@@ -116,7 +116,7 @@ export default async function CoastersIndexPage({ searchParams }: PageProps) {
             </Link>
             . Learn how{" "}
             <Link
-              href="/coaster-credits"
+              href="/guides/what-is-a-coaster-credit"
               className="font-semibold text-amber-700 underline-offset-2 hover:underline"
             >
               coaster credits
