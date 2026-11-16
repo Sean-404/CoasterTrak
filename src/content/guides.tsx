@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  GuideFigure,
   GuideH2,
   GuideH3,
   GuideLi,
@@ -168,8 +169,8 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         childhood trip. A credit log is memory with rules.
       </GuideP>
       <GuideP>
-        It also changes how you plan days. Instead of wandering until the park closes, you look at leftovers —
-        catalog rides you have not logged yet — and decide what is worth a queue. That habit is the difference
+        It also changes how you plan days. Instead of wandering until the park closes, you look at leftovers,
+        the catalog rides you have not logged yet, and decide what is worth a queue. That habit is the difference
         between a fun park day and a focused credit hunt.
       </GuideP>
 
@@ -197,7 +198,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>
         Practical approach: pick a rule you can explain, apply it consistently, and be honest when you compare with
         friends. CoasterTrak lets you log catalog coasters and filter Stats toward thrill rides when you want a
-        tighter view — without deleting family credits from achievements or from friends who count every mouse.
+        tighter view without deleting family credits from achievements or from friends who count every mouse.
       </GuideP>
 
       <GuideH2>How to start a tally without a spreadsheet</GuideH2>
@@ -209,7 +210,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         </GuideLi>
         <GuideLi>Open a park page and mark rides you clearly remember. Undated older credits still count.</GuideLi>
         <GuideLi>
-          On your next park day, log new credits in line or at the end of the day — see{" "}
+          On your next park day, log new credits in line or at the end of the day. See{" "}
           <GuideLink href="/guides/first-park-day-credit-log">the first park day guide</GuideLink>.
         </GuideLi>
         <GuideLi>
@@ -220,8 +221,8 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>Where CoasterTrak fits</GuideH2>
       <GuideP>
         CoasterTrak is a free browser coaster credit tracker. The catalog exists so each park installation is its
-        own row — clone hardware at two parks should not collapse into one checkbox. Park pages are planning sheets;
-        coaster pages are credit targets. Wikipedia extracts, when present, are background — not the article.
+        own row: clone hardware at two parks should not collapse into one checkbox. Park pages are planning sheets;
+        coaster pages are credit targets. Wikipedia extracts, when present, are background, not the article.
       </GuideP>
       <GuideP>
         For a tour of the app, read{" "}
@@ -246,20 +247,20 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
           <GuideLink href="/parks">parks list</GuideLink> or{" "}
           <GuideLink href="/map">map</GuideLink>) and skim the operating lineup.
         </GuideLi>
-        <GuideLi>Log anything you already know you have ridden — even without dates.</GuideLi>
+        <GuideLi>Log anything you already know you have ridden, even without dates.</GuideLi>
         <GuideLi>
           Note leftovers you care about. If you ride with a friend, compare tallies the night before so you share a
           target list.{" "}
           <GuideLink href="/guides/planning-park-leftovers">Planning leftovers</GuideLink> covers that workflow.
         </GuideLi>
-        <GuideLi>Bookmark coastertrak.com on your phone. The web app is the tracker — no store install.</GuideLi>
+        <GuideLi>Bookmark coastertrak.com on your phone. The web app is the tracker, with no store install.</GuideLi>
       </GuideUl>
 
       <GuideH2>In the park</GuideH2>
       <GuideH3>Log in the queue when you can</GuideH3>
       <GuideP>
         The safest moment is while you wait. Search the ride, mark it ridden, add today’s date if you want history.
-        If signal is bad, note the name in your phone notes and sync later the same evening — same-day memory is
+        If signal is bad, note the name in your phone notes and sync later the same evening. Same-day memory is
         still fresh.
       </GuideP>
       <GuideH3>Do not wait until next week</GuideH3>
@@ -277,7 +278,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>
         Credit hunters often front-load must-do leftovers, then fill gaps with walk-ons and re-rides. Your order
         depends on rope-drop strategy, lightning-lane style products, and who you are with. The log does not force a
-        strategy — it just makes leftovers visible so you choose deliberately.
+        strategy. It just makes leftovers visible so you choose deliberately.
       </GuideP>
 
       <GuideH2>After the park</GuideH2>
@@ -297,7 +298,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         <GuideLi>Logging the wrong clone install because two parks share a name.</GuideLi>
         <GuideLi>Only remembering majors and forgetting family coasters you actually rode.</GuideLi>
         <GuideLi>Mixing “I walked past it” with “I rode it.”</GuideLi>
-        <GuideLi>Assuming closed or seasonal rides are gone from the catalog — historical credits still matter.</GuideLi>
+        <GuideLi>Assuming closed or seasonal rides are gone from the catalog. Historical credits still matter.</GuideLi>
       </GuideUl>
       <GuideP>
         When a catalog row looks wrong, email the park, ride, and URL from the{" "}
@@ -323,7 +324,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>
         Suppose you ride eight different coasters and re-ride two of them three times each. That day might add eight
         unique credits (if they were all new) and fourteen total rides. If six were already in your log, you add two
-        credits and fourteen rides. Same sweaty day — different credit delta.
+        credits and fourteen rides. Same sweaty day, different credit delta.
       </GuideP>
 
       <GuideH2>Why dates help</GuideH2>
@@ -341,8 +342,8 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>Talking with friends</GuideH2>
       <GuideP>
         When you compare with someone else, lead with unique credits for “what overlap do we have?” Use ride counts
-        for “who is obsessed with this one layout?” Friend compare on CoasterTrak is built around leftover credits —
-        rides only they have — which is the useful trip question. See{" "}
+        for “who is obsessed with this one layout?” Friend compare on CoasterTrak is built around leftover credits,
+        the rides only they have, which is the useful trip question. See{" "}
         <GuideLink href="/guides/planning-park-leftovers">planning park leftovers</GuideLink>.
       </GuideP>
 
@@ -350,7 +351,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>
         Some people filter family and kiddie credits out of their “serious” tally conversation. Others count every
         catalog row. Neither side owns the hobby. Log what you rode; use filters when you want a thrill-only view.
-        Do not delete history just to win an argument about definitions —{" "}
+        Do not delete history just to win an argument about definitions:{" "}
         <GuideLink href="/guides/what-is-a-coaster-credit">what counts as a credit</GuideLink> is already fuzzy at
         the edges.
       </GuideP>
@@ -387,7 +388,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         <GuideLi>Log rides you already have so the remaining list is honest.</GuideLi>
         <GuideLi>Wishlist anything you will skip this trip but want later.</GuideLi>
         <GuideLi>
-          On park day, work the leftover list in an order that fits crowds — then log as you go (
+          On park day, work the leftover list in an order that fits crowds, then log as you go (
           <GuideLink href="/guides/first-park-day-credit-log">first park day guide</GuideLink>).
         </GuideLi>
       </GuideOl>
@@ -396,7 +397,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>
         Shared trips fail when everyone assumes the same checklist. After you add a friend on CoasterTrak, Compare
         shows rides you both have, credits only they have, and park-scoped leftovers. Filter to the park you are
-        visiting and you get a ride order that respects both tallies — not just the biggest number.
+        visiting and you get a ride order that respects both tallies, not just the biggest number.
       </GuideP>
       <GuideP>
         That is usually more useful than a global leaderboard. The question before tickets is “which of these have I
@@ -421,7 +422,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>Defunct and seasonal rides</GuideH2>
       <GuideP>
         Historical credits still belong in a unique tally. Seasonal or temporarily closed rides may stay on the
-        park list with a status — confirm with the park before you travel. Catalog pages can be incomplete; treat
+        park list with a status, so confirm with the park before you travel. Catalog pages can be incomplete; treat
         them as a tracker aid, not a live operations feed.
       </GuideP>
     </>
@@ -432,7 +433,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>What a good first year looks like</GuideH2>
       <GuideP>
         A strong first year is not the biggest number you can force. It is a tally you understand, a few parks you
-        know deeply, and habits that still feel fun in October. Burnout from checklist tourism is real — especially
+        know deeply, and habits that still feel fun in October. Burnout from checklist tourism is real, especially
         if every weekend becomes a logistics problem instead of a park day.
       </GuideP>
 
@@ -452,20 +453,20 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>A simple year-one framework</GuideH2>
       <GuideOl>
         <GuideLi>
-          <strong>Home park depth</strong> — log everything you can at parks you already visit. Cheap credits and
+          <strong>Home park depth:</strong> log everything you can at parks you already visit. Cheap credits and
           clean habits.
         </GuideLi>
         <GuideLi>
-          <strong>One or two destination trips</strong> — parks with lineups you have never touched. Plan leftovers
+          <strong>One or two destination trips:</strong> parks with lineups you have never touched. Plan leftovers
           ahead (
           <GuideLink href="/guides/planning-park-leftovers">leftovers guide</GuideLink>).
         </GuideLi>
         <GuideLi>
-          <strong>One nostalgia pass</strong> — log childhood and teenage rides you actually remember. Undated is
+          <strong>One nostalgia pass:</strong> log childhood and teenage rides you actually remember. Undated is
           fine.
         </GuideLi>
         <GuideLi>
-          <strong>Friends as multipliers</strong> — shared trips with compare lists beat solo FOMO scrolling.
+          <strong>Friends as multipliers:</strong> shared trips with compare lists beat solo FOMO scrolling.
         </GuideLi>
       </GuideOl>
 
@@ -473,7 +474,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideP>
         Adding fifty credits in a weekend is possible at the right park and a waste if you remember none of them.
         Fast tally done well means you leave with logged credits, a few re-rides on favourites, and a wishlist for
-        next time — not a blur of steel.
+        next time, not a blur of steel.
       </GuideP>
       <GuideP>
         Track unique credits and total rides separately so a marathon day does not look like fifty new credits when
@@ -487,7 +488,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         <GuideLi>Do not delete family credits to impress strangers online.</GuideLi>
         <GuideLi>Celebrate park days, not only the global number.</GuideLi>
         <GuideLi>
-          Play <GuideLink href="/guess">CoasterGuessr</GuideLink> between trips to stay sharp on photos — then log
+          Play <GuideLink href="/guess">CoasterGuessr</GuideLink> between trips to stay sharp on photos, then log
           the real credit when you visit.
         </GuideLi>
       </GuideUl>
@@ -508,7 +509,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>What CoasterGuessr is</GuideH2>
       <GuideP>
         CoasterGuessr is CoasterTrak’s free photo guessing game. You see a coaster image and try to identify the
-        ride or park context — a lightweight way to train pattern recognition between real park visits.
+        ride or park context: a lightweight way to train pattern recognition between real park visits.
       </GuideP>
       <GuideP>
         It is not a replacement for logging credits. It is a practice loop: notice manufacturer signatures, support
@@ -517,7 +518,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
 
       <GuideH2>How to get better at reading photos</GuideH2>
       <GuideUl>
-        <GuideLi>Look at supports and track colour before the train — clones often share hardware DNA.</GuideLi>
+        <GuideLi>Look at supports and track colour before the train. Clones often share hardware DNA.</GuideLi>
         <GuideLi>Station roofs, thematic props, and background terrain beat logo crops.</GuideLi>
         <GuideLi>Defunct rides still appear in photo sets; catalog status on CoasterTrak helps later.</GuideLi>
         <GuideLi>When you guess wrong, open the real coaster or park page and skim the lineup facts.</GuideLi>
@@ -534,7 +535,7 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
       <GuideH2>Play fair with yourself</GuideH2>
       <GuideP>
         Use guesses as learning, not as a substitute for riding. A correct CoasterGuessr answer is not a credit.
-        Credits still require the seatbelt click — see{" "}
+        Credits still require the seatbelt click. See{" "}
         <GuideLink href="/guides/what-is-a-coaster-credit">what is a coaster credit</GuideLink>.
       </GuideP>
 
@@ -596,6 +597,13 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         Two of the three are at Islands of Adventure, so if you only have time for one Universal park, that is the
         one I&apos;d pick for coasters.
       </GuideP>
+      <GuideFigure
+        src="/guides/orlando-velocicoaster.jpg"
+        alt="The VelociCoaster entrance at Islands of Adventure, framed by palm trees"
+        width={1280}
+        height={960}
+        caption="My photo of the VelociCoaster entrance at Islands of Adventure."
+      />
 
       <GuideH2>The Disney week</GuideH2>
       <GuideH3>Magic Kingdom: 4 credits</GuideH3>
@@ -605,6 +613,14 @@ export const GUIDE_BODIES: Record<string, ReactNode> = {
         is the one{" "}
         <GuideLink href={park("Disney's Magic Kingdom", 151)}>Magic Kingdom</GuideLink> credit I didn&apos;t get.
       </GuideP>
+      <GuideFigure
+        src="/guides/orlando-big-thunder-mountain.jpg"
+        alt="The red rock spires of Big Thunder Mountain Railroad at Magic Kingdom under a cloudy sky"
+        width={960}
+        height={1280}
+        caption="My photo of Big Thunder Mountain Railroad at Magic Kingdom."
+        portrait
+      />
       <GuideH3>EPCOT: 1 credit</GuideH3>
       <GuideP>Cosmic Rewind, and it made my top three.</GuideP>
       <GuideH3>Hollywood Studios: 1 credit</GuideH3>

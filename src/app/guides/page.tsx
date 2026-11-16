@@ -8,7 +8,7 @@ import { SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 export const metadata: Metadata = {
   title: "Coaster credit guides",
   description:
-    "Original CoasterTrak guides on coaster credits, park-day logging, leftovers, first-year credit hunting, and CoasterGuessr — written for enthusiasts, not scraped from Wikipedia.",
+    "Original CoasterTrak guides on coaster credits, park-day logging, leftovers, first-year credit hunting, and CoasterGuessr, written for enthusiasts, not scraped from Wikipedia.",
   keywords: [
     "coaster credit guides",
     "coaster credit",
@@ -59,7 +59,7 @@ export default function GuidesHubPage() {
           Coaster credit guides
         </h1>
         <p className="mt-4 text-base leading-relaxed text-slate-700">
-          How enthusiasts count unique rides, plan park leftovers, and keep a tally without a spreadsheet — plus trip
+          How enthusiasts count unique rides, plan park leftovers, and keep a tally without a spreadsheet, plus trip
           reports from CoasterTrak&apos;s founder, written from real park days.
         </p>
 

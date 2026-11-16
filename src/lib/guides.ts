@@ -140,7 +140,7 @@ export const GUIDES: GuideMeta[] = [
     slug: "first-year-credit-hunting",
     title: "First-year credit hunting: parks that build a tally fast",
     description:
-      "A first-year strategy for credit hunters — how to pick parks, what “fast tally” really means, and how to keep the hobby fun instead of checklist-only.",
+      "A first-year strategy for credit hunters: how to pick parks, what “fast tally” really means, and how to keep the hobby fun instead of checklist-only.",
     summary: "Build a meaningful tally in year one without burning out.",
     published: "2026-10-06",
     readingMinutes: 2,
