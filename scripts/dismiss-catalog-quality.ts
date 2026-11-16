@@ -6,8 +6,8 @@
  *   npx tsx --env-file=.env.local scripts/dismiss-catalog-quality.ts
  *   npx tsx --env-file=.env.local scripts/dismiss-catalog-quality.ts --apply
  *
- * Dismiss only the review items for some coaster rows (e.g. rows hidden from the catalog),
- * leaving the rest of the report and queue published:
+ * Dismiss only the review items and findings for some coaster rows (e.g. rows hidden from the
+ * catalog, or a pair kept apart on purpose), leaving the rest of the report and queue published:
  *   npx tsx --env-file=.env.local scripts/dismiss-catalog-quality.ts --coaster-ids 524,9487 --apply
  */
 import { arg, hasFlag, runMain } from "./lib/cli";
@@ -19,6 +19,7 @@ import {
   catalogFindingDismissKey,
   catalogReviewDismissKey,
   type CatalogQualityDismissals,
+  type CatalogQualityFinding,
   type CatalogQualityReport,
   type CatalogReviewItem,
   type CatalogReviewQueue,
@@ -102,10 +103,11 @@ async function main() {
   console.error("Published report cleared. Same issues stay dismissed after the next quality publish.");
 }
 
-/** Dismiss and unpublish the review items for the given coaster ids only. */
+/** Dismiss and unpublish the review items and findings for the given coaster ids only. */
 async function dismissCoasterItems(ids: Set<number>, apply: boolean) {
-  const [reviewQueue, existing] = await Promise.all([
+  const [reviewQueue, report, existing] = await Promise.all([
     downloadJson<CatalogReviewQueue>(`${CATALOG_QUALITY_PREFIX}/review-queue.json`),
+    downloadJson<CatalogQualityReport>(`${CATALOG_QUALITY_PREFIX}/report.json`),
     downloadJson<CatalogQualityDismissals>(CATALOG_QUALITY_DISMISSALS_PATH),
   ]);
   if (!reviewQueue) throw new Error("No published review queue.");
@@ -133,13 +135,48 @@ async function dismissCoasterItems(ids: Set<number>, apply: boolean) {
     const label = item.type === "POSSIBLE_DUPLICATE" ? `${item.nameA} / ${item.nameB}` : (item.entityName ?? item.entityId);
     console.error(`  ${item.type} ${item.field ?? ""} — ${label}`);
   }
-  console.error(`Dismissing ${picked.length} review items for ${ids.size} coaster ids.`);
-  if (!apply || picked.length === 0) return;
+
+  // The same rows in the report ("Top findings"); a duplicate finding names its second row
+  // in details.entityB.
+  const matchesFinding = (finding: CatalogQualityFinding) => {
+    if (finding.entityType !== "coaster") return false;
+    const dbId = finding.details?.dbId;
+    const other = finding.details?.entityB;
+    return (
+      (typeof dbId === "number" && ids.has(dbId)) ||
+      entityIds.has(finding.entityId ?? "") ||
+      (typeof other === "string" && entityIds.has(other))
+    );
+  };
+  const pickedFindings = (report?.findings ?? []).filter(matchesFinding);
+  for (const finding of pickedFindings) {
+    console.error(`  finding ${finding.code} — ${finding.entityName ?? finding.entityId}`);
+  }
+
+  console.error(
+    `Dismissing ${picked.length} review items and ${pickedFindings.length} findings for ${ids.size} coaster ids.`,
+  );
+  if (!apply || (picked.length === 0 && pickedFindings.length === 0)) return;
 
   const keys = new Set(existing?.keys ?? []);
   for (const item of picked) keys.add(catalogReviewDismissKey(item));
+  for (const finding of pickedFindings) keys.add(catalogFindingDismissKey(finding));
   const dismissedAt = new Date().toISOString();
   await uploadJson(CATALOG_QUALITY_DISMISSALS_PATH, { version: 1, dismissedAt, keys: [...keys] });
+  if (report && pickedFindings.length > 0) {
+    const findings = report.findings.filter((finding) => !matchesFinding(finding));
+    await uploadJson(`${CATALOG_QUALITY_PREFIX}/report.json`, {
+      ...report,
+      findings,
+      summary: {
+        ...report.summary,
+        errors: findings.filter((f) => f.severity === "error").length,
+        warnings: findings.filter((f) => f.severity === "warning").length,
+        info: findings.filter((f) => f.severity === "info").length,
+      },
+    });
+  }
+  if (picked.length === 0) return;
   await uploadJson(`${CATALOG_QUALITY_PREFIX}/review-queue.json`, {
     ...reviewQueue,
     generatedAt: dismissedAt,

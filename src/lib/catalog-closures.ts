@@ -155,6 +155,12 @@ const LISEBERG_KANONEN: InstallFix = {
   source: "https://en.wikipedia.org/wiki/Matugani",
 };
 
+// Lightning ran 2004 – 5 Jun 2016; it reopened in India as Tanjora in 2025.
+const KUWAIT_LIGHTNING: InstallFix = {
+  fix: { name: "Lightning", status: "Defunct", opening_year: 2004, closing_year: 2016 },
+  source: "https://en.wikipedia.org/wiki/Tanjora",
+};
+
 /** Former installations keyed by park name, then by the catalog row's name. */
 export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = {
   "Cedar Point": {
@@ -544,11 +550,8 @@ export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = 
     "Cactus Coaster": ELITCH_CACTUS_COASTER,
   },
   "Kuwait Entertainment City": {
-    // Lightning ran 2004 – 5 Jun 2016; it reopened in India as Tanjora in 2025.
-    Tanjora: {
-      fix: { name: "Lightning", status: "Defunct", opening_year: 2004, closing_year: 2016 },
-      source: "https://en.wikipedia.org/wiki/Tanjora",
-    },
+    Tanjora: KUWAIT_LIGHTNING,
+    Lightning: KUWAIT_LIGHTNING,
   },
   "Six Flags Mexico": {
     "The Dark Knight Coaster": {
@@ -787,6 +790,10 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   },
   // Apple Zapple (ex-Ricochet) is Kings Dominion's Mack wild mouse.
   "Six Flags Great America": {
+    "Apple Zapple": "https://en.wikipedia.org/wiki/Apple_Zapple_(Kings_Dominion)",
+  },
+  // Carowinds' Mack wild mouse is Ricochet (its own row); Apple Zapple is Kings Dominion's.
+  Carowinds: {
     "Apple Zapple": "https://en.wikipedia.org/wiki/Apple_Zapple_(Kings_Dominion)",
   },
   // Flyvende Ørn runs at Legoland Billund, not Familypark in Austria.
