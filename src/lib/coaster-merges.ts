@@ -1,7 +1,7 @@
 /**
  * Coaster rows merged into another row, so their old URLs redirect to the surviving ride
  * instead of returning a 404. See supabase/migrations/20261104120000_merge_same_ride_duplicates.sql
- * and 20261116150000_merge_ai_flagged_duplicates.sql.
+ * 20261116150000_merge_ai_flagged_duplicates.sql and 20261116170000_fix_remaining_quality_rows.sql.
  */
 export const MERGED_COASTER_IDS: Readonly<Record<number, number>> = {
   15675: 4385, // Eurosat → Eurosat - CanCan Coaster
@@ -35,6 +35,8 @@ export const MERGED_COASTER_IDS: Readonly<Record<number, number>> = {
   15780: 840, // Chupacabra (roller coaster) → Chupacabra (Six Flags Fiesta Texas)
   15810: 889, // Hornet (roller coaster) → Hornet (Wonderland Park)
   52: 663, // Tanjora (filed under Revere Beach) → Lightning (Kuwait Entertainment City)
+  536: 15883, // "Chupacabra" at Six Flags Magic Mountain → Goliath
+  15659: 5202, // YoY (umbrella row) → YOY Thrill
 };
 
 /** The id to load for a coaster URL: the surviving row if this one was merged away. */

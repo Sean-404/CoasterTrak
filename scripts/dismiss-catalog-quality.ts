@@ -49,6 +49,11 @@ async function main() {
     .map((id) => Number(id.trim()))
     .filter((id) => Number.isInteger(id) && id > 0);
   if (coasterIds) return dismissCoasterItems(new Set(coasterIds), apply);
+  const parkIds = arg("--park-ids")
+    ?.split(",")
+    .map((id) => Number(id.trim()))
+    .filter((id) => Number.isInteger(id) && id > 0);
+  if (parkIds) return dismissParkFindings(new Set(parkIds), apply);
 
   const [report, reviewQueue, existing] = await Promise.all([
     downloadJson<CatalogQualityReport>(`${CATALOG_QUALITY_PREFIX}/report.json`),
@@ -101,6 +106,44 @@ async function main() {
   }
 
   console.error("Published report cleared. Same issues stay dismissed after the next quality publish.");
+}
+
+/** Dismiss and unpublish the report findings about the given parks (legacy rows, `park_db_<id>`). */
+async function dismissParkFindings(ids: Set<number>, apply: boolean) {
+  const [report, existing] = await Promise.all([
+    downloadJson<CatalogQualityReport>(`${CATALOG_QUALITY_PREFIX}/report.json`),
+    downloadJson<CatalogQualityDismissals>(CATALOG_QUALITY_DISMISSALS_PATH),
+  ]);
+  if (!report) throw new Error("No published report.");
+
+  const entityIds = new Set([...ids].map((id) => `park_db_${id}`));
+  const matches = (finding: CatalogQualityFinding) =>
+    finding.entityType === "park" && entityIds.has(finding.entityId ?? "");
+  const picked = report.findings.filter(matches);
+  for (const finding of picked) {
+    console.error(`  finding ${finding.code} — ${finding.entityName ?? finding.entityId}`);
+  }
+  console.error(`Dismissing ${picked.length} findings for ${ids.size} park ids.`);
+  if (!apply || picked.length === 0) return;
+
+  const keys = new Set(existing?.keys ?? []);
+  for (const finding of picked) keys.add(catalogFindingDismissKey(finding));
+  await uploadJson(CATALOG_QUALITY_DISMISSALS_PATH, {
+    version: 1,
+    dismissedAt: new Date().toISOString(),
+    keys: [...keys],
+  });
+  const findings = report.findings.filter((finding) => !matches(finding));
+  await uploadJson(`${CATALOG_QUALITY_PREFIX}/report.json`, {
+    ...report,
+    findings,
+    summary: {
+      ...report.summary,
+      errors: findings.filter((f) => f.severity === "error").length,
+      warnings: findings.filter((f) => f.severity === "warning").length,
+      info: findings.filter((f) => f.severity === "info").length,
+    },
+  });
 }
 
 /** Dismiss and unpublish the review items and findings for the given coaster ids only. */

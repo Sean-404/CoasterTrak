@@ -20,11 +20,12 @@ describe("merged coaster redirects", () => {
     const sql = [
       "20261104120000_merge_same_ride_duplicates.sql",
       "20261116150000_merge_ai_flagged_duplicates.sql",
+      "20261116170000_fix_remaining_quality_rows.sql",
     ]
       .map((file) => readFileSync(resolve(process.cwd(), "supabase/migrations", file), "utf8"))
       .join("\n");
     const pairs = [...sql.matchAll(/^\s*\((\d+), (\d+)\)[,;]/gm)].map((m) => [Number(m[1]), Number(m[2])]);
-    expect(pairs).toHaveLength(31);
+    expect(pairs).toHaveLength(33);
     expect(Object.fromEntries(pairs)).toEqual(MERGED_COASTER_IDS);
   });
 });

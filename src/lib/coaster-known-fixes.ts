@@ -596,6 +596,9 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   // from the Kuwait coaster of the same name.
   // https://en.wikipedia.org/wiki/Lightning_(Revere_Beach)
   Q2290037: { manufacturer: "Traver Engineering" },
+  // Luna Park Sydney's Intamin Big Dipper opened 26 Dec 2021 and is operating.
+  // https://en.wikipedia.org/wiki/Big_Dipper_(Luna_Park_Sydney,_2021)
+  Q136436662: { status: "Operating", opening_year: 2021 },
 };
 
 /**
@@ -619,6 +622,9 @@ const SKIP_WIKIDATA_COASTER_IDS = new Set<string>([
   // same track and credit, so list it once under the current name.
   // https://wdwnt.com/2023/11/dreamworks-land-making-progress-at-universal-studios-florida-with-more-painting-at-the-trollercoaster
   "Q3569870",
+  // Umbrella item for Walibi Holland's YoY. Its two tracks, YOY Chill (Q137718163) and
+  // YOY Thrill (Q137718167), are the credits; see 20261116170000_fix_remaining_quality_rows.sql.
+  "Q133460330",
 ]);
 
 /** Every skipped Wikidata id, sorted (exported to coastertrak-data by catalog-hidden-rules.ts). */
