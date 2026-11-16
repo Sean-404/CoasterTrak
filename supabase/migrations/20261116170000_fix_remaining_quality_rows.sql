@@ -165,14 +165,6 @@ where id = 840
 -- Both YoY tracks opened 5 Apr 2025.
 update coasters set opening_year = 2025 where id in (5201, 5202) and opening_year is null;
 
--- The 2021 Intamin Big Dipper is at Luna Park Sydney and operating; it was filed under
--- Wonderland Sydney as Defunct.
-update coasters
-set park_id = (select id from parks where name = 'Luna Park Sydney'), status = 'Operating'
-where id = 15622
-  and wikidata_id = 'Q136436662'
-  and exists (select 1 from parks where name = 'Luna Park Sydney');
-
 -- Great Adventure's Jumbo Jet was erected in spring 1975 and dismantled a month later
 -- without opening; 2015 is the Chelyuskintsev Park ride's opening.
 update coasters

@@ -596,9 +596,6 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   // from the Kuwait coaster of the same name.
   // https://en.wikipedia.org/wiki/Lightning_(Revere_Beach)
   Q2290037: { manufacturer: "Traver Engineering" },
-  // Luna Park Sydney's Intamin Big Dipper opened 26 Dec 2021 and is operating.
-  // https://en.wikipedia.org/wiki/Big_Dipper_(Luna_Park_Sydney,_2021)
-  Q136436662: { status: "Operating", opening_year: 2021 },
 };
 
 /**

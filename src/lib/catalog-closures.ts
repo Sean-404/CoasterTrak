@@ -808,6 +808,11 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   Carowinds: {
     "Apple Zapple": "https://en.wikipedia.org/wiki/Apple_Zapple_(Kings_Dominion)",
   },
+  // The 2021 Intamin Big Dipper is at Luna Park Sydney. It cannot be filed there: that park
+  // already has a row named "Big Dipper" (the 1995 Arrow ride) and names are unique per park.
+  "Wonderland Sydney": {
+    "Big Dipper": "https://en.wikipedia.org/wiki/Big_Dipper_(Luna_Park_Sydney,_2021)",
+  },
   // Flyvende Ørn runs at Legoland Billund, not Familypark in Austria.
   Familypark: {
     "Flyvende Ørn": "https://en.wikipedia.org/wiki/Flyvende_%C3%98rn",

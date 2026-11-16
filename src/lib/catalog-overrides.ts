@@ -29,8 +29,6 @@ export const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q86663690: "Happy Valley Beijing",
   // Wikidata item has no P361 / P625 — keep the ensure-install row at Tokyo Joypolis.
   Q106941958: "Tokyo Joypolis",
-  // The 2021 Intamin Big Dipper; its item names no park and was filed under Wonderland Sydney.
-  Q136436662: "Luna Park Sydney",
   // Chupacabra (ex-Goliath); the item was bound to Six Flags Magic Mountain's Goliath row.
   Q2796656: "Six Flags Fiesta Texas",
 };
