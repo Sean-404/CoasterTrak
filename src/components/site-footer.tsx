@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CookieSettingsButton } from "@/components/cookie-consent";
 import { INSTAGRAM_URL, KOFI_URL } from "@/lib/site-url";
 
 type SiteFooterProps = {
@@ -65,6 +66,9 @@ export function SiteFooter({ variant = "light", className = "" }: SiteFooterProp
             <FooterLink href="/catalog" isDark={isDark}>
               How the catalog works
             </FooterLink>
+            <CookieSettingsButton
+              className={isDark ? "transition hover:text-white" : "transition hover:text-slate-900"}
+            />
           </p>
           {KOFI_URL ? (
             <a

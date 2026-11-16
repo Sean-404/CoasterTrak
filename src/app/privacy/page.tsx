@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-14">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-600">Legal</p>
         <h1 className="font-bungee mt-3 text-4xl leading-tight text-slate-900 sm:text-5xl">Privacy Policy</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 15 November 2026</p>
+        <p className="mt-3 text-sm text-slate-500">Last updated: 16 November 2026</p>
 
         <div className="mt-8 space-y-6 text-base leading-relaxed text-slate-700">
           <p>
@@ -121,9 +121,12 @@ export default function PrivacyPage() {
 
           <h2 className="text-xl font-semibold text-slate-900">Cookies and local storage</h2>
           <p>
-            We use cookies and local storage for authentication sessions, remembering preferences (such as display
-            units), and — when ads are enabled — advertising-related cookies from partners. You can control cookies
-            through your browser settings; disabling some cookies may limit parts of the Service.
+            We use cookies and local storage for authentication sessions and for remembering preferences (such as
+            display units). These are essential to the Service. Advertising-related cookies from partners are only
+            used if you choose &quot;Accept all&quot; in the cookie prompt; if you choose &quot;Essential only&quot;,
+            the advertising script is not loaded. You can change your choice at any time with the &quot;Cookie
+            settings&quot; link in the site footer. You can also control cookies through your browser settings;
+            disabling some cookies may limit parts of the Service.
           </p>
 
           <h2 className="text-xl font-semibold text-slate-900">Data retention</h2>

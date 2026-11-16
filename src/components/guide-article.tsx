@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SiteFooter } from "@/components/site-footer";
@@ -127,7 +128,7 @@ export function GuideArticleShell({ guide, children, adSlot }: GuideArticleShell
         <section className="mt-12 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">Track it on CoasterTrak</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            CoasterTrak is a free browser coaster credit tracker — log unique rides, plan park leftovers, and
+            CoasterTrak is a free browser coaster credit tracker: log unique rides, plan park leftovers, and
             compare tallies with friends. No app store install.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
@@ -182,6 +183,37 @@ export function GuideH2({ children }: { children: ReactNode }) {
 
 export function GuideH3({ children }: { children: ReactNode }) {
   return <h3 className="!mt-6 text-lg font-semibold text-slate-900">{children}</h3>;
+}
+
+/** An original photo inside a guide. `portrait` keeps tall phone shots from filling the screen. */
+export function GuideFigure({
+  src,
+  alt,
+  width,
+  height,
+  caption,
+  portrait = false,
+}: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  caption: string;
+  portrait?: boolean;
+}) {
+  return (
+    <figure className={`!my-8 ${portrait ? "mx-auto max-w-sm" : ""}`}>
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        sizes={portrait ? "(max-width: 640px) 100vw, 384px" : "(max-width: 768px) 100vw, 720px"}
+        className="h-auto w-full rounded-2xl border border-slate-200"
+      />
+      <figcaption className="mt-2 text-center text-sm text-slate-500">{caption}</figcaption>
+    </figure>
+  );
 }
 
 export function GuideP({ children }: { children: ReactNode }) {
