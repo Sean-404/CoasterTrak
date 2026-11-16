@@ -113,7 +113,8 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   // https://en.wikipedia.org/wiki/Rougarou_(roller_coaster)
   Q112689934: { name: "Mantis", status: "Defunct", opening_year: 1996, closing_year: 2014 },
   Q1787446: { name: "Steel Vengeance", status: "Operating" },
-  Q60845759: { name: "Mean Streak", status: "Defunct" },
+  // Mean Streak ran 11 May 1991 – 16 Sep 2016 (Wikidata P1619 / P3999).
+  Q60845759: { name: "Mean Streak", status: "Defunct", opening_year: 1991, closing_year: 2016 },
   // Canada's Wonderland — ThemeParks feed used DareDeviler for The Fly
   Q2880135: { name: "The Fly", status: "Operating" },
   // Canada's Wonderland Thunder Run (not Kentucky Kingdom's wood coaster)
@@ -189,8 +190,16 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
     inversions: 0,
     duration_s: 60,
   },
-  // Alton Towers historical
-  Q3338910: { name: "Beast", status: "Defunct" },
+  // Alton Towers historical: Schwarzkopf's The Beast ran 1988–1997. The row had Kings
+  // Island's The Beast as maker and its 1979 opening.
+  // https://en.wikipedia.org/wiki/Alton_Towers (past roller coasters)
+  Q3338910: {
+    name: "Beast",
+    status: "Defunct",
+    manufacturer: "Anton Schwarzkopf",
+    opening_year: 1988,
+    closing_year: 1997,
+  },
   // Gold Reef City — Wikidata sparse / wrong class labels; published park figures
   Q483513: {
     name: "Anaconda",
@@ -519,7 +528,9 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   Q2327576: { opening_year: 1982 },
   // Roller Coaster @ Great Yarmouth Pleasure Beach
   // https://de.wikipedia.org/wiki/Roller_Coaster_(Great_Yarmouth_Pleasure_Beach)
-  Q667635: { manufacturer: "Erich Heidrich", opening_year: 1932 },
+  // Still operating (opened 14 May 1932); the row was marked Defunct.
+  // https://en.wikipedia.org/wiki/Roller_Coaster_(Great_Yarmouth_Pleasure_Beach)
+  Q667635: { status: "Operating", manufacturer: "Erich Heidrich", opening_year: 1932 },
   // Sky Wheel @ Skyline Park
   // https://fr.wikipedia.org/wiki/Sky_Wheel
   Q667521: { length_ft: 492 },
@@ -559,6 +570,32 @@ const COASTER_FIXES_BY_WIKIDATA_ID: Record<
   // Yukon Quad @ Le Pal
   // https://fr.wikipedia.org/wiki/Yukon_Quad
   Q98016144: { opening_year: 2018 },
+  // Rows marked Defunct with no closing year in the catalog-quality report (Nov 2026).
+  // Still operating:
+  // https://en.wikipedia.org/wiki/Roller_Coaster_(Lagoon)
+  Q7361012: { status: "Operating" },
+  // https://en.wikipedia.org/wiki/Little_Dipper_(Memphis_Kiddie_Park)
+  Q6649785: { status: "Operating" },
+  // Arrow suspended coaster, open since 21 May 1988; the row had Vekoma.
+  // https://en.wikipedia.org/wiki/Ninja_(Six_Flags_Magic_Mountain)
+  Q906039: { status: "Operating", manufacturer: "Arrow Dynamics" },
+  // Closed, with the year from the ride's article:
+  // Riverview Park (Chicago) closed after the 1967 season.
+  // https://en.wikipedia.org/wiki/Jetstream_(roller_coaster)
+  Q3461358: { status: "Defunct", closing_year: 1967 },
+  // Great Escape's Alpine Bobsled ran 1998 – 4 Sep 2023.
+  // https://en.wikipedia.org/wiki/Alpine_Bobsled
+  Q654876: { status: "Defunct", closing_year: 2023 },
+  // Lightwater Valley closed and removed it in 2020 (now at COTALAND).
+  // https://en.wikipedia.org/wiki/Raptor_Attack
+  Q7294369: { status: "Defunct", closing_year: 2020 },
+  // Reopened as Sequoia Magic Loop in 2019; closed again in 2021 and later removed.
+  // https://en.wikipedia.org/wiki/Sequoia_Adventure
+  Q962319: { status: "Defunct", closing_year: 2021 },
+  // Revere Beach's Lightning (1927–1933) was a Traver Engineering ride; the row had B&M
+  // from the Kuwait coaster of the same name.
+  // https://en.wikipedia.org/wiki/Lightning_(Revere_Beach)
+  Q2290037: { manufacturer: "Traver Engineering" },
 };
 
 /**
