@@ -1,7 +1,8 @@
 -- The catalog-quality rows still open after 20261116150000_merge_ai_flagged_duplicates.sql.
--- The merge steps are the same as 20261104120000_merge_same_ride_duplicates.sql.
-
-begin;
+-- The merge steps are the same as 20261104120000_merge_same_ride_duplicates.sql, but the pairs
+-- are listed inside the DO block instead of a temporary table: the SQL editor does not always
+-- keep a multi-statement script in one transaction, and an "on commit drop" table then
+-- vanishes before it is read. Every statement here is safe to run again.
 
 alter table coasters disable trigger trg_guard_unique_wikidata_binding;
 
@@ -11,19 +12,6 @@ alter table coasters disable trigger trg_guard_unique_wikidata_binding;
 -- unverified, so it is not carried over.
 update coasters set rcdb_id = null where id = 536 and wikidata_id = 'Q2796656';
 
-create temporary table tmp_ride_merges (
-  ord serial primary key,
-  drop_id bigint not null unique,
-  keep_id bigint not null
-) on commit drop;
-
-insert into tmp_ride_merges (drop_id, keep_id) values
-  -- Six Flags Magic Mountain: the mislabelled Goliath row, see above
-  (536, 15883),
-  -- Walibi Holland: "YoY" is the umbrella for two tracks, YOY Chill and YOY Thrill, which
-  -- are the two credits. Its riders' logs move to YOY Thrill.
-  (15659, 5202);
-
 do $$
 declare
   m record;
@@ -31,7 +19,15 @@ declare
   key_stub text;
   key_keep text;
 begin
-  for m in select drop_id, keep_id from tmp_ride_merges order by ord loop
+  for m in
+    select * from (values
+      -- Six Flags Magic Mountain: the mislabelled Goliath row, see above
+      (536, 15883),
+      -- Walibi Holland: "YoY" is the umbrella for two tracks, YOY Chill and YOY Thrill, which
+      -- are the two credits. Its riders' logs move to YOY Thrill.
+      (15659, 5202)
+    ) as pairs (drop_id, keep_id)
+  loop
     select * into stub from coasters where id = m.drop_id;
     if not found then
       raise notice 'Skipping %: row already gone', m.drop_id;
@@ -176,5 +172,3 @@ update coasters set name = 'Corkscrew' where id = 15784 and name = 'Corkscrew (S
 update coasters set name = 'Wildcat' where id = 4379 and name = 'Wildcat (Jolly Roger Amusement Park)';
 
 alter table coasters enable trigger trg_guard_unique_wikidata_binding;
-
-commit;

@@ -24,7 +24,7 @@ describe("merged coaster redirects", () => {
     ]
       .map((file) => readFileSync(resolve(process.cwd(), "supabase/migrations", file), "utf8"))
       .join("\n");
-    const pairs = [...sql.matchAll(/^\s*\((\d+), (\d+)\)[,;]/gm)].map((m) => [Number(m[1]), Number(m[2])]);
+    const pairs = [...sql.matchAll(/^\s*\((\d+), (\d+)\)[,;]?$/gm)].map((m) => [Number(m[1]), Number(m[2])]);
     expect(pairs).toHaveLength(33);
     expect(Object.fromEntries(pairs)).toEqual(MERGED_COASTER_IDS);
   });
