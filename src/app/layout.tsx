@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Bungee, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { CookieConsentPrompt } from "@/components/cookie-consent";
 import { PresenceBeacon } from "@/components/presence-beacon";
 import { RegisterServiceWorker } from "@/components/register-service-worker";
 import { UnitsProvider } from "@/components/providers";
@@ -120,6 +121,7 @@ export default function RootLayout({
           <RegisterServiceWorker />
           {children}
         </UnitsProvider>
+        <CookieConsentPrompt />
         <Analytics />
         <SpeedInsights />
       </body>
