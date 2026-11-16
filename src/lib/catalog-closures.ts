@@ -155,6 +155,18 @@ const LISEBERG_KANONEN: InstallFix = {
   source: "https://en.wikipedia.org/wiki/Matugani",
 };
 
+// The 1970 Wildcat left after the 1978 season (Valleyfair, then Jolly Roger).
+const CEDAR_POINT_WILDCAT: InstallFix = {
+  fix: { name: "Wildcat", status: "Defunct", opening_year: 1970, closing_year: 1978 },
+  source: "https://en.wikipedia.org/wiki/Wildcat_(Jolly_Roger_Amusement_Park)",
+};
+
+// Arrow's prototype Corkscrew ran at Knott's 1975–1989, then moved to Silverwood.
+const KNOTTS_CORKSCREW: InstallFix = {
+  fix: { name: "Corkscrew", status: "Defunct", opening_year: 1975, closing_year: 1989 },
+  source: "https://en.wikipedia.org/wiki/Corkscrew_(Silverwood)",
+};
+
 // Lightning ran 2004 – 5 Jun 2016; it reopened in India as Tanjora in 2025.
 const KUWAIT_LIGHTNING: InstallFix = {
   fix: { name: "Lightning", status: "Defunct", opening_year: 2004, closing_year: 2016 },
@@ -164,18 +176,12 @@ const KUWAIT_LIGHTNING: InstallFix = {
 /** Former installations keyed by park name, then by the catalog row's name. */
 export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = {
   "Cedar Point": {
-    // The 1970 Wildcat left after the 1978 season (Valleyfair, then Jolly Roger).
-    "Wildcat (Jolly Roger Amusement Park)": {
-      fix: { status: "Defunct", opening_year: 1970, closing_year: 1978 },
-      source: "https://en.wikipedia.org/wiki/Wildcat_(Jolly_Roger_Amusement_Park)",
-    },
+    "Wildcat (Jolly Roger Amusement Park)": CEDAR_POINT_WILDCAT,
+    Wildcat: CEDAR_POINT_WILDCAT,
   },
   "Knott's Berry Farm": {
-    // Arrow's prototype Corkscrew ran at Knott's 1975–1989, then moved to Silverwood.
-    "Corkscrew (Silverwood)": {
-      fix: { status: "Defunct", opening_year: 1975, closing_year: 1989 },
-      source: "https://en.wikipedia.org/wiki/Corkscrew_(Silverwood)",
-    },
+    "Corkscrew (Silverwood)": KNOTTS_CORKSCREW,
+    Corkscrew: KNOTTS_CORKSCREW,
   },
   "Euclid Beach Park": {
     // The park's first coaster, a Switchback Railway, ran 1896–1904. The row had Coney
@@ -252,6 +258,12 @@ export const FORMER_INSTALL_FIXES: Record<string, Record<string, InstallFix>> = 
     "Ultra Twister (Six Flags)": {
       fix: { status: "Defunct", opening_year: 1986, closing_year: 1988 },
       source: "https://en.wikipedia.org/wiki/Ultra_Twister_(Six_Flags)",
+    },
+    // Erected in spring 1975 and dismantled a month later without ever opening. The row
+    // carries the Chelyuskintsev Park Jumbo Jet's Wikidata item and its 2015 opening.
+    "Jumbo Jet": {
+      fix: { status: "Defunct", opening_year: 1975, closing_year: 1975 },
+      source: "https://en.wikipedia.org/wiki/Jumbo_Jet_(Six_Flags_Great_Adventure)",
     },
   },
   "Six Flags America": {
@@ -795,6 +807,11 @@ export const MISATTRIBUTED_ROWS: Record<string, Record<string, string>> = {
   // Carowinds' Mack wild mouse is Ricochet (its own row); Apple Zapple is Kings Dominion's.
   Carowinds: {
     "Apple Zapple": "https://en.wikipedia.org/wiki/Apple_Zapple_(Kings_Dominion)",
+  },
+  // The 2021 Intamin Big Dipper is at Luna Park Sydney. It cannot be filed there: that park
+  // already has a row named "Big Dipper" (the 1995 Arrow ride) and names are unique per park.
+  "Wonderland Sydney": {
+    "Big Dipper": "https://en.wikipedia.org/wiki/Big_Dipper_(Luna_Park_Sydney,_2021)",
   },
   // Flyvende Ørn runs at Legoland Billund, not Familypark in Austria.
   Familypark: {

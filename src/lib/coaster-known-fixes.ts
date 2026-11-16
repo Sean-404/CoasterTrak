@@ -619,6 +619,9 @@ const SKIP_WIKIDATA_COASTER_IDS = new Set<string>([
   // same track and credit, so list it once under the current name.
   // https://wdwnt.com/2023/11/dreamworks-land-making-progress-at-universal-studios-florida-with-more-painting-at-the-trollercoaster
   "Q3569870",
+  // Umbrella item for Walibi Holland's YoY. Its two tracks, YOY Chill (Q137718163) and
+  // YOY Thrill (Q137718167), are the credits; see 20261116170000_fix_remaining_quality_rows.sql.
+  "Q133460330",
 ]);
 
 /** Every skipped Wikidata id, sorted (exported to coastertrak-data by catalog-hidden-rules.ts). */

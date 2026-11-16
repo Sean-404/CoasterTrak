@@ -29,6 +29,8 @@ export const COASTER_PARK_OVERRIDE_BY_WIKIDATA_ID: Record<string, string> = {
   Q86663690: "Happy Valley Beijing",
   // Wikidata item has no P361 / P625 — keep the ensure-install row at Tokyo Joypolis.
   Q106941958: "Tokyo Joypolis",
+  // Chupacabra (ex-Goliath); the item was bound to Six Flags Magic Mountain's Goliath row.
+  Q2796656: "Six Flags Fiesta Texas",
 };
 
 /** Correct country when Wikidata P17 or legacy CSV is wrong for a known park name. */
