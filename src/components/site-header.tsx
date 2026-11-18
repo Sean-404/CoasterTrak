@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CATALOG_DETAIL_CRAWLABLE } from "@/lib/catalog-content";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isAdminUser } from "@/lib/admin";
@@ -93,7 +94,8 @@ export function SiteHeader() {
           {navLink("/guides", "Guides")}
         </>
       )}
-      {navLink("/guess", "CoasterGuessr", guessActive)}
+      {/* Signed-out pages are what crawlers see; /guess is blocked to them for now. */}
+      {isAuthed || CATALOG_DETAIL_CRAWLABLE ? navLink("/guess", "CoasterGuessr", guessActive) : null}
       <Link
         href="/updates"
         onClick={() => setMenuOpen(false)}

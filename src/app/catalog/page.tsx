@@ -1,3 +1,4 @@
+import { CATALOG_LIST_ROBOTS } from "@/lib/catalog-content";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
@@ -8,6 +9,7 @@ import { CONTACT_EMAIL, SITE_URL, SOCIAL_IMAGE } from "@/lib/site-url";
 // On-demand only — sync revalidates after real catalog changes (hourly ISR was wasteful).
 export const revalidate = false;
 
+
 export const metadata: Metadata = {
   title: "How the CoasterTrak catalog works",
   description:
@@ -15,6 +17,7 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/catalog",
   },
+  ...(CATALOG_LIST_ROBOTS ? { robots: CATALOG_LIST_ROBOTS } : {}),
   openGraph: {
     title: "How the CoasterTrak catalog works",
     description:

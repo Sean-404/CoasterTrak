@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CATALOG_LIST_ROBOTS } from "@/lib/catalog-content";
 import { Suspense } from "react";
 import { CatalogPageShell } from "@/components/catalog-page-shell";
 import { CatalogPagination } from "@/components/catalog-pagination";
@@ -43,6 +44,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       canonical: "/coasters",
     },
     ...(variant ? { robots: { index: false, follow: true } } : {}),
+    ...(CATALOG_LIST_ROBOTS ? { robots: CATALOG_LIST_ROBOTS } : {}),
     openGraph: {
       title: "Roller coasters | CoasterTrak",
       description:
