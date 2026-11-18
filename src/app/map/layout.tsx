@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/map",
   },
+  // An app screen with almost no text: useful to visitors, thin to a search or ads review.
+  robots: { index: false, follow: true },
   openGraph: {
     title: "World Coaster Map | CoasterTrak",
     description:

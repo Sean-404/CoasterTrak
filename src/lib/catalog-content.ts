@@ -69,12 +69,16 @@ export const CATALOG_THIN_ROBOTS = { index: false, follow: true } as const;
  * from the homepage and guides. They are built from Wikidata facts and Wikimedia photos,
  * which AdSense rejected as replicated content even with noindex, because its review looks
  * at every page a visitor can reach. While false, robots.txt blocks them, the sitemap
- * leaves them out, and the homepage and guides stop linking to them. The pages still work
- * for anyone who opens them from the map or the park and coaster lists.
+ * leaves them out, and the homepage, guides and signed-out header stop linking to them. The
+ * park, coaster and catalog list pages, whose links all lead to those blocked pages, are
+ * noindex and left out of the sitemap too. Everything still works for anyone who opens it.
  *
  * Turn this on once enough catalog pages carry hand-written notes (catalog-notes.ts).
  */
 export const CATALOG_DETAIL_CRAWLABLE = false;
+
+/** Robots meta for the park, coaster and catalog list pages while detail pages are blocked. */
+export const CATALOG_LIST_ROBOTS = CATALOG_DETAIL_CRAWLABLE ? null : CATALOG_THIN_ROBOTS;
 
 /** robots.txt paths that are blocked while CATALOG_DETAIL_CRAWLABLE is false. */
 export const CATALOG_DETAIL_ROBOTS_DISALLOW = ["/parks/", "/coasters/", "/guess"] as const;

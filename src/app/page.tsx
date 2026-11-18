@@ -241,11 +241,17 @@ export default async function Home() {
             <p>
               Start on the map or park catalog to browse coasters, star the rides you still need, and create a free
               account when you are ready to save progress across devices. Friends features let you compare credits
-              and share achievements with the people you ride with. Between trips,{" "}
-              <Link href="/guess" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
-                CoasterGuessr
-              </Link>{" "}
-              is a short photo game: pin the park from a coaster picture and see how close you were.
+              and share achievements with the people you ride with.
+              {CATALOG_DETAIL_CRAWLABLE ? (
+                <>
+                  {" "}
+                  Between trips,{" "}
+                  <Link href="/guess" className="font-semibold text-amber-700 underline-offset-2 hover:underline">
+                    CoasterGuessr
+                  </Link>{" "}
+                  is a short photo game: pin the park from a coaster picture and see how close you were.
+                </>
+              ) : null}
             </p>
           </div>
         </section>

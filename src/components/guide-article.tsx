@@ -232,10 +232,11 @@ export function GuideLi({ children }: { children: ReactNode }) {
   return <li>{children}</li>;
 }
 
-const CATALOG_DETAIL_HREF = /^\/(parks|coasters)\//;
+const CATALOG_DETAIL_HREF = /^\/(?:(?:parks|coasters)\/|guess(?:$|[/?#]))/;
 
 export function GuideLink({ href, children }: { href: string; children: ReactNode }) {
-  // Ride and park names stay as plain text while catalog pages are blocked from crawlers.
+  // Ride and park names (and CoasterGuessr) stay as plain text while those pages are blocked
+  // from crawlers.
   if (!CATALOG_DETAIL_CRAWLABLE && CATALOG_DETAIL_HREF.test(href)) {
     return <span className="font-semibold text-slate-900">{children}</span>;
   }
